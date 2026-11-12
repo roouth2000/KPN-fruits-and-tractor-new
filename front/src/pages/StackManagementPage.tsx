@@ -117,9 +117,9 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
   const [inwardSupplierId, setInwardSupplierId] = useState<number | null>(null);
   const [inwardDate, setInwardDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [inwardBatchId, setInwardBatchId] = useState<string>('');
-  const [inwardQty, setInwardQty] = useState<number>(50);
+  const [inwardQty, setInwardQty] = useState<number>(0);
   const [inwardUnit, setInwardUnit] = useState<string>('BOX');
-  const [inwardRate, setInwardRate] = useState<number>(1500);
+  const [inwardRate, setInwardRate] = useState<number>(0);
   const [inwardNotes, setInwardNotes] = useState<string>('Mandi Consignment Inward Dock #2');
   const [isSubmittingInward, setIsSubmittingInward] = useState(false);
 
@@ -186,10 +186,11 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
       const targetDate = dateStr ?? inwardDate;
 
       const matchedProd = products.find((p) => p.id === targetProdId);
-      const sku = matchedProd && matchedProd.productCode ? matchedProd.productCode.slice(-4) : 'LOT';
+      const rawSku = matchedProd?.productCode ? matchedProd.productCode.replace(/[^a-zA-Z0-9]/g, '') : 'LOT';
+      const sku = rawSku.slice(-4).toUpperCase() || 'LOT';
       const cleanDate = targetDate.replace(/-/g, '');
-      const suppTag = targetSuppId ? `S${targetSuppId}` : 'DIR';
-      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const suppTag = targetSuppId ? `S${targetSuppId}` : 'S1';
+      const randNum = Math.floor(100 + Math.random() * 900);
 
       setInwardBatchId(`BATCH-${cleanDate}-${suppTag}-${sku}-${randNum}`);
     },
@@ -204,12 +205,12 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
     setInwardProductId(pId);
     setInwardSupplierId(sId);
     setInwardDate(today);
-    setInwardQty(50);
+    setInwardQty(0);
+    setInwardRate(0);
 
     const matched = products.find((p) => p.id === pId);
     if (matched) {
       setInwardUnit(matched.defaultUnit || 'BOX');
-      setInwardRate(Number(matched.purchaseRate) || 1500);
     }
 
     refreshAutoBatchNumber(pId, sId, today);
@@ -1418,17 +1419,33 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
 
                 {/* Rule 2: Unique Batch ID */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Unique Batch ID * (Rule 2)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={inwardBatchId}
-                    onChange={(e) => setInwardBatchId(e.target.value)}
-                    className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5">Guaranteed unique identifier</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Unique Batch ID * (Rule 2)
+                    </label>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                      Auto-generated
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      disabled
+                      readOnly
+                      value={inwardBatchId}
+                      title="Unique Batch ID is auto-generated to guarantee Rule 2 uniqueness"
+                      className="w-full text-xs font-mono font-bold bg-slate-100/90 text-slate-700 border border-slate-200 rounded-xl px-3 py-2 cursor-not-allowed select-all focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => refreshAutoBatchNumber(inwardProductId, inwardSupplierId, inwardDate)}
+                      title="Auto-generate new Unique Batch ID"
+                      className="p-2 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-xl transition-colors cursor-pointer shrink-0"
+                    >
+                      <RefreshCwIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Auto-generated unique code (Rule 2)</p>
                 </div>
               </div>
 
@@ -1439,11 +1456,12 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     step="any"
                     required
                     value={inwardQty}
                     onChange={(e) => setInwardQty(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
                     className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   />
                 </div>
@@ -1457,7 +1475,7 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                     onChange={(e) => setInwardUnit(e.target.value)}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   >
-                    <option value="BOX">BOX (~20kg)</option>
+                    <option value="BOX">BOX (~10kg)</option>
                     <option value="CRATE">CRATE (~22kg)</option>
                     <option value="KG">KG (Kilo)</option>
                     <option value="DOZEN">DOZEN (12)</option>
@@ -1474,6 +1492,7 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                     step="any"
                     value={inwardRate}
                     onChange={(e) => setInwardRate(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   />
                 </div>

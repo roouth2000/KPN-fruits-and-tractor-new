@@ -61,9 +61,9 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
   // Add Stock Modal State
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [inwardQuantity, setInwardQuantity] = useState<number>(50);
+  const [inwardQuantity, setInwardQuantity] = useState<number>(0);
   const [inwardUnit, setInwardUnit] = useState<string>('BOX');
-  const [inwardRate, setInwardRate] = useState<number>(1500);
+  const [inwardRate, setInwardRate] = useState<number>(0);
   const [inwardBatchLot, setInwardBatchLot] = useState<string>('');
   const [inwardNotes, setInwardNotes] = useState<string>('APMC Mandi Yard Inward');
   const [isSubmittingStock, setIsSubmittingStock] = useState(false);
@@ -162,28 +162,38 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
     }
   }, [inspectBatchesProduct]);
 
+  // Helper to generate clean unique batch ID without double dashes (Rule 2)
+  const generateUniqueBatchLot = (
+    productId: number | null,
+    supplierId: number | null,
+    dateStr: string
+  ) => {
+    const dStr = (dateStr || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+    const matched = rows.find((r) => r.id === String(productId));
+    const rawSku = matched?.sku ? matched.sku.replace(/[^a-zA-Z0-9]/g, '') : 'LOT';
+    const skuCode = rawSku.slice(-4).toUpperCase() || 'LOT';
+    const suppCode = supplierId ? `S${supplierId}` : 'S1';
+    const randCode = Math.floor(100 + Math.random() * 900);
+    return `BATCH-${dStr}-${suppCode}-${skuCode}-${randCode}`;
+  };
+
   // Open Inward Stock Modal with selected fruit
   const handleOpenAddStock = (product?: StockRow) => {
     let pid: number | null = null;
     let unit = 'BOX';
-    let rate = 1500;
-    let sku = 'SKU';
 
     if (product) {
       pid = parseInt(product.id, 10);
       unit = product.unit || 'BOX';
-      rate = product.purchaseRate || 1500;
-      sku = product.sku ? product.sku.slice(-4) : 'LOT';
     } else if (rows.length > 0) {
       pid = parseInt(rows[0].id, 10);
       unit = rows[0].unit || 'BOX';
-      rate = rows[0].purchaseRate || 1500;
-      sku = rows[0].sku ? rows[0].sku.slice(-4) : 'LOT';
     }
 
     setSelectedProductId(pid);
     setInwardUnit(unit);
-    setInwardRate(rate);
+    setInwardQuantity(0); // Default 0
+    setInwardRate(0);     // Default 0
 
     const suppId = selectedSupplierId || (suppliers[0] ? suppliers[0].id : 1);
     setSelectedSupplierId(suppId);
@@ -191,10 +201,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
     const todayStr = new Date().toISOString().slice(0, 10);
     setInwardPurchaseDate(todayStr);
 
-    const dateCode = todayStr.replace(/-/g, '');
-    const randCode = Math.floor(100 + Math.random() * 900);
-    setInwardBatchLot(`BATCH-${dateCode}-S${suppId}-${sku}-${randCode}`);
-    setInwardQuantity(50);
+    setInwardBatchLot(generateUniqueBatchLot(pid, suppId, todayStr));
     setIsAddStockOpen(true);
   };
 
@@ -202,7 +209,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
   const handleInwardStockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductId || inwardQuantity <= 0) {
-      onShowToast?.('Invalid Quantity', 'Please enter a valid stock quantity.', 'warning');
+      onShowToast?.('Invalid Quantity', 'Please enter an inward quantity greater than 0.', 'warning');
       return;
     }
 
@@ -684,10 +691,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     const matched = rows.find((r) => r.id === String(pid));
                     if (matched) {
                       setInwardUnit(matched.unit || 'BOX');
-                      setInwardRate(matched.purchaseRate || 1500);
-                      const dStr = inwardPurchaseDate.replace(/-/g, '');
-                      const sku = matched.sku ? matched.sku.slice(-4) : 'LOT';
-                      setInwardBatchLot(`BATCH-${dStr}-S${selectedSupplierId || 1}-${sku}-${Math.floor(100 + Math.random() * 900)}`);
+                      setInwardBatchLot(generateUniqueBatchLot(pid, selectedSupplierId, inwardPurchaseDate));
                     }
                   }}
                   required
@@ -711,10 +715,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                   onChange={(e) => {
                     const sid = parseInt(e.target.value, 10) || null;
                     setSelectedSupplierId(sid);
-                    const matched = rows.find((r) => r.id === String(selectedProductId));
-                    const sku = matched && matched.sku ? matched.sku.slice(-4) : 'LOT';
-                    const dStr = inwardPurchaseDate.replace(/-/g, '');
-                    setInwardBatchLot(`BATCH-${dStr}-S${sid || 'DIR'}-${sku}-${Math.floor(100 + Math.random() * 900)}`);
+                    setInwardBatchLot(generateUniqueBatchLot(selectedProductId, sid, inwardPurchaseDate));
                   }}
                   required
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
@@ -740,10 +741,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     value={inwardPurchaseDate}
                     onChange={(e) => {
                       setInwardPurchaseDate(e.target.value);
-                      const matched = rows.find((r) => r.id === String(selectedProductId));
-                      const sku = matched && matched.sku ? matched.sku.slice(-4) : 'LOT';
-                      const dStr = e.target.value.replace(/-/g, '');
-                      setInwardBatchLot(`BATCH-${dStr}-S${selectedSupplierId || 'DIR'}-${sku}-${Math.floor(100 + Math.random() * 900)}`);
+                      setInwardBatchLot(generateUniqueBatchLot(selectedProductId, selectedSupplierId, e.target.value));
                     }}
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
@@ -752,18 +750,33 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
 
                 {/* Rule 2: Unique Batch ID */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Unique Batch ID * (Rule 2)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={inwardBatchLot}
-                    onChange={(e) => setInwardBatchLot(e.target.value)}
-                    placeholder="e.g. BATCH-20261111-S1-GALA-001"
-                    className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
-                  />
-                  <p className="text-[10px] text-emerald-600 font-medium mt-0.5">Auto-generated unique code</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Unique Batch ID * (Rule 2)
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Auto-generated
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      disabled
+                      readOnly
+                      value={inwardBatchLot}
+                      title="Unique Batch ID is auto-generated to guarantee Rule 2 uniqueness"
+                      className="w-full text-xs font-mono font-bold bg-slate-100/90 text-slate-700 border border-slate-200 rounded-xl px-3 py-2 cursor-not-allowed select-all focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setInwardBatchLot(generateUniqueBatchLot(selectedProductId, selectedSupplierId, inwardPurchaseDate))}
+                      title="Auto-generate new Unique Batch ID"
+                      className="p-2 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-xl transition-colors cursor-pointer shrink-0"
+                    >
+                      <RefreshCwIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Auto-generated unique code (Rule 2)</p>
                 </div>
               </div>
 
@@ -774,12 +787,12 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     step="any"
                     required
                     value={inwardQuantity}
                     onChange={(e) => setInwardQuantity(parseFloat(e.target.value) || 0)}
-                    placeholder="e.g. 50"
+                    placeholder="0"
                     className="w-full text-xs font-mono font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -793,7 +806,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     onChange={(e) => setInwardUnit(e.target.value)}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   >
-                    <option value="BOX">BOX (~20kg)</option>
+                    <option value="BOX">BOX (~10kg)</option>
                     <option value="CRATE">CRATE (~22kg)</option>
                     <option value="KG">KG (Kilo)</option>
                     <option value="DOZEN">DOZEN (12 Units)</option>
@@ -810,7 +823,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     step="any"
                     value={inwardRate}
                     onChange={(e) => setInwardRate(parseFloat(e.target.value) || 0)}
-                    placeholder="e.g. 1500"
+                    placeholder="0"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -939,7 +952,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     onChange={(e) => setNewFruitUnit(e.target.value)}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                   >
-                    <option value="BOX">BOX (Corrugated Box ~20kg)</option>
+                    <option value="BOX">BOX (Corrugated Box ~10kg)</option>
                     <option value="CRATE">CRATE (Plastic Crate ~22kg)</option>
                     <option value="KG">KG (Kilogram)</option>
                     <option value="DOZEN">DOZEN (12 Units)</option>
@@ -1600,7 +1613,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
                     onChange={(e) => setEditFruitUnit(e.target.value)}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   >
-                    <option value="BOX">BOX (~20kg)</option>
+                    <option value="BOX">BOX (~10kg)</option>
                     <option value="CRATE">CRATE (~22kg)</option>
                     <option value="KG">KG (Kilo)</option>
                     <option value="DOZEN">DOZEN (12)</option>
