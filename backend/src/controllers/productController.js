@@ -144,6 +144,24 @@ class ProductController {
       return apiError(res, error.message, {}, 400);
     }
   }
+
+  async updateProduct(req, res) {
+    try {
+      const product = await productService.updateProduct(req.params.id, req.body, req.user);
+      return apiSuccess(res, product, 'Product updated successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async deleteProduct(req, res) {
+    try {
+      const result = await productService.deleteProduct(req.params.id, req.user);
+      return apiSuccess(res, result, result.message || 'Product deleted successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
 }
 
 module.exports = new ProductController();

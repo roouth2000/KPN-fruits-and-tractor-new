@@ -47,5 +47,11 @@ router.post('/add-stock', requirePermission('stock.view'), productController.add
 // Create new product / fruit SKU
 router.post('/', requirePermission('stock.view'), productController.createProduct);
 
+// Update fruit / product SKU
+router.put('/:id', requirePermission('stock.view'), productController.updateProduct);
+
+// Delete fruit / product SKU
+router.delete('/:id', requirePermission('stock.view'), productController.deleteProduct);
+
 module.exports = router;
 

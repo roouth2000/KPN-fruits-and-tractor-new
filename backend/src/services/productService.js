@@ -1,4 +1,4 @@
-const { Product, Unit, TaxConfig, StockMovement, sequelize } = require('../models');
+const { Product, Batch, Unit, TaxConfig, StockMovement, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const fifoService = require('./fifoService');
 
@@ -222,6 +222,82 @@ class ProductService {
       await transaction.rollback();
       throw err;
     }
+  }
+
+  /**
+   * Update an existing fruit / product SKU
+   */
+  async updateProduct(id, data, user = null) {
+    const product = await Product.findByPk(id);
+    if (!product) {
+      throw new Error(`Product #${id} not found`);
+    }
+
+    if (data.productCode && data.productCode.trim() !== product.productCode) {
+      const existing = await Product.findOne({
+        where: { productCode: data.productCode.trim(), id: { [Op.ne]: id } },
+      });
+      if (existing) {
+        throw new Error(`Product code "${data.productCode.trim()}" is already in use`);
+      }
+      product.productCode = data.productCode.trim();
+    }
+
+    if (data.name !== undefined && data.name.trim()) product.name = data.name.trim();
+    if (data.variety !== undefined) product.variety = data.variety.trim();
+    if (data.grade !== undefined) product.grade = data.grade.trim();
+    if (data.barcode !== undefined) product.barcode = data.barcode;
+    if (data.defaultUnit !== undefined) product.defaultUnit = data.defaultUnit;
+    if (data.baseUnit !== undefined) product.baseUnit = data.baseUnit;
+    if (data.conversionFactor !== undefined && !isNaN(parseFloat(data.conversionFactor))) {
+      product.conversionFactor = parseFloat(data.conversionFactor);
+    }
+    if (data.wholesaleRate !== undefined && !isNaN(parseFloat(data.wholesaleRate))) {
+      product.wholesaleRate = parseFloat(data.wholesaleRate);
+    }
+    if (data.retailRate !== undefined && !isNaN(parseFloat(data.retailRate))) {
+      product.retailRate = parseFloat(data.retailRate);
+    }
+    if (data.purchaseRate !== undefined && !isNaN(parseFloat(data.purchaseRate))) {
+      product.purchaseRate = parseFloat(data.purchaseRate);
+    }
+    if (data.minStockLevel !== undefined && !isNaN(parseFloat(data.minStockLevel))) {
+      product.minStockLevel = parseFloat(data.minStockLevel);
+    }
+    if (data.isTrayRequired !== undefined) product.isTrayRequired = !!data.isTrayRequired;
+    if (data.trayType !== undefined) product.trayType = data.trayType;
+    if (data.isActive !== undefined) product.isActive = !!data.isActive;
+
+    await product.save();
+    return product;
+  }
+
+  /**
+   * Delete or archive a fruit / product SKU
+   */
+  async deleteProduct(id, user = null) {
+    const product = await Product.findByPk(id);
+    if (!product) {
+      throw new Error(`Product #${id} not found`);
+    }
+
+    const batchCount = await Batch.count({ where: { productId: id } });
+    if (batchCount > 0) {
+      product.isActive = false;
+      await product.save();
+      return {
+        success: true,
+        message: `Fruit SKU "${product.name}" has ${batchCount} existing batches and was safely archived.`,
+        archived: true,
+      };
+    }
+
+    await product.destroy();
+    return {
+      success: true,
+      message: `Fruit SKU "${product.name}" has been permanently deleted.`,
+      deleted: true,
+    };
   }
 }
 
