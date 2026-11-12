@@ -8,6 +8,8 @@ router.use(authenticate);
 router.get('/', requirePermission('supplier.view'), supplierController.getSuppliers);
 router.post('/', requirePermission('supplier.create'), supplierController.createSupplier);
 router.get('/:id', requirePermission('supplier.view'), supplierController.getSupplierById);
+router.put('/:id', requirePermission('supplier.edit'), supplierController.updateSupplier);
+router.delete('/:id', requirePermission('supplier.edit'), supplierController.deleteSupplier);
 router.post('/:id/pay', requirePermission('supplier.edit'), supplierController.recordPayment);
 router.post('/inward-purchase', requirePermission('supplier.create'), supplierController.recordInwardPurchase);
 

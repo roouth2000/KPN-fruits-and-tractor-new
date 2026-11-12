@@ -5,6 +5,7 @@ const {
   SupplierLedger,
   StockMovement,
   Product,
+  Batch,
 } = require('../models');
 const fifoService = require('./fifoService');
 
@@ -143,6 +144,73 @@ class SupplierService {
       await transaction.rollback();
       throw err;
     }
+  }
+
+  /**
+   * Update Supplier Details
+   */
+  async updateSupplier(id, data) {
+    const supplier = await Supplier.findByPk(id);
+    if (!supplier) throw new Error('Supplier not found');
+
+    if (data.supplierCode && data.supplierCode.trim() !== supplier.supplierCode) {
+      const existing = await Supplier.findOne({
+        where: { supplierCode: data.supplierCode.trim(), id: { [Op.ne]: id } },
+      });
+      if (existing) throw new Error(`Supplier code "${data.supplierCode.trim()}" is already in use`);
+      supplier.supplierCode = data.supplierCode.trim();
+    }
+
+    if (data.name !== undefined && data.name.trim()) supplier.name = data.name.trim();
+    if (data.phone !== undefined) supplier.phone = data.phone;
+    if (data.email !== undefined) supplier.email = data.email;
+    if (data.address !== undefined) supplier.address = data.address;
+    if (data.city !== undefined) supplier.city = data.city;
+    if (data.gstin !== undefined) supplier.gstin = data.gstin;
+    if (data.openingBalance !== undefined && !isNaN(parseFloat(data.openingBalance))) {
+      supplier.openingBalance = parseFloat(data.openingBalance);
+    }
+    if (data.currentDue !== undefined && !isNaN(parseFloat(data.currentDue))) {
+      supplier.currentDue = parseFloat(data.currentDue);
+    }
+    if (data.outstandingTrays !== undefined && !isNaN(parseInt(data.outstandingTrays, 10))) {
+      supplier.outstandingTrays = parseInt(data.outstandingTrays, 10);
+    }
+    if (data.isActive !== undefined) supplier.isActive = Boolean(data.isActive);
+    if (data.notes !== undefined) supplier.notes = data.notes;
+
+    await supplier.save();
+    return supplier;
+  }
+
+  /**
+   * Delete or archive a Supplier
+   */
+  async deleteSupplier(id) {
+    const supplier = await Supplier.findByPk(id);
+    if (!supplier) throw new Error('Supplier not found');
+
+    const batchCount = await Batch.count({ where: { supplierId: id } });
+    const ledgerCount = await SupplierLedger.count({ where: { supplierId: id } });
+    const currentDue = parseFloat(supplier.currentDue) || 0;
+
+    if (batchCount > 0 || ledgerCount > 0 || currentDue > 0) {
+      // Soft-delete / deactivate to preserve historical audit trail & inventory batch tracking
+      supplier.isActive = false;
+      await supplier.save();
+      return {
+        success: true,
+        message: `Supplier "${supplier.name}" has ${batchCount} batches / ₹${currentDue} dues and was archived safely.`,
+        archived: true,
+      };
+    }
+
+    await supplier.destroy();
+    return {
+      success: true,
+      message: `Supplier "${supplier.name}" has been permanently deleted.`,
+      deleted: true,
+    };
   }
 }
 

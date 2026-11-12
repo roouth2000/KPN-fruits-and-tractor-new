@@ -83,6 +83,10 @@ export interface Supplier {
   city?: string | null;
   address?: string | null;
   currentDue?: number | string;
+  outstandingTrays?: number;
+  openingBalance?: number;
+  gstin?: string | null;
+  notes?: string | null;
   isActive?: boolean;
 }
 

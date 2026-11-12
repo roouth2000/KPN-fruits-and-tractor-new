@@ -145,6 +145,21 @@ export const salesApi = {
     return res.data.data;
   },
 
+  updateSupplier: async (id: number, data: Partial<Supplier>): Promise<Supplier> => {
+    const res = await apiClient.put(`/suppliers/${id}`, data);
+    return res.data.data;
+  },
+
+  deleteSupplier: async (id: number): Promise<any> => {
+    const res = await apiClient.delete(`/suppliers/${id}`);
+    return res.data.data;
+  },
+
+  recordSupplierPayment: async (id: number, data: { amount: number; paymentMode?: string; reference?: string; notes?: string }): Promise<any> => {
+    const res = await apiClient.post(`/suppliers/${id}/pay`, data);
+    return res.data.data;
+  },
+
   createProduct: async (payload: any) => {
     const res = await apiClient.post('/products', payload);
     return res.data.data;

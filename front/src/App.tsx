@@ -321,6 +321,7 @@ export const AppContent: React.FC = () => {
             onBackToDashboard={() => setActiveTab('command-center')}
             onExport={() => handleExport('Supplier Due Report')}
             onSchedulePayment={(s) => addToast('Payment scheduled', `Payment batch queued for ${s}`, 'success')}
+            onShowToast={addToast}
           />
         );
       case 'stock-transfers':

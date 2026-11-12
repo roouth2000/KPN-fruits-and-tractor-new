@@ -568,7 +568,7 @@ export const StockReportPage: React.FC<StockReportPageProps> = ({
             title={`Add inward stock to ${row.name}`}
           >
             <PlusIcon className="w-3 h-3 text-emerald-600" />
-            <span>+ Add Stock</span>
+            <span>Add Stock</span>
           </button>
           <button
             onClick={() => handleOpenEditFruit(row)}

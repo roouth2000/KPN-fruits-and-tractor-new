@@ -51,6 +51,24 @@ class SupplierController {
       return ApiResponse.error(res, error.message, 400);
     }
   }
+
+  async updateSupplier(req, res) {
+    try {
+      const supplier = await supplierService.updateSupplier(req.params.id, req.body);
+      return ApiResponse.success(res, supplier, 'Supplier updated successfully');
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 400);
+    }
+  }
+
+  async deleteSupplier(req, res) {
+    try {
+      const result = await supplierService.deleteSupplier(req.params.id);
+      return ApiResponse.success(res, result, result.message || 'Supplier deleted successfully');
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 400);
+    }
+  }
 }
 
 module.exports = new SupplierController();

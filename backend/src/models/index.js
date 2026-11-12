@@ -20,6 +20,7 @@ const TaxConfig = require('./TaxConfig');
 const AuditLog = require('./AuditLog');
 const Batch = require('./Batch');
 const InvoiceItemBatch = require('./InvoiceItemBatch');
+const Setting = require('./Setting');
 
 // Role & Permission Associations
 Role.belongsToMany(Permission, {
@@ -114,6 +115,8 @@ Payment.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
 AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+Setting.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
 module.exports = {
   sequelize,
   User,
@@ -136,4 +139,5 @@ module.exports = {
   AuditLog,
   Batch,
   InvoiceItemBatch,
+  Setting,
 };

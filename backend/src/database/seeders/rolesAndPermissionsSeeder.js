@@ -86,6 +86,7 @@ const rolesList = [
       'users.view',
       'users.manage',
       'roles.manage',
+      'settings.manage',
     ],
   },
   {
