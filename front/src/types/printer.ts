@@ -32,7 +32,7 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   cutPaper: true,
   openCashDrawer: false,
   copies: 1,
-  printSupplierBatchTrace: true,
+  printSupplierBatchTrace: false,
   printQrCode: false,
   printLogo: true,
   logoUrl: '',

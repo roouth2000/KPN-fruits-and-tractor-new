@@ -413,25 +413,7 @@ export const receiptGenerator = {
           <td class="col-qty">${qty}</td>
           <td class="col-rate">${rate.toFixed(2)}</td>
           <td class="col-amt font-bold">${amt.toFixed(2)}</td>
-        </tr>
-        ${
-          settings.printSupplierBatchTrace && item.batchAllocations && item.batchAllocations.length > 0
-            ? item.batchAllocations
-                .map(
-                  (a: any) => `
-        <tr>
-          <td colspan="4" class="lot-trace">
-            ↳ FIFO Lot: ${a.batch ? a.batch.batchNumber : `BATCH-${a.batchId}`} · ${
-                    a.supplier ? a.supplier.name : 'Direct Consignment'
-                  } (${a.quantity} ${a.unit || item.unit || 'BOX'})
-          </td>
-        </tr>
-        `
-                )
-                .join('')
-            : ''
-        }
-        `;
+        </tr>`;
           })
           .join('')}
       </tbody>

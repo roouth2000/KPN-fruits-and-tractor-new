@@ -78,7 +78,7 @@ class BillingController {
       const invoice = await billingService.getInvoiceById(req.params.id);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="invoice-${invoice.invoiceNumber}.pdf"`);
-      return pdfService.generateInvoicePdf(invoice, res);
+      return await pdfService.generateInvoicePdf(invoice, res);
     } catch (error) {
       return apiError(res, error.message, {}, 404);
     }

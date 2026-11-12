@@ -1,22 +1,46 @@
 const PDFDocument = require('pdfkit');
+const { Setting } = require('../models');
 
 class PdfService {
-  generateInvoicePdf(invoice, res) {
+  async generateInvoicePdf(invoice, res) {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
     doc.pipe(res);
+
+    // Dynamic Shop Details
+    let shopName = 'KBN FRUITS';
+    let address = 'T/A-18,T/E-25,ANNA FRUITS MARKET, KOYAMBEDU,CHENNAI-600092';
+    let phone = '9677157688';
+    let gstin = '';
+
+    try {
+      const settings = await Setting.findAll({ where: { category: 'MANDI' } });
+      const map = {};
+      settings.forEach((s) => {
+        map[s.key] = s.value;
+      });
+      if (map['mandi.businessName']) shopName = map['mandi.businessName'];
+      if (map['mandi.phone']) phone = map['mandi.phone'];
+      if (map['mandi.gstin']) gstin = map['mandi.gstin'];
+      const yard = map['mandi.yardBay'] || 'T/A-18,T/E-25,ANNA FRUITS MARKET';
+      const city = map['mandi.city'] || 'KOYAMBEDU, CHENNAI';
+      const pin = map['mandi.pincode'] || '600092';
+      address = `${yard}, ${city}-${pin}`;
+    } catch {
+      // Fallback to default
+    }
 
     // Company Header
     doc
       .fillColor('#0f172a')
       .fontSize(20)
       .font('Helvetica-Bold')
-      .text('KBN FRUITS AND TRADERS', 40, 40)
+      .text(shopName.toUpperCase(), 40, 40)
       .fontSize(9)
       .font('Helvetica')
       .fillColor('#64748b')
-      .text('Wholesale & Cold Chain Distribution | APMC Fruit Market, Bay #12, Vashi, Navi Mumbai', 40, 65)
-      .text('Phone: +91 98200 12345 | Email: billing@finovore.com | GSTIN: 27AABCF1234F1Z5', 40, 78);
+      .text(`Wholesale Produce & Cold Chain | ${address}`, 40, 65)
+      .text(`Phone: ${phone}${gstin ? ` | GSTIN: ${gstin}` : ''}`, 40, 78);
 
     doc.moveTo(40, 95).lineTo(555, 95).strokeColor('#cbd5e1').lineWidth(1).stroke();
 

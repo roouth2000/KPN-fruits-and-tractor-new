@@ -571,9 +571,13 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
 
                           {/* Print PDF Download */}
                           <button
-                            onClick={() => window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank')}
+                            onClick={() =>
+                              salesApi
+                                .downloadInvoicePdf(inv.id, inv.invoiceNumber)
+                                .catch(() => window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank'))
+                            }
                             title="Download Official PDF Invoice"
-                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                           >
                             <DownloadIcon className="w-3.5 h-3.5" />
                           </button>

@@ -68,9 +68,14 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
     window.print();
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (inv.id) {
-      window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank');
+      try {
+        await salesApi.downloadInvoicePdf(inv.id, inv.invoiceNumber);
+      } catch {
+        // Fallback to token-authorized URL
+        window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank');
+      }
     }
   };
 

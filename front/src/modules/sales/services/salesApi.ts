@@ -219,6 +219,44 @@ export const salesApi = {
     return res.data.data;
   },
 
-  getInvoicePdfUrl: (id: number | string) => `${API_BASE_URL}/sales/invoices/${id}/pdf`,
+  getInvoicePdfUrl: (id: number | string) => {
+    const token = localStorage.getItem('finovore_token') || '';
+    const role = localStorage.getItem('finovore_role') || '';
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (role) params.set('role', role);
+    const qs = params.toString();
+    return `${API_BASE_URL}/sales/invoices/${id}/pdf${qs ? `?${qs}` : ''}`;
+  },
+
+  /**
+   * Download Invoice PDF via authenticated blob to prevent authentication errors
+   */
+  downloadInvoicePdf: async (id: number | string, invoiceNumber?: string) => {
+    const res = await apiClient.get(`/sales/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Invoice-${invoiceNumber || id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Open Invoice PDF in a new browser tab via authenticated blob
+   */
+  openInvoicePdf: async (id: number | string) => {
+    const res = await apiClient.get(`/sales/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  },
 };
 

@@ -9,12 +9,14 @@ const { apiError } = require('../utils/apiResponse');
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    const roleHeader = req.headers['x-user-role'];
-    const userIdHeader = req.headers['x-user-id'];
+    const roleHeader = req.headers['x-user-role'] || req.query.role;
+    const userIdHeader = req.headers['x-user-id'] || req.query.userId;
     let token = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
     // 1. Direct role override header (supported for rapid test suites or explicit role header)

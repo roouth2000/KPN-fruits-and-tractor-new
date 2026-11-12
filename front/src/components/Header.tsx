@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   SearchIcon,
   PlusIcon,
@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewOrder,
   onOpenSearch,
 }) => {
-  const { isSalesperson, logout } = useAuth();
+  const { logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
 
@@ -46,35 +46,8 @@ export const Header: React.FC<HeaderProps> = ({
     },
   ];
 
-  const todayFormatted = useMemo(
-    () =>
-      new Date().toLocaleDateString('en-IN', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }),
-    []
-  );
-
   return (
     <header className="px-6 py-4 border-b border-slate-200/70 bg-white/70 backdrop-blur-md flex flex-wrap items-center justify-between gap-4 sticky top-0 z-10">
-      {/* Title & metadata */}
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-sans">
-            Command Center
-          </h1>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{isSalesperson ? 'Sales Desk · Bill Only' : 'APMC Live Terminal'}</span>
-          </div>
-        </div>
-        <p className="text-xs text-slate-500 mt-0.5 font-normal">
-          {todayFormatted} · APMC Market Terminal Bay #12
-        </p>
-      </div>
-
       {/* Actions */}
       <div className="flex items-center gap-2.5">
         {/* Search trigger */}
