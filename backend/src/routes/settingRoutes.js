@@ -6,10 +6,6 @@ const { authenticate, requirePermission } = require('../middleware/auth');
 // Public settings route (no auth required for business name, contact, invoice headers)
 router.get('/public', settingController.getPublicSettings);
 
-// QZ Tray security certificate & signature verification (used by QZ Tray WebSocket)
-router.get('/qz-certificate', settingController.getQzCertificate);
-router.all('/qz-sign', settingController.signQzRequest);
-
 // Authenticated routes - protected by settings.manage permission
 router.use(authenticate);
 

@@ -126,41 +126,6 @@ class SettingController {
       return apiError(res, error.message, {}, 400);
     }
   }
-
-  /**
-   * GET /api/settings/qz-certificate
-   * Download or serve X.509 digital certificate for QZ Tray
-   */
-  getQzCertificate(req, res) {
-    try {
-      const cert = settingService.getQzCertificate();
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      if (req.query.download === 'true') {
-        res.setHeader('Content-Disposition', 'attachment; filename="override.crt"');
-      }
-      return res.send(cert);
-    } catch (error) {
-      return res.status(500).send('');
-    }
-  }
-
-  /**
-   * ALL /api/settings/qz-sign
-   * Sign QZ Tray request payload with RSA SHA512
-   */
-  signQzRequest(req, res) {
-    try {
-      const toSign =
-        req.body?.request ||
-        req.query?.request ||
-        (typeof req.body === 'string' ? req.body : '');
-      const signature = settingService.signQzRequest(toSign);
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      return res.send(signature);
-    } catch (error) {
-      return res.status(500).send('');
-    }
-  }
 }
 
 module.exports = new SettingController();

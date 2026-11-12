@@ -6,14 +6,13 @@ import {
   SaveIcon,
   LayersIcon,
   CheckSquareIcon,
-  PrinterIcon,
-  RefreshCwIcon,
   RotateCcwIcon,
   XIcon,
 } from '../components/icons';
-import { qzTrayService } from '../services/qzTrayService';
+import { printerService } from '../services/printer/printerService';
+import { PrinterSettings as ThermalPrinterConfig } from '../components/printer/PrinterSettings';
 import { settingApi } from '../services/settingApi';
-import type { PrinterSettings, QZTrayStatus, PaperSize, PrintMode } from '../types/printer';
+import type { PrinterSettings, PaperSize } from '../services/printer/printerTypes';
 
 interface SettingsPageProps {
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
@@ -74,12 +73,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
     autoAlertExpiry: true,
   });
 
-  // QZ Tray & Thermal Printer Settings
-  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(qzTrayService.getSettings());
-  const [printersList, setPrintersList] = useState<string[]>([]);
-  const [isScanningPrinters, setIsScanningPrinters] = useState(false);
-  const [qzStatus, setQzStatus] = useState<QZTrayStatus>(qzTrayService.getStatus());
-  const [isTestingPrint, setIsTestingPrint] = useState(false);
+  // Web Serial & Thermal Printer Settings
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(printerService.getSettings());
 
   // Load Settings from Database via Setting API
   useEffect(() => {
@@ -145,18 +140,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
         }
 
         if (printer && Object.keys(printer).length > 0) {
-          const currentSettings = qzTrayService.getSettings();
+          const currentSettings = printerService.getSettings();
           const loadedPrinter: PrinterSettings = {
             ...currentSettings,
-            printerName: printer.printerName || currentSettings.printerName,
             paperSize: (printer.paperSize as PaperSize) || currentSettings.paperSize,
-            printMode: (printer.printMode as PrintMode) || currentSettings.printMode,
             cutPaper: printer.cutPaper !== undefined ? Boolean(printer.cutPaper) : currentSettings.cutPaper,
             openCashDrawer: printer.openCashDrawer !== undefined ? Boolean(printer.openCashDrawer) : currentSettings.openCashDrawer,
             footerMessage: printer.footerMessage || currentSettings.footerMessage,
           };
           setPrinterSettings(loadedPrinter);
-          qzTrayService.saveSettings(loadedPrinter);
+          printerService.saveSettings(loadedPrinter);
         }
       })
       .catch((err) => {
@@ -171,42 +164,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
       isMounted = false;
     };
   }, [onShowToast]);
-
-  // Subscribe to QZ Tray events & discover local thermal printers
-  useEffect(() => {
-    const unsub = qzTrayService.onStatusChange(setQzStatus);
-    qzTrayService.discoverPrinters().then(setPrintersList).catch(() => {});
-    return unsub;
-  }, []);
-
-  const handleScanPrinters = async () => {
-    setIsScanningPrinters(true);
-    try {
-      const list = await qzTrayService.discoverPrinters();
-      setPrintersList(list);
-      if (!printerSettings.printerName && list.length > 0) {
-        setPrinterSettings((prev) => ({ ...prev, printerName: list[0] }));
-      }
-    } finally {
-      setIsScanningPrinters(false);
-    }
-  };
-
-  const handleTestPrintSettings = async () => {
-    setIsTestingPrint(true);
-    try {
-      const res = await qzTrayService.printTestReceipt(printerSettings);
-      if (res.method === 'QZ_TRAY') {
-        onShowToast?.('Test Ticket Printed', `Direct silent print sent to "${res.printer}".`, 'success');
-      } else {
-        onShowToast?.('Browser Print Opened', 'Test receipt opened in Browser Print Dialog.', 'info');
-      }
-    } catch (err: any) {
-      onShowToast?.('Print Failed', err?.message || 'Error executing test print', 'warning');
-    } finally {
-      setIsTestingPrint(false);
-    }
-  };
 
   // Save all settings to MySQL database
   const handleSave = async (e?: React.FormEvent) => {
@@ -233,7 +190,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
 
       // Synchronize thermal printer preferences with local client storage
       setPrinterSettings(updatedPrinter);
-      qzTrayService.saveSettings(updatedPrinter);
+      printerService.saveSettings(updatedPrinter);
 
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 4000);
@@ -711,170 +668,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
           {/* Tab 2: Billing & Thermal Printing */}
           {activeTab === 'billing' && (
             <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
-              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">POS Billing &amp; Thermal Printer Preferences</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Control direct QZ Tray printing, thermal 80mm/58mm layouts, auto-cut, and hardware options.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={handleTestPrintSettings}
-                    disabled={isTestingPrint}
-                    className="px-3.5 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                  >
-                    <PrinterIcon className={`w-3.5 h-3.5 ${isTestingPrint ? 'animate-bounce' : ''}`} />
-                    <span>{isTestingPrint ? 'Printing Test...' : 'Run Test Print'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* QZ Tray Connection Status Card */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${qzStatus === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">QZ Tray Hardware Service</span>
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${qzStatus === 'CONNECTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                        {qzStatus === 'CONNECTED' ? 'Connected (v2.x)' : qzStatus === 'CONNECTING' ? 'Connecting...' : 'Offline / Standalone Fallback'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      {qzStatus === 'CONNECTED'
-                        ? 'Direct silent ESC/POS communication enabled on localhost:8182'
-                        : 'Using browser print dialog fallback. Install QZ Tray for silent POS printing.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleScanPrinters}
-                    disabled={isScanningPrinters}
-                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
-                  >
-                    <RefreshCwIcon className={`w-3 h-3 ${isScanningPrinters ? 'animate-spin' : ''}`} />
-                    <span>Scan Printers</span>
-                  </button>
-                </div>
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900">POS Thermal Printer &amp; Billing Preferences</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Direct browser-native printing via Web Serial API (Zero background software / No QZ Tray required).
+                </p>
               </div>
 
               {/* Thermal Printer Hardware Section */}
-              <div className="border border-indigo-100 bg-indigo-50/30 rounded-xl p-4 space-y-4">
-                <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5">
-                  <PrinterIcon className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Hardware Printer Selection &amp; Roll Width</span>
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Target Thermal Printer
-                    </label>
-                    {printersList.length > 0 ? (
-                      <select
-                        value={printerSettings.printerName}
-                        onChange={(e) => setPrinterSettings({ ...printerSettings, printerName: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                      >
-                        <option value="">Default System Printer</option>
-                        {printersList.map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={printerSettings.printerName}
-                        onChange={(e) => setPrinterSettings({ ...printerSettings, printerName: e.target.value })}
-                        placeholder="e.g. POS-80C or EPSON TM-T82"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                      />
-                    )}
-                    <p className="text-[11px] text-slate-400 mt-1">Leave empty to use OS default printer</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Paper Roll Width (Thermal Receipt Layout)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPrinterSettings({ ...printerSettings, paperSize: '80mm' })}
-                        className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                          printerSettings.paperSize === '80mm'
-                            ? 'border-indigo-600 bg-indigo-600 text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium'
-                        }`}
-                      >
-                        <div className="text-xs">80mm Wide</div>
-                        <div className={`text-[10px] ${printerSettings.paperSize === '80mm' ? 'text-indigo-100' : 'text-slate-400'}`}>Standard POS Roll</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPrinterSettings({ ...printerSettings, paperSize: '58mm' })}
-                        className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                          printerSettings.paperSize === '58mm'
-                            ? 'border-indigo-600 bg-indigo-600 text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium'
-                        }`}
-                      >
-                        <div className="text-xs">58mm Compact</div>
-                        <div className={`text-[10px] ${printerSettings.paperSize === '58mm' ? 'text-indigo-100' : 'text-slate-400'}`}>Small Counter Roll</div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-indigo-100/70">
-                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={printerSettings.cutPaper}
-                      onChange={(e) => setPrinterSettings({ ...printerSettings, cutPaper: e.target.checked })}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 block">Auto-Cut Paper</span>
-                      <span className="text-[10px] text-slate-400">Send GS V command</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={printerSettings.openCashDrawer}
-                      onChange={(e) => setPrinterSettings({ ...printerSettings, openCashDrawer: e.target.checked })}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 block">Open Cash Drawer</span>
-                      <span className="text-[10px] text-slate-400">Kick drawer pin (ESC p)</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-lg border border-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={billingSettings.autoPrintOnConfirm}
-                      onChange={(e) => setBillingSettings({ ...billingSettings, autoPrintOnConfirm: e.target.checked })}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 block">Silent Print on F9</span>
-                      <span className="text-[10px] text-slate-400">Instant bill creation</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
+              <ThermalPrinterConfig onShowToast={onShowToast} />
 
               {/* General Billing Configuration */}
+              <div className="pt-4 border-t border-slate-200">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3">
+                  Billing &amp; Invoice Ledger Rules
+                </h3>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">

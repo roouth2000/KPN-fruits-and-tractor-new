@@ -252,10 +252,10 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'printer.printMode',
-    value: 'DIRECT_QZ',
+    value: 'WEB_SERIAL',
     category: 'PRINTER',
     dataType: 'STRING',
-    description: 'Print delivery pipeline (DIRECT_QZ | BROWSER_FALLBACK)',
+    description: 'Print delivery pipeline (WEB_SERIAL | WEB_USB | BROWSER_FALLBACK)',
     isPublic: true,
   },
   {

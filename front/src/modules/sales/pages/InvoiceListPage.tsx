@@ -15,7 +15,7 @@ import {
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { InvoicePreview } from '../components/InvoicePreview';
-import { qzTrayService } from '../../../services/qzTrayService';
+import { printerService } from '../../../services/printer/printerService';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
 
 interface InvoiceListPageProps {
@@ -45,20 +45,23 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState<boolean>(false);
   const [printingId, setPrintingId] = useState<number | null>(null);
 
-  // 1-Click Silent Print via QZ Tray
+  // 1-Click Thermal Print via Web Serial
   const handleDirectPrintInvoice = async (inv: any) => {
     setPrintingId(inv.id);
     try {
       const full = await salesApi.getInvoiceById(inv.id);
-      const res = await qzTrayService.printInvoice(full || inv);
-      if (res.method === 'QZ_TRAY') {
+      const res = await printerService.printInvoice(full || inv);
+      if (res.success) {
         onShowToast?.(
-          'Receipt Printed via QZ Tray',
-          `Invoice #${inv.invoiceNumber} sent silently to ${res.printer}.`,
+          'Receipt Printed via Web Serial',
+          `Invoice #${inv.invoiceNumber} printed directly on "${res.printerName}".`,
           'success'
         );
       } else {
-        onShowToast?.('Browser Print Opened', `Printed #${inv.invoiceNumber} via Browser Print Dialog.`, 'info');
+        onShowToast?.('Print Failed', res.error || 'Failed to print invoice', 'warning');
+        if (!printerService.isConnected()) {
+          setIsPrinterModalOpen(true);
+        }
       }
     } catch (err: any) {
       onShowToast?.('Print Failed', err?.message || 'Error printing invoice', 'warning');
@@ -254,7 +257,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
 
           <button
             onClick={() => setIsPrinterModalOpen(true)}
-            title="Configure Thermal Printer & QZ Tray"
+            title="Configure POS Thermal Printer (Web Serial / USB)"
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-2xs cursor-pointer"
           >
             <PrinterIcon className="w-3.5 h-3.5 text-indigo-600" />
@@ -559,11 +562,11 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                             <EyeIcon className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* 1-Click Direct Thermal Print via QZ Tray */}
+                          {/* 1-Click Direct Thermal Print via Web Serial */}
                           <button
                             onClick={() => handleDirectPrintInvoice(inv)}
                             disabled={printingId === inv.id}
-                            title="Direct Silent Print to Thermal Printer (QZ Tray)"
+                            title="Direct Print to Thermal Printer (Web Serial)"
                             className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
                           >
                             <PrinterIcon className={`w-3.5 h-3.5 ${printingId === inv.id ? 'animate-bounce text-indigo-600' : 'text-indigo-600'}`} />

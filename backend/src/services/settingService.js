@@ -1,11 +1,5 @@
 const { Setting, sequelize } = require('../models');
 const { DEFAULT_SETTINGS } = require('../database/seeders/settingsSeeder');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-
-const CERT_PATH = path.join(__dirname, '../config/certs/qz-certificate.crt');
-const KEY_PATH = path.join(__dirname, '../config/certs/qz-private.key');
 
 class SettingService {
   /**
@@ -335,34 +329,6 @@ class SettingService {
         resetCount: DEFAULT_SETTINGS.length,
       };
     });
-  }
-
-  /**
-   * Retrieve Digital Certificate for QZ Tray silent POS communication
-   */
-  getQzCertificate() {
-    if (fs.existsSync(CERT_PATH)) {
-      return fs.readFileSync(CERT_PATH, 'utf8');
-    }
-    return '';
-  }
-
-  /**
-   * Sign QZ Tray request payload using RSA SHA512 private key
-   */
-  signQzRequest(toSign) {
-    if (!toSign) return '';
-    if (!fs.existsSync(KEY_PATH)) return '';
-    try {
-      const privateKey = fs.readFileSync(KEY_PATH, 'utf8');
-      const sign = crypto.createSign('SHA512');
-      sign.update(String(toSign));
-      sign.end();
-      return sign.sign(privateKey, 'base64');
-    } catch (err) {
-      console.error('[QZ Tray Sign] Signing error:', err);
-      return '';
-    }
   }
 }
 
