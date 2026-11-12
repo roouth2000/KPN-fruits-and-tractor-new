@@ -4,15 +4,39 @@ const DEFAULT_SETTINGS = [
   // Mandi & Business Details (Category: MANDI)
   {
     key: 'mandi.businessName',
-    value: 'KBN Fruits and Traders',
+    value: 'SR FRUITS',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'Registered Trade Name of the Mandi commission agency / fruit shop',
     isPublic: true,
   },
   {
+    key: 'mandi.logoMonogram',
+    value: 'SR',
+    category: 'MANDI',
+    dataType: 'STRING',
+    description: 'Monogram initials for POS thermal receipt header (e.g. SR)',
+    isPublic: true,
+  },
+  {
+    key: 'mandi.logoUrl',
+    value: '',
+    category: 'MANDI',
+    dataType: 'STRING',
+    description: 'Optional logo image URL or base64 data for thermal receipt header (non-mandatory)',
+    isPublic: true,
+  },
+  {
+    key: 'mandi.printLogo',
+    value: 'true',
+    category: 'MANDI',
+    dataType: 'BOOLEAN',
+    description: 'Whether to print logo image or monogram on receipt (non-mandatory)',
+    isPublic: true,
+  },
+  {
     key: 'mandi.licenseNo',
-    value: 'APMC/MUM/2026/8941',
+    value: 'APMC/KOY/2026/8941',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'APMC Market Committee Trading License Number',
@@ -20,7 +44,7 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'mandi.yardBay',
-    value: 'APMC Market-1, Bay #12, Vashi, Navi Mumbai',
+    value: 'T/A-18,T/E-25,ANNA FRUITS MARKET',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'Physical trading bay and warehouse address',
@@ -28,7 +52,7 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'mandi.city',
-    value: 'Navi Mumbai',
+    value: 'KOYAMBEDU, CHENNAI',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'City of operation',
@@ -36,7 +60,7 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'mandi.state',
-    value: 'Maharashtra',
+    value: 'Tamil Nadu',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'State of operation',
@@ -44,7 +68,7 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'mandi.pincode',
-    value: '400703',
+    value: '600092',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'Postal Pin Code',
@@ -52,7 +76,7 @@ const DEFAULT_SETTINGS = [
   },
   {
     key: 'mandi.phone',
-    value: '+91 98765 43210',
+    value: '8778219770',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'Trading desk phone number',

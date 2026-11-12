@@ -32,15 +32,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
 
   // Mandi & Business Details State
   const [mandiSettings, setMandiSettings] = useState({
-    businessName: 'KBN Fruits and Traders',
-    licenseNo: 'APMC/MUM/2026/8941',
-    yardBay: 'APMC Market-1, Bay #12, Vashi, Navi Mumbai',
-    city: 'Navi Mumbai',
-    state: 'Maharashtra',
-    pincode: '400703',
-    phone: '+91 98765 43210',
-    email: 'terminal.vashi@finovore.com',
-    gstin: '27AABCF1234F1Z5',
+    businessName: 'KBN FRUITS',
+    logoMonogram: 'KBN',
+    logoUrl: '',
+    printLogo: true,
+    licenseNo: 'APMC/KOY/2026/8941',
+    yardBay: 'T/A-18,T/E-25,ANNA FRUITS MARKET',
+    city: 'KOYAMBEDU, CHENNAI',
+    state: 'Tamil Nadu',
+    pincode: '600092',
+    phone: '8778219770',
+    email: 'terminal.koyambedu@finovore.com',
+    gstin: '',
   });
 
   // Billing & Printing Preferences
@@ -93,6 +96,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
           setMandiSettings((prev) => ({
             ...prev,
             businessName: mandi.businessName !== undefined ? String(mandi.businessName) : prev.businessName,
+            logoMonogram: mandi.logoMonogram !== undefined ? String(mandi.logoMonogram) : prev.logoMonogram,
+            logoUrl: mandi.logoUrl !== undefined ? String(mandi.logoUrl) : prev.logoUrl,
+            printLogo: mandi.printLogo !== undefined ? Boolean(mandi.printLogo) : prev.printLogo,
             licenseNo: mandi.licenseNo !== undefined ? String(mandi.licenseNo) : prev.licenseNo,
             yardBay: mandi.yardBay !== undefined ? String(mandi.yardBay) : prev.yardBay,
             city: mandi.city !== undefined ? String(mandi.city) : prev.city,
@@ -207,16 +213,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
     if (e) e.preventDefault();
     setIsSaving(true);
     try {
+      const updatedPrinter: PrinterSettings = {
+        ...printerSettings,
+        shopName: mandiSettings.businessName,
+        shopInitials: mandiSettings.logoMonogram || 'SR',
+        logoUrl: mandiSettings.logoUrl || '',
+        printLogo: mandiSettings.printLogo !== false,
+        shopAddress: `${mandiSettings.yardBay},\n${mandiSettings.city}-${mandiSettings.pincode}`,
+        shopPhone: mandiSettings.phone,
+      };
+
       await settingApi.updateAllSettings({
         mandi: mandiSettings,
         billing: billingSettings,
         apmc: apmcSettings,
         inventory: inventorySettings,
-        printer: printerSettings,
+        printer: updatedPrinter,
       });
 
       // Synchronize thermal printer preferences with local client storage
-      qzTrayService.saveSettings(printerSettings);
+      setPrinterSettings(updatedPrinter);
+      qzTrayService.saveSettings(updatedPrinter);
 
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 4000);
@@ -447,6 +464,102 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Logo & Monogram Header (Non-Mandatory) */}
+                <div className="sm:col-span-2 p-4 rounded-xl border border-slate-200/90 bg-slate-50/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900">Receipt Logo &amp; Monogram Header</h3>
+                      <p className="text-[11px] text-slate-500">
+                        Configured for thermal receipts &amp; invoices. <span className="text-emerald-700 font-semibold">(Non-mandatory: receipt prints cleanly if empty or disabled)</span>
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                      <input
+                        type="checkbox"
+                        checked={mandiSettings.printLogo !== false}
+                        onChange={(e) => setMandiSettings({ ...mandiSettings, printLogo: e.target.checked })}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs font-bold text-slate-800">Print Logo on Receipt</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Logo Monogram / Short Code
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={5}
+                        placeholder="e.g. SR"
+                        value={mandiSettings.logoMonogram || ''}
+                        onChange={(e) => setMandiSettings({ ...mandiSettings, logoMonogram: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-1.5 text-xs font-black uppercase rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-[10px] text-slate-400">Large letters centered at top (e.g. "SR")</span>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Logo Image <span className="text-slate-400 font-normal">(Optional / Non-Mandatory)</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Image URL or choose file (leave blank for text-only)"
+                          value={mandiSettings.logoUrl || ''}
+                          onChange={(e) => setMandiSettings({ ...mandiSettings, logoUrl: e.target.value })}
+                          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-[11px]"
+                        />
+                        <label className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-700 cursor-pointer shadow-2xs flex-shrink-0">
+                          Upload File
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') {
+                                    setMandiSettings({ ...mandiSettings, logoUrl: reader.result });
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        {mandiSettings.logoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setMandiSettings({ ...mandiSettings, logoUrl: '' })}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                            title="Remove logo image"
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {mandiSettings.logoUrl && (
+                        <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
+                          <span className="font-semibold">Logo Preview:</span>
+                          <img
+                            src={mandiSettings.logoUrl}
+                            alt="Logo preview"
+                            className="h-8 max-w-[80px] object-contain border border-slate-200 bg-white p-0.5 rounded"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Wholesale Produce Business Name

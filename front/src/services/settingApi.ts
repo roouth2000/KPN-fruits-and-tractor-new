@@ -10,6 +10,9 @@ export interface MandiSettings {
   phone: string;
   email: string;
   gstin: string;
+  logoMonogram?: string;
+  logoUrl?: string;
+  printLogo?: boolean;
 }
 
 export interface BillingSettings {

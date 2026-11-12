@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { qzTrayService } from '../services/qzTrayService';
+import { settingApi } from '../services/settingApi';
 import type { PrinterSettings, QZTrayStatus } from '../types/printer';
 import {
   PrinterIcon,
@@ -55,8 +56,39 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setSettings(qzTrayService.getSettings());
+      const current = qzTrayService.getSettings();
+      setSettings(current);
       scanPrinters();
+
+      settingApi
+        .getPublicSettings()
+        .then((pub) => {
+          if (!pub) return;
+          setSettings((prev) => {
+            const bizName = pub['mandi.businessName'] || prev.shopName || 'SR FRUITS';
+            const monogram = pub['mandi.logoMonogram'] || prev.shopInitials || 'SR';
+            const logoUrl = pub['mandi.logoUrl'] !== undefined ? pub['mandi.logoUrl'] : prev.logoUrl;
+            const printLogo = pub['mandi.printLogo'] !== undefined ? Boolean(pub['mandi.printLogo']) : prev.printLogo;
+            const bay = pub['mandi.yardBay'] || 'T/A-18,T/E-25,ANNA FRUITS MARKET';
+            const city = pub['mandi.city'] || 'KOYAMBEDU, CHENNAI';
+            const pin = pub['mandi.pincode'] || '600092';
+            const phone = pub['mandi.phone'] || prev.shopPhone || '8778219770';
+
+            const address = `${bay},\n${city}-${pin}`;
+            return {
+              ...prev,
+              shopName: prev.shopName && prev.shopName !== 'KBN FRUITS AND TRADERS' ? prev.shopName : bizName,
+              shopInitials: prev.shopInitials && prev.shopInitials !== 'KBN' ? prev.shopInitials : monogram,
+              logoUrl: prev.logoUrl !== undefined ? prev.logoUrl : logoUrl,
+              printLogo: prev.printLogo !== undefined ? prev.printLogo : printLogo,
+              shopAddress: prev.shopAddress && !prev.shopAddress.includes('Vashi') ? prev.shopAddress : address,
+              shopPhone: prev.shopPhone && prev.shopPhone !== '+91 98765 43210' ? prev.shopPhone : phone,
+            };
+          });
+        })
+        .catch((err) => {
+          console.warn('Could not load public settings in printer modal:', err);
+        });
     }
   }, [isOpen, scanPrinters]);
 
@@ -440,6 +472,147 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                   <option value={2}>2 Copies (Customer + Dock)</option>
                   <option value={3}>3 Copies (Customer + Dock + Accounts)</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Shop Branding & Receipt Header/Footer */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-900 block">Koyambedu Receipt Header &amp; Branding</span>
+                <span className="text-[10px] text-slate-500 font-medium">Logo and Monogram are non-mandatory</span>
+              </div>
+              <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={settings.printLogo !== false}
+                  onChange={(e) => setSettings({ ...settings, printLogo: e.target.checked })}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                />
+                <span className="text-xs font-bold text-slate-800">Print Logo on Receipt</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Monogram / Logo Code</label>
+                <input
+                  type="text"
+                  maxLength={5}
+                  value={settings.shopInitials || ''}
+                  onChange={(e) => setSettings({ ...settings, shopInitials: e.target.value.toUpperCase() })}
+                  placeholder="e.g. SR"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 uppercase focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <span className="text-[10px] text-slate-400">Large letters centered at top</span>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Shop / Firm Name</label>
+                <input
+                  type="text"
+                  value={settings.shopName || ''}
+                  onChange={(e) => setSettings({ ...settings, shopName: e.target.value.toUpperCase() })}
+                  placeholder="e.g. SR FRUITS"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Optional Logo Image (Non-mandatory) */}
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200/90 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Logo Image <span className="text-slate-400 font-normal">(Optional / Non-Mandatory)</span>
+                </label>
+                {settings.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ ...settings, logoUrl: '' })}
+                    className="text-[10px] text-red-600 hover:underline font-semibold"
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Image URL or upload file (leave blank if text only)"
+                  value={settings.logoUrl || ''}
+                  onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <label className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-700 cursor-pointer shadow-2xs flex-shrink-0">
+                  Browse
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setSettings({ ...settings, logoUrl: reader.result });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {settings.logoUrl && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[10px] text-slate-500 font-medium">Receipt Logo Preview:</span>
+                  <img
+                    src={settings.logoUrl}
+                    alt="Logo preview"
+                    className="h-7 max-w-[70px] object-contain border border-slate-200 bg-white p-0.5 rounded"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Address (Thermal Lines)</label>
+                <textarea
+                  rows={2}
+                  value={settings.shopAddress || ''}
+                  onChange={(e) => setSettings({ ...settings, shopAddress: e.target.value })}
+                  placeholder="T/A-18,T/E-25,ANNA FRUITS MARKET,&#10;KOYAMBEDU,CHENNAI-600092"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Support Phone</label>
+                  <input
+                    type="text"
+                    value={settings.shopPhone || ''}
+                    onChange={(e) => setSettings({ ...settings, shopPhone: e.target.value })}
+                    placeholder="8778219770"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Footer Tagline / Website</label>
+                  <input
+                    type="text"
+                    value={settings.footerTagline || ''}
+                    onChange={(e) => setSettings({ ...settings, footerTagline: e.target.value })}
+                    placeholder="www.Websyncz.in-9092678008"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
             </div>
           </div>

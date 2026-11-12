@@ -12,11 +12,16 @@ export interface PrinterSettings {
   copies: number;
   printSupplierBatchTrace: boolean;
   printQrCode: boolean;
+  printLogo?: boolean;
+  logoUrl?: string;
+  shopInitials?: string;
   shopName: string;
   shopAddress: string;
   shopPhone: string;
   shopGst: string;
+  footerTerms?: string;
   footerMessage: string;
+  footerTagline?: string;
 }
 
 export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
@@ -28,11 +33,16 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   openCashDrawer: false,
   copies: 1,
   printSupplierBatchTrace: true,
-  printQrCode: true,
-  shopName: 'KBN FRUITS AND TRADERS',
-  shopAddress: 'APMC Terminal, Bay #12, Fruit Market, Vashi, Navi Mumbai - 400703',
-  shopPhone: '+91 98765 43210',
-  shopGst: '27AABCF1234F1Z8',
-  footerMessage: 'Thank you for your business! Fresh produce checked & verified at Mandi dock.',
+  printQrCode: false,
+  printLogo: true,
+  logoUrl: '',
+  shopInitials: 'SR',
+  shopName: 'SR FRUITS',
+  shopAddress: 'T/A-18,T/E-25,ANNA FRUITS MARKET,\nKOYAMBEDU,CHENNAI-600092',
+  shopPhone: '8778219770',
+  shopGst: '',
+  footerTerms: 'No Return,No Exchange',
+  footerMessage: 'Thank you!!!.Visit Again.!!!.',
+  footerTagline: 'www.Websyncz.in-9092678008',
 };
 

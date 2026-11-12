@@ -1,8 +1,32 @@
 import type { PrinterSettings } from '../types/printer';
 
+// Helper to format date as DD/MM/YYYY
+function formatReceiptDate(d?: string | Date | null): string {
+  if (!d) d = new Date();
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return new Date().toLocaleDateString('en-GB');
+  const day = String(dt.getDate()).padStart(2, '0');
+  const month = String(dt.getMonth() + 1).padStart(2, '0');
+  const year = dt.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// Helper to format time as hh: mm AM/PM
+function formatReceiptTime(d?: string | Date | null): string {
+  const dt = d ? new Date(d) : new Date();
+  const safeDt = isNaN(dt.getTime()) ? new Date() : dt;
+  let hours = safeDt.getHours();
+  const minutes = String(safeDt.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strHours = String(hours).padStart(2, '0');
+  return `${strHours}: ${minutes} ${ampm}`;
+}
+
 export const receiptGenerator = {
   /**
-   * Generates a thermal receipt as formatted HTML for 80mm or 58mm layouts.
+   * Generates a thermal receipt matching the real Koyambedu Mandi template (80mm / 58mm).
    */
   generateReceiptHtml(invoiceData: any, settings: PrinterSettings): string {
     const inv = invoiceData.invoice || invoiceData;
@@ -12,42 +36,97 @@ export const receiptGenerator = {
     const contentWidth = is58mm ? '48mm' : '72mm';
     const paperWidth = is58mm ? '58mm' : '80mm';
 
-    const invNumber = inv.invoiceNumber || 'INV-DRAFT';
-    const invDate = inv.invoiceDate
-      ? new Date(inv.invoiceDate).toLocaleDateString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        })
-      : new Date().toLocaleDateString('en-IN');
-    const invTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    // Monogram initials & Shop details (Logo is completely non-mandatory)
+    const shopName = (settings.shopName || 'SR FRUITS').trim().toUpperCase();
+    const initials = (settings.shopInitials || '').trim().toUpperCase();
+    const shouldPrintLogo = settings.printLogo !== false && (Boolean(settings.logoUrl) || Boolean(initials));
 
-    const customerName = inv.customerName || (inv.customer ? inv.customer.name : 'Walk-in Customer');
+    const shopAddressLines = (settings.shopAddress || '')
+      .split('\n')
+      .map((l) => l.trim().toUpperCase())
+      .filter(Boolean);
+
+    // Bill Type: CREDITBILL / CASHBILL
+    let billType = 'CREDITBILL';
+    const rawSaleType = String(inv.saleType || '').toUpperCase();
+    const balanceDue = Number(inv.balanceDue || 0);
+    const paidAmount = Number(inv.paidAmount || 0);
+    const grandTotal = Number(inv.grandTotal || 0);
+
+    if (rawSaleType === 'CASH') {
+      billType = 'CASHBILL';
+    } else if (rawSaleType === 'CREDIT') {
+      billType = 'CREDITBILL';
+    } else if (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0) {
+      billType = 'CASHBILL';
+    } else {
+      billType = 'CREDITBILL';
+    }
+
+    // Customer
+    const customerName = (
+      inv.customerName ||
+      (inv.customer ? inv.customer.name : 'Walk-in Customer')
+    ).toUpperCase();
     const customerPhone = inv.customerPhone || (inv.customer ? inv.customer.phone : '');
-    const saleType = inv.saleType || 'WHOLESALE';
 
-    const subtotal = Number(inv.subtotal || 0);
+    // Metadata
+    const invNumber = inv.invoiceNumber || '1453';
+    const cashierName =
+      inv.createdBy?.name ||
+      inv.createdBy?.username ||
+      inv.creator?.name ||
+      inv.creator?.username ||
+      inv.cashier ||
+      'admin';
+    const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
+    const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
+
+    // Math & Totals
+    const subtotal = Number(inv.subtotal || grandTotal || 0);
     const discount = Number(inv.discount || 0);
     const tax = Number(inv.tax || 0);
-    const grandTotal = Number(inv.grandTotal || 0);
-    const paidAmount = Number(inv.paidAmount || 0);
-    const balanceDue = Number(inv.balanceDue || 0);
-    const previousDue = Number(inv.previousDueSnapshot || 0);
+    const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
     const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
 
     const trayIssued = Number(inv.trayIssued || 0);
     const trayReturned = Number(inv.trayReturned || 0);
 
-    const divider = is58mm
-      ? '--------------------------------'
-      : '------------------------------------------------';
+    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
 
-    return `
-<!DOCTYPE html>
+    // Payments breakdown
+    let paymentRows: { label: string; amount: number }[] = [];
+    if (Array.isArray(payments) && payments.length > 0) {
+      paymentRows = payments
+        .filter((p: any) => Number(p.amount || 0) > 0)
+        .map((p: any) => {
+          const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
+          const modeLabel =
+            mode === 'CASH'
+              ? 'Cash Received'
+              : mode === 'GPAY' || mode === 'UPI' || mode === 'PHONEPE'
+              ? 'Gpay Received'
+              : `${mode} Received`;
+          return {
+            label: modeLabel,
+            amount: Number(p.amount || 0),
+          };
+        });
+    }
+
+    if (paymentRows.length === 0) {
+      if (paidAmount > 0) {
+        paymentRows.push({ label: 'Cash Received', amount: paidAmount });
+      } else {
+        paymentRows.push({ label: 'Cash Received', amount: 0 });
+      }
+    }
+
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Receipt #${invNumber}</title>
+  <title>Bill #${invNumber}</title>
   <style>
     @page {
       margin: 0;
@@ -61,12 +140,13 @@ export const receiptGenerator = {
       padding: ${is58mm ? '2mm 1mm' : '4mm 2mm'};
       background-color: #ffffff;
       color: #000000;
-      font-family: 'Courier New', Courier, monospace, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Courier New', Courier, Consolas, Monaco, monospace;
       font-size: ${is58mm ? '10px' : '11px'};
       line-height: 1.25;
       -webkit-font-smoothing: antialiased;
+      -webkit-print-color-adjust: exact;
     }
-    .receipt-container {
+    .receipt {
       width: ${contentWidth};
       max-width: 100%;
       margin: 0 auto;
@@ -75,67 +155,188 @@ export const receiptGenerator = {
     .text-right { text-align: right; }
     .text-left { text-align: left; }
     .font-bold { font-weight: bold; }
-    .text-large { font-size: ${is58mm ? '12px' : '14px'}; font-weight: bold; }
-    .text-title { font-size: ${is58mm ? '13px' : '15px'}; font-weight: 800; letter-spacing: 0.5px; }
-    .text-small { font-size: ${is58mm ? '8.5px' : '9.5px'}; }
-    .divider {
-      white-space: pre;
-      overflow: hidden;
-      margin: 3px 0;
-      font-size: 10px;
-      line-height: 1;
+    
+    /* Header */
+    .logo-image {
+      max-width: ${is58mm ? '36mm' : '45mm'};
+      max-height: 25mm;
+      object-fit: contain;
+      margin: 0 auto 3px auto;
+      display: block;
+      filter: grayscale(100%) contrast(140%);
     }
-    .flex-row {
+    .logo-monogram {
+      font-size: ${is58mm ? '20px' : '26px'};
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-align: center;
+      line-height: 1.1;
+      margin-bottom: 2px;
+    }
+    .shop-title {
+      font-size: ${is58mm ? '12px' : '14px'};
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .shop-address {
+      font-size: ${is58mm ? '8.5px' : '9.5px'};
+      text-align: center;
+      line-height: 1.25;
+      color: #111;
+    }
+    .shop-gst {
+      font-size: ${is58mm ? '8px' : '9px'};
+      text-align: center;
+      margin-top: 1px;
+    }
+    
+    /* Bill Type & Customer */
+    .bill-type-tag {
+      font-size: ${is58mm ? '11px' : '12px'};
+      font-weight: 800;
+      text-align: right;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+      margin-bottom: 2px;
+    }
+    .customer-box {
+      margin: 2px 0 3px 0;
+    }
+    .customer-name {
+      font-size: ${is58mm ? '11px' : '12px'};
+      font-weight: bold;
+      letter-spacing: 0.3px;
+    }
+    .customer-phone {
+      font-size: ${is58mm ? '10px' : '11px'};
+      margin-top: 1px;
+    }
+
+    /* Dividers */
+    .divider {
+      border-top: 1px dashed #000000;
+      margin: 3px 0;
+      width: 100%;
+    }
+    .divider-solid {
+      border-top: 1px solid #000000;
+      margin: 3px 0;
+      width: 100%;
+    }
+
+    /* Meta Grid */
+    .meta-row {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: center;
+      font-size: ${is58mm ? '9px' : '10.5px'};
+      line-height: 1.35;
     }
+
+    /* Items Table */
     .items-table {
       width: 100%;
       border-collapse: collapse;
       margin: 2px 0;
     }
     .items-table th {
-      border-bottom: 1px dashed #000;
       padding: 3px 0;
-      font-size: ${is58mm ? '9px' : '10px'};
-      text-transform: uppercase;
+      font-size: ${is58mm ? '9px' : '10.5px'};
+      font-weight: bold;
+      border-bottom: 1px dashed #000;
     }
     .items-table td {
       padding: 2px 0;
       vertical-align: top;
+      font-size: ${is58mm ? '9.5px' : '10.5px'};
+      line-height: 1.25;
     }
-    .batch-trace {
-      font-size: ${is58mm ? '8px' : '9px'};
-      color: #333;
-      padding-left: 6px;
+    .col-desc {
+      text-align: left;
+      width: ${is58mm ? '42%' : '46%'};
+      word-break: break-word;
+    }
+    .col-qty {
+      text-align: right;
+      width: ${is58mm ? '16%' : '14%'};
+      padding-right: 2px;
+    }
+    .col-rate {
+      text-align: right;
+      width: ${is58mm ? '20%' : '18%'};
+      padding-right: 2px;
+    }
+    .col-amt {
+      text-align: right;
+      width: ${is58mm ? '22%' : '22%'};
+    }
+    .lot-trace {
+      font-size: ${is58mm ? '7.5px' : '8.5px'};
       font-style: italic;
+      color: #333;
+      padding-left: 4px;
+      line-height: 1.2;
     }
-    .totals-box {
+
+    /* Totals Block */
+    .totals-container {
+      display: flex;
+      justify-content: flex-end;
       margin-top: 4px;
-      padding-top: 2px;
     }
-    .grand-total-row {
-      font-size: ${is58mm ? '12px' : '13px'};
-      font-weight: 900;
-      margin: 3px 0;
-      padding: 2px 0;
+    .totals-table {
+      width: ${is58mm ? '100%' : '78%'};
+    }
+    .total-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 1px 0;
+      font-size: ${is58mm ? '9.5px' : '10.5px'};
+      line-height: 1.35;
+    }
+    .total-line .t-label {
+      text-align: right;
+      flex: 1;
+      padding-right: 8px;
+    }
+    .total-line .t-val {
+      text-align: right;
+      min-width: 60px;
+    }
+    .totals-subline {
       border-top: 1px dashed #000;
-      border-bottom: 1px dashed #000;
+      margin: 2px 0;
     }
-    .barcode-box {
-      margin: 6px 0 3px 0;
+    .closing-balance-row {
+      font-size: ${is58mm ? '11px' : '12.5px'};
+      font-weight: 900;
+      margin-top: 2px;
+      padding-top: 1px;
+    }
+
+    /* Summary Line */
+    .summary-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: ${is58mm ? '9.5px' : '10.5px'};
+      font-weight: bold;
+      padding: 1px 0;
+    }
+
+    /* Footer */
+    .footer-box {
       text-align: center;
+      margin-top: 5px;
+      font-size: ${is58mm ? '8.5px' : '9.5px'};
+      line-height: 1.35;
     }
-    .barcode-svg {
-      max-width: 100%;
-      height: 28px;
-    }
-    .footer-note {
-      margin-top: 6px;
-      font-size: ${is58mm ? '8.5px' : '9px'};
-      text-align: center;
-      line-height: 1.3;
+    .footer-tagline {
+      font-size: ${is58mm ? '8px' : '9px'};
+      margin-top: 2px;
+      font-weight: bold;
     }
     .cut-spacing {
       height: 12mm;
@@ -143,408 +344,289 @@ export const receiptGenerator = {
   </style>
 </head>
 <body>
-  <div class="receipt-container">
+  <div class="receipt">
     <!-- Header -->
     <div class="text-center">
-      <div class="text-title">${settings.shopName}</div>
-      <div class="text-small">${settings.shopAddress}</div>
-      <div class="text-small">Tel: ${settings.shopPhone} · GSTIN: ${settings.shopGst}</div>
-      <div class="text-small font-bold" style="margin-top: 2px;">*** APMC MANDI TAX INVOICE ***</div>
-    </div>
-
-    <div class="divider">${divider}</div>
-
-    <!-- Metadata -->
-    <div>
-      <div class="flex-row">
-        <span>BILL NO: <strong class="font-bold">${invNumber}</strong></span>
-        <span>${saleType}</span>
-      </div>
-      <div class="flex-row text-small">
-        <span>DATE: ${invDate}</span>
-        <span>TIME: ${invTime}</span>
-      </div>
-      <div class="flex-row text-small">
-        <span>CUSTOMER: <strong>${customerName}</strong></span>
-        <span>${customerPhone ? customerPhone : ''}</span>
-      </div>
-    </div>
-
-    <div class="divider">${divider}</div>
-
-    <!-- Line Items Table -->
-    ${
-      is58mm
-        ? `
-    <!-- 58mm Compact 2-Line Items Layout -->
-    <div class="font-bold text-small flex-row" style="border-bottom: 1px dashed #000; padding-bottom: 2px;">
-      <span>ITEM / DETAILS</span>
-      <span>AMOUNT</span>
-    </div>
-    ${items
-      .map((item: any) => {
-        const pName = item.productName || (item.product ? item.product.name : 'Produce');
-        const variety = item.variety || (item.product ? item.product.variety : '');
-        const qty = Number(item.quantity || 0);
-        const unit = item.unit || 'BOX';
-        const rate = Number(item.rate || 0);
-        const amt = Number(item.totalAmount || qty * rate);
-
-        return `
-      <div style="margin: 3px 0;">
-        <div class="font-bold">${pName} ${variety ? `(${variety})` : ''}</div>
-        <div class="flex-row text-small">
-          <span>${qty} ${unit} @ ₹${rate.toLocaleString('en-IN')}</span>
-          <span class="font-bold">₹${amt.toLocaleString('en-IN')}</span>
-        </div>
-        ${
-          settings.printSupplierBatchTrace && item.batchAllocations && item.batchAllocations.length > 0
-            ? item.batchAllocations
-                .map(
-                  (a: any) => `
-          <div class="batch-trace">↳ Lot: ${a.batch ? a.batch.batchNumber : `B#${a.batchId}`} [${a.supplier ? a.supplier.name : 'Supplier'}] (${a.quantity} ${a.unit || unit})</div>
-        `
-                )
-                .join('')
+      ${
+        shouldPrintLogo
+          ? settings.logoUrl
+            ? `<img src="${settings.logoUrl}" class="logo-image" alt="Shop Logo" onerror="this.style.display='none'" />`
+            : initials
+            ? `<div class="logo-monogram">${initials}</div>`
             : ''
-        }
-      </div>
-      `;
-      })
-      .join('')}
-    `
-        : `
-    <!-- 80mm Standard Table Layout -->
+          : ''
+      }
+      <div class="shop-title">${shopName}</div>
+      ${shopAddressLines.map((line) => `<div class="shop-address">${line}</div>`).join('')}
+      ${settings.shopGst ? `<div class="shop-gst">GSTIN: ${settings.shopGst}</div>` : ''}
+    </div>
+
+    <!-- Bill Type -->
+    <div class="bill-type-tag">${billType}</div>
+
+    <!-- Customer -->
+    <div class="customer-box">
+      <div class="customer-name">${customerName}</div>
+      ${customerPhone ? `<div class="customer-phone">${customerPhone}</div>` : ''}
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Meta Info -->
+    <div class="meta-row">
+      <span>Bill No : ${invNumber}</span>
+      <span>Date : ${invDate}</span>
+    </div>
+    <div class="meta-row">
+      <span>Cashier : ${cashierName}</span>
+      <span>Time : ${invTime}</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Items Table -->
     <table class="items-table">
       <thead>
         <tr>
-          <th class="text-left" style="width: 44%;">ITEM</th>
-          <th class="text-right" style="width: 18%;">QTY</th>
-          <th class="text-right" style="width: 18%;">RATE</th>
-          <th class="text-right" style="width: 20%;">AMOUNT</th>
+          <th class="col-desc">Description</th>
+          <th class="col-qty">Qty</th>
+          <th class="col-rate">Rate</th>
+          <th class="col-amt">Amount</th>
         </tr>
       </thead>
       <tbody>
         ${items
           .map((item: any) => {
-            const pName = item.productName || (item.product ? item.product.name : 'Produce');
+            const pName = (
+              item.productName ||
+              (item.product ? item.product.name : 'Produce')
+            ).toUpperCase();
             const variety = item.variety || (item.product ? item.product.variety : '');
+            const itemTitle = variety ? `${pName} (${variety})` : pName;
             const qty = Number(item.quantity || 0);
-            const unit = item.unit || 'BOX';
             const rate = Number(item.rate || 0);
             const amt = Number(item.totalAmount || qty * rate);
 
             return `
-          <tr>
-            <td colspan="4" class="font-bold" style="padding-top: 3px;">
-              ${pName} ${variety ? `(${variety})` : ''}
-            </td>
-          </tr>
-          <tr>
-            <td class="text-small" style="padding-left: 6px;">Grade ${item.grade || 'A'}</td>
-            <td class="text-right text-small">${qty} ${unit}</td>
-            <td class="text-right text-small">₹${rate.toLocaleString('en-IN')}</td>
-            <td class="text-right font-bold">₹${amt.toLocaleString('en-IN')}</td>
-          </tr>
-          ${
-            settings.printSupplierBatchTrace && item.batchAllocations && item.batchAllocations.length > 0
-              ? item.batchAllocations
-                  .map(
-                    (a: any) => `
-            <tr>
-              <td colspan="4" class="batch-trace">
-                ↳ FIFO Lot: ${a.batch ? a.batch.batchNumber : `Batch #${a.batchId}`} · ${a.supplier ? a.supplier.name : 'Direct Consignment'} (${a.quantity} ${a.unit || unit})
-              </td>
-            </tr>
-          `
-                  )
-                  .join('')
-              : ''
-          }
+        <tr>
+          <td class="col-desc font-bold">${itemTitle}</td>
+          <td class="col-qty">${qty}</td>
+          <td class="col-rate">${rate.toFixed(2)}</td>
+          <td class="col-amt font-bold">${amt.toFixed(2)}</td>
+        </tr>
+        ${
+          settings.printSupplierBatchTrace && item.batchAllocations && item.batchAllocations.length > 0
+            ? item.batchAllocations
+                .map(
+                  (a: any) => `
+        <tr>
+          <td colspan="4" class="lot-trace">
+            ↳ FIFO Lot: ${a.batch ? a.batch.batchNumber : `BATCH-${a.batchId}`} · ${
+                    a.supplier ? a.supplier.name : 'Direct Consignment'
+                  } (${a.quantity} ${a.unit || item.unit || 'BOX'})
+          </td>
+        </tr>
+        `
+                )
+                .join('')
+            : ''
+        }
         `;
           })
           .join('')}
       </tbody>
     </table>
-    `
-    }
 
-    <div class="divider">${divider}</div>
-
-    <!-- Totals Summary -->
-    <div class="totals-box">
-      <div class="flex-row">
-        <span>SUBTOTAL:</span>
-        <span>₹${subtotal.toLocaleString('en-IN')}</span>
-      </div>
-
-      ${
-        discount > 0
-          ? `
-      <div class="flex-row">
-        <span>DISCOUNT:</span>
-        <span>-₹${discount.toLocaleString('en-IN')}</span>
-      </div>
-      `
-          : ''
-      }
-
-      ${
-        tax > 0
-          ? `
-      <div class="flex-row text-small">
-        <span>TAX (CGST + SGST):</span>
-        <span>₹${tax.toLocaleString('en-IN')}</span>
-      </div>
-      `
-          : `
-      <div class="flex-row text-small" style="color: #444;">
-        <span>GST:</span>
-        <span>₹0.00 (Fresh Produce Exempt)</span>
-      </div>
-      `
-      }
-
-      <div class="flex-row grand-total-row">
-        <span>NET PAYABLE:</span>
-        <span>₹${grandTotal.toLocaleString('en-IN')}</span>
-      </div>
-
-      <!-- Payment & Ledger Settlement -->
-      <div style="margin-top: 3px;">
-        ${
-          payments.length > 0
-            ? payments
-                .map(
-                  (p: any) => `
-          <div class="flex-row text-small">
-            <span>PAID (${p.paymentMode || p.method || 'CASH'}):</span>
-            <span class="font-bold">₹${Number(p.amount || 0).toLocaleString('en-IN')}</span>
-          </div>
-        `
-                )
-                .join('')
-            : `
-          <div class="flex-row text-small">
-            <span>TOTAL PAID:</span>
-            <span class="font-bold">₹${paidAmount.toLocaleString('en-IN')}</span>
-          </div>
-        `
-        }
-
-        ${
-          previousDue > 0
-            ? `
-        <div class="flex-row text-small" style="color: #333; margin-top: 1px;">
-          <span>PREVIOUS DUE:</span>
-          <span>₹${previousDue.toLocaleString('en-IN')}</span>
+    <!-- Totals Section -->
+    <div class="totals-container">
+      <div class="totals-table">
+        <div class="total-line">
+          <span class="t-label">Gross Amount :</span>
+          <span class="t-val">${subtotal.toFixed(2)}</span>
         </div>
-        <div class="flex-row text-small" style="color: #333;">
-          <span>TOTAL ACCOUNT DUE:</span>
-          <span>₹${totalPayable.toLocaleString('en-IN')}</span>
+
+        ${
+          discount > 0
+            ? `
+        <div class="total-line">
+          <span class="t-label">Discount :</span>
+          <span class="t-val">-${discount.toFixed(2)}</span>
         </div>
         `
             : ''
         }
 
-        <div class="flex-row" style="font-weight: bold; margin-top: 2px;">
-          <span>CURRENT BALANCE DUE:</span>
-          <span style="${balanceDue > 0 ? 'text-decoration: underline;' : ''}">₹${balanceDue.toLocaleString('en-IN')}</span>
+        ${
+          tax > 0
+            ? `
+        <div class="total-line">
+          <span class="t-label">Tax / GST :</span>
+          <span class="t-val">${tax.toFixed(2)}</span>
         </div>
-      </div>
+        `
+            : ''
+        }
 
-      <!-- Mandi Trays Section -->
-      ${
-        trayIssued > 0 || trayReturned > 0
-          ? `
-      <div class="divider">${divider}</div>
-      <div class="text-small">
-        <div class="font-bold">MANDI TRAYS / CRATES RECORD:</div>
-        <div class="flex-row">
-          <span>Issued: <strong>${trayIssued}</strong></span>
-          <span>Returned: <strong>${trayReturned}</strong></span>
-          <span>Net: <strong>${trayIssued - trayReturned}</strong></span>
+        <div class="total-line font-bold">
+          <span class="t-label">Net Amount :</span>
+          <span class="t-val">${grandTotal.toFixed(2)}</span>
+        </div>
+
+        ${
+          previousDue > 0
+            ? `
+        <div class="total-line">
+          <span class="t-label">Opening Balance :</span>
+          <span class="t-val">${previousDue.toFixed(2)}</span>
+        </div>
+        <div class="totals-subline"></div>
+        <div class="total-line font-bold">
+          <span class="t-label">Total Amt:</span>
+          <span class="t-val">${totalPayable.toFixed(2)}</span>
+        </div>
+        `
+            : ''
+        }
+
+        ${paymentRows
+          .map(
+            (p) => `
+        <div class="total-line">
+          <span class="t-label">${p.label} :</span>
+          <span class="t-val">${p.amount.toFixed(2)}</span>
+        </div>
+        `
+          )
+          .join('')}
+
+        <div class="total-line font-bold closing-balance-row">
+          <span class="t-label">Closing Balance :</span>
+          <span class="t-val">${balanceDue.toFixed(2)}</span>
         </div>
       </div>
-      `
-          : ''
-      }
     </div>
 
-    <!-- Barcode / QR Code representation -->
+    <div class="divider"></div>
+
+    <!-- Summary of Items & Qty -->
+    <div class="summary-bar">
+      <span>No.Of.Items : ${items.length}</span>
+      <span>Total Qty : ${totalQty % 1 === 0 ? totalQty : totalQty.toFixed(2)}</span>
+    </div>
+
     ${
-      settings.printQrCode
+      trayIssued > 0 || trayReturned > 0
         ? `
-    <div class="barcode-box">
-      <svg class="barcode-svg" viewBox="0 0 200 40">
-        <rect width="200" height="40" fill="#fff"/>
-        <g fill="#000">
-          <!-- Stylized barcode lines -->
-          <rect x="10" y="5" width="3" height="24"/>
-          <rect x="16" y="5" width="2" height="24"/>
-          <rect x="22" y="5" width="5" height="24"/>
-          <rect x="30" y="5" width="2" height="24"/>
-          <rect x="36" y="5" width="4" height="24"/>
-          <rect x="44" y="5" width="1" height="24"/>
-          <rect x="48" y="5" width="3" height="24"/>
-          <rect x="54" y="5" width="6" height="24"/>
-          <rect x="63" y="5" width="2" height="24"/>
-          <rect x="68" y="5" width="4" height="24"/>
-          <rect x="75" y="5" width="3" height="24"/>
-          <rect x="81" y="5" width="1" height="24"/>
-          <rect x="85" y="5" width="5" height="24"/>
-          <rect x="93" y="5" width="2" height="24"/>
-          <rect x="98" y="5" width="4" height="24"/>
-          <rect x="105" y="5" width="3" height="24"/>
-          <rect x="111" y="5" width="5" height="24"/>
-          <rect x="119" y="5" width="2" height="24"/>
-          <rect x="124" y="5" width="4" height="24"/>
-          <rect x="131" y="5" width="1" height="24"/>
-          <rect x="135" y="5" width="5" height="24"/>
-          <rect x="143" y="5" width="3" height="24"/>
-          <rect x="149" y="5" width="2" height="24"/>
-          <rect x="154" y="5" width="4" height="24"/>
-          <rect x="161" y="5" width="2" height="24"/>
-          <rect x="166" y="5" width="5" height="24"/>
-          <rect x="174" y="5" width="2" height="24"/>
-          <rect x="179" y="5" width="4" height="24"/>
-          <rect x="186" y="5" width="3" height="24"/>
-        </g>
-        <text x="100" y="37" font-size="8" font-family="monospace" text-anchor="middle" fill="#000">${invNumber}</text>
-      </svg>
+    <div class="meta-row" style="margin-top: 1px; font-size: ${is58mm ? '8.5px' : '9.5px'};">
+      <span>Trays Issued: ${trayIssued}</span>
+      <span>Returned: ${trayReturned}</span>
+      <span>Net: ${trayIssued - trayReturned}</span>
     </div>
     `
         : ''
     }
 
-    <div class="divider">${divider}</div>
+    <div class="divider"></div>
 
     <!-- Footer -->
-    <div class="footer-note">
-      <div>${settings.footerMessage}</div>
-      <div style="margin-top: 3px; font-weight: bold;">Goods checked &amp; verified at dock. Thank you!</div>
-      <div class="text-small" style="color: #555; margin-top: 2px;">*** KBN FRUITS AND TRADERS MANDI SYSTEM ***</div>
+    <div class="footer-box">
+      <div>${settings.footerTerms || 'No Return,No Exchange'}</div>
+      <div>${settings.footerMessage || 'Thank you!!!.Visit Again.!!!.'}</div>
+      ${
+        settings.footerTagline
+          ? `<div class="footer-tagline">${settings.footerTagline}</div>`
+          : ''
+      }
     </div>
 
     <!-- Paper cut spacing for thermal printers -->
     <div class="cut-spacing"></div>
   </div>
 </body>
-</html>
-`;
+</html>`;
   },
 
   /**
-   * Generates a diagnostic test receipt to verify printer connection and alignment.
+   * Generates a diagnostic test receipt based exactly on the reference image (Koyambedu Mandi format).
    */
   generateTestReceiptHtml(settings: PrinterSettings, printerName?: string): string {
-    const is58mm = settings.paperSize === '58mm';
-    const contentWidth = is58mm ? '48mm' : '72mm';
-    const paperWidth = is58mm ? '58mm' : '80mm';
     const targetPrinter = printerName || settings.printerName || 'Default System Printer';
-    const now = new Date();
 
-    const ruler = is58mm
-      ? '|-- 58mm Width Alignment --|'
-      : '|-------- 80mm POS Thermal Width Alignment --------|';
+    // Sample data matching the real Koyambedu receipt image
+    const sampleInvoice = {
+      invoiceNumber: '1453',
+      saleType: 'CREDIT',
+      invoiceDate: '2026-11-05',
+      customerName: 'RM BHAI',
+      customerPhone: '8778219770',
+      cashier: 'admin',
+      subtotal: 14900.0,
+      discount: 0,
+      tax: 0,
+      grandTotal: 14900.0,
+      paidAmount: 10000.0,
+      previousDueSnapshot: 102725.0,
+      balanceDue: 107625.0,
+      trayIssued: 0,
+      trayReturned: 0,
+      payments: [
+        { paymentMode: 'CASH', amount: 0.0 },
+        { paymentMode: 'GPAY', amount: 10000.0 },
+      ],
+      items: [
+        {
+          productName: 'SS',
+          quantity: 20,
+          rate: 170.0,
+          totalAmount: 3400.0,
+        },
+        {
+          productName: 'KINNAUAR 200',
+          quantity: 1,
+          rate: 3300.0,
+          totalAmount: 3300.0,
+        },
+        {
+          productName: 'KINNAUAR 150',
+          quantity: 1,
+          rate: 4300.0,
+          totalAmount: 4300.0,
+        },
+        {
+          productName: 'KIWI',
+          quantity: 1,
+          rate: 1700.0,
+          totalAmount: 1700.0,
+        },
+        {
+          productName: 'BABY ORANGE',
+          quantity: 1,
+          rate: 2200.0,
+          totalAmount: 2200.0,
+        },
+      ],
+    };
 
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Printer Diagnostic Test</title>
-  <style>
-    @page { margin: 0; size: ${paperWidth} auto; }
-    body {
-      margin: 0;
-      padding: ${is58mm ? '2mm 1mm' : '4mm 2mm'};
-      background-color: #fff;
-      color: #000;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: ${is58mm ? '10px' : '11px'};
-      line-height: 1.25;
-    }
-    .container { width: ${contentWidth}; margin: 0 auto; }
-    .center { text-align: center; }
-    .right { text-align: right; }
-    .bold { font-weight: bold; }
-    .title { font-size: 13px; font-weight: 800; }
-    .divider { margin: 3px 0; font-size: 10px; }
-    .box { border: 1px dashed #000; padding: 4px; margin: 4px 0; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="center">
-      <div class="title">*** PRINTER TEST TICKET ***</div>
-      <div class="bold">${settings.shopName}</div>
-      <div>QZ Tray Direct POS Communication</div>
-    </div>
-
-    <div class="divider">================================================</div>
-
-    <div class="box">
-      <div>PRINTER: <strong class="bold">${targetPrinter}</strong></div>
-      <div>PAPER SIZE: <strong class="bold">${settings.paperSize.toUpperCase()} Thermal</strong></div>
-      <div>PRINT MODE: <strong class="bold">${settings.printMode}</strong></div>
-      <div>AUTO-CUT: <strong>${settings.cutPaper ? 'ENABLED' : 'DISABLED'}</strong></div>
-      <div>DRAWER KICK: <strong>${settings.openCashDrawer ? 'ENABLED' : 'DISABLED'}</strong></div>
-      <div>TIMESTAMP: ${now.toLocaleDateString('en-IN')} ${now.toLocaleTimeString('en-IN')}</div>
-    </div>
-
-    <div class="divider">------------------------------------------------</div>
-
-    <div class="center bold" style="font-size: 9px;">${ruler}</div>
-
-    <div style="margin: 4px 0;">
-      <div class="bold">SAMPLE TEST PRODUCE ITEMS:</div>
-      <div style="display:flex; justify-content:space-between;">
-        <span>Apple (Royal Gala) 10 BOX</span>
-        <span class="bold">₹20,000.00</span>
-      </div>
-      <div style="display:flex; justify-content:space-between;">
-        <span>Pomegranate (Bhagwa) 5 BOX</span>
-        <span class="bold">₹10,000.00</span>
-      </div>
-    </div>
-
-    <div class="divider">------------------------------------------------</div>
-
-    <div style="display:flex; justify-content:space-between; font-weight: bold; font-size: 12px;">
-      <span>TEST TOTAL:</span>
-      <span>₹30,000.00</span>
-    </div>
-
-    <div class="divider">================================================</div>
-
-    <div class="center" style="margin-top: 4px;">
-      <div class="bold">✓ PRINTER TEST PASSED</div>
-      <div style="font-size: 9px; color: #333;">If this text is sharp and aligned within margins, your thermal printer is ready for high-speed counter billing!</div>
-    </div>
-
-    <div style="height: 12mm;"></div>
-  </div>
-</body>
-</html>
-`;
+    return this.generateReceiptHtml(sampleInvoice, {
+      ...settings,
+      printerName: targetPrinter,
+    });
   },
 
   /**
-   * Generates raw ESC/POS command bytes for high-speed thermal printers.
+   * Generates raw ESC/POS command bytes for high-speed thermal printers (matching image format).
    */
   generateEscPosCommands(invoiceData: any, settings: PrinterSettings): Uint8Array {
     const inv = invoiceData.invoice || invoiceData;
     const items = inv.items || [];
-    const is58mm = settings.paperSize === '58mm';
-    const cols = is58mm ? 32 : 48;
+    const payments = inv.payments || [];
+    const cols = settings.paperSize === '58mm' ? 32 : 48;
 
     const ESC = 0x1b;
     const GS = 0x1d;
 
     const bytes: number[] = [];
 
-    // Helper to push string in ASCII
     const text = (str: string) => {
       for (let i = 0; i < str.length; i++) {
         bytes.push(str.charCodeAt(i) & 0xff);
@@ -556,79 +638,144 @@ export const receiptGenerator = {
       bytes.push(0x0a); // LF
     };
 
-    // 1. Initialize printer: ESC @
+    const padRow = (left: string, right: string, maxLen: number) => {
+      const sp = Math.max(1, maxLen - left.length - right.length);
+      return left + ' '.repeat(sp) + right;
+    };
+
+    // 1. Initialize: ESC @
     bytes.push(ESC, 0x40);
 
-    // 2. Open Cash Drawer if enabled (ESC p m t1 t2)
+    // 2. Open Cash Drawer if enabled
     if (settings.openCashDrawer) {
       bytes.push(ESC, 0x70, 0x00, 0x19, 0xfa);
     }
 
-    // 3. Center alignment: ESC a 1
-    bytes.push(ESC, 0x61, 0x01);
+    // 3. Monogram / Header (Center aligned)
+    bytes.push(ESC, 0x61, 0x01); // Center
 
-    // Double height + width for Shop Name: ESC ! 0x30
-    bytes.push(ESC, 0x21, 0x30);
-    line(settings.shopName);
+    const shopName = (settings.shopName || 'SR FRUITS').toUpperCase();
+    const initials = (settings.shopInitials || '').trim().toUpperCase();
 
-    // Normal font: ESC ! 0x00
+    // Initials (Non-mandatory logo monogram)
+    if (settings.printLogo !== false && initials) {
+      bytes.push(ESC, 0x21, 0x30); // Double width & Double height
+      line(initials);
+    }
+
+    // Shop Title: Double width
+    bytes.push(ESC, 0x21, 0x20);
+    line(shopName);
+
+    // Normal font
     bytes.push(ESC, 0x21, 0x00);
-    line(settings.shopAddress);
-    line(`Tel: ${settings.shopPhone} · GSTIN: ${settings.shopGst}`);
-    line('*** APMC MANDI TAX INVOICE ***');
+    const addressLines = (settings.shopAddress || '').split('\n').filter(Boolean);
+    addressLines.forEach((addr) => line(addr.toUpperCase()));
+    if (settings.shopGst) line(`GSTIN: ${settings.shopGst}`);
 
-    // Divider
+    // Bill Type: Right aligned
+    bytes.push(ESC, 0x61, 0x02); // Right
+    const billType =
+      String(inv.saleType || '').toUpperCase() === 'CASH' ? 'CASHBILL' : 'CREDITBILL';
+    bytes.push(ESC, 0x45, 0x01); // Bold ON
+    line(billType);
+    bytes.push(ESC, 0x45, 0x00); // Bold OFF
+
+    // Customer: Left aligned
+    bytes.push(ESC, 0x61, 0x00); // Left
+    const custName = (
+      inv.customerName ||
+      (inv.customer ? inv.customer.name : 'Walk-in Customer')
+    ).toUpperCase();
+    line(custName);
+    const custPhone = inv.customerPhone || (inv.customer ? inv.customer.phone : '');
+    if (custPhone) line(custPhone);
+
     line('-'.repeat(cols));
 
-    // 4. Left alignment: ESC a 0
-    bytes.push(ESC, 0x61, 0x00);
-    line(`BILL NO: ${inv.invoiceNumber || 'INV-DRAFT'}`);
-    line(`DATE: ${inv.invoiceDate || new Date().toISOString().slice(0, 10)}  TYPE: ${inv.saleType || 'WHOLESALE'}`);
-    line(`CUSTOMER: ${inv.customerName || (inv.customer ? inv.customer.name : 'Walk-in')}`);
+    // Meta: Bill No & Date / Cashier & Time
+    const invNumber = inv.invoiceNumber || '1453';
+    const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
+    const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
+    const cashier =
+      inv.createdBy?.name ||
+      inv.createdBy?.username ||
+      inv.cashier ||
+      'admin';
+
+    line(padRow(`Bill No : ${invNumber}`, `Date : ${invDate}`, cols));
+    line(padRow(`Cashier : ${cashier}`, `Time : ${invTime}`, cols));
+
+    line('-'.repeat(cols));
+
+    // Table Header
+    line(padRow('Description', 'Qty   Rate    Amount', cols));
     line('-'.repeat(cols));
 
     // Items
+    let totalQty = 0;
     for (const item of items) {
-      const pName = item.productName || (item.product ? item.product.name : 'Produce');
+      const pName = (
+        item.productName ||
+        (item.product ? item.product.name : 'Produce')
+      ).toUpperCase();
       const qty = Number(item.quantity || 0);
-      const unit = item.unit || 'BOX';
-      const rate = Number(item.rate || 0);
-      const amt = Number(item.totalAmount || qty * rate);
+      totalQty += qty;
+      const rate = Number(item.rate || 0).toFixed(2);
+      const amt = Number(item.totalAmount || qty * Number(item.rate || 0)).toFixed(2);
 
-      line(`${pName}`);
-      const detailStr = `  ${qty} ${unit} @ Rs.${rate}`;
-      const amtStr = `Rs.${amt}`;
-      const spaces = Math.max(1, cols - detailStr.length - amtStr.length);
-      line(detailStr + ' '.repeat(spaces) + amtStr);
+      const rightCols = `${qty}  ${rate}  ${amt}`;
+      line(padRow(pName, rightCols, cols));
     }
 
     line('-'.repeat(cols));
 
-    // Grand Total (Bold)
+    // Totals Section (Right-aligned)
+    bytes.push(ESC, 0x61, 0x02); // Right
+    const subtotal = Number(inv.subtotal || inv.grandTotal || 0).toFixed(2);
+    const grandTotal = Number(inv.grandTotal || 0).toFixed(2);
+    const previousDue = Number(inv.previousDueSnapshot || 0).toFixed(2);
+    const totalPayable = (Number(inv.previousDueSnapshot || 0) + Number(inv.grandTotal || 0)).toFixed(2);
+    const balanceDue = Number(inv.balanceDue || 0).toFixed(2);
+
+    line(`Gross Amount :  ${subtotal}`);
+    line(`Net Amount :  ${grandTotal}`);
+    if (Number(previousDue) > 0) {
+      line(`Opening Balance :  ${previousDue}`);
+      line('-'.repeat(Math.min(28, cols)));
+      line(`Total Amt:  ${totalPayable}`);
+    }
+
+    if (Array.isArray(payments) && payments.length > 0) {
+      for (const p of payments) {
+        const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
+        const pLabel = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : 'Cash Received';
+        line(`${pLabel} :  ${Number(p.amount || 0).toFixed(2)}`);
+      }
+    } else {
+      line(`Cash Received :  0.00`);
+    }
+
     bytes.push(ESC, 0x45, 0x01); // Bold ON
-    const totalLabel = 'GRAND TOTAL:';
-    const totalVal = `Rs.${Number(inv.grandTotal || 0).toLocaleString('en-IN')}`;
-    const totSpaces = Math.max(1, cols - totalLabel.length - totalVal.length);
-    line(totalLabel + ' '.repeat(totSpaces) + totalVal);
+    line(`Closing Balance :  ${balanceDue}`);
     bytes.push(ESC, 0x45, 0x00); // Bold OFF
 
-    // Balance Due
-    const dueLabel = 'CURRENT DUE:';
-    const dueVal = `Rs.${Number(inv.balanceDue || 0).toLocaleString('en-IN')}`;
-    const dueSpaces = Math.max(1, cols - dueLabel.length - dueVal.length);
-    line(dueLabel + ' '.repeat(dueSpaces) + dueVal);
+    // Left align for summary
+    bytes.push(ESC, 0x61, 0x00);
+    line('-'.repeat(cols));
+    line(padRow(`No.Of.Items : ${items.length}`, `Total Qty : ${totalQty}`, cols));
+    line('-'.repeat(cols));
 
-    line('='.repeat(cols));
-
-    // Center alignment for footer
+    // Footer (Center)
     bytes.push(ESC, 0x61, 0x01);
-    line(settings.footerMessage);
-    line('Goods once sold checked at dock. Thank you!');
+    line(settings.footerTerms || 'No Return,No Exchange');
+    line(settings.footerMessage || 'Thank you!!!.Visit Again.!!!.');
+    if (settings.footerTagline) line(settings.footerTagline);
 
-    // Line feeds
+    // Spacing before cut
     bytes.push(0x0a, 0x0a, 0x0a, 0x0a);
 
-    // 5. Paper Cut: GS V 66 0 (Partial Cut with feed)
+    // Paper Cut: GS V 66 0 (Partial Cut with feed)
     if (settings.cutPaper) {
       bytes.push(GS, 0x56, 0x42, 0x00);
     }
