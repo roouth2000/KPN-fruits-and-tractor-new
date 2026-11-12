@@ -9,10 +9,20 @@ async function runTests() {
   const { sequelize } = require('../src/models');
 
   // Reset database state for idempotent testing
+  await sequelize.query('DELETE FROM invoice_item_batches');
   await sequelize.query('DELETE FROM payment_allocations');
   await sequelize.query('DELETE FROM payments');
   await sequelize.query('DELETE FROM invoice_items');
   await sequelize.query('DELETE FROM invoices');
+  await sequelize.query('DELETE FROM stock_movements');
+  await sequelize.query('DELETE FROM batches');
+  await sequelize.query(`
+    INSERT INTO batches (id, batchNumber, productId, supplierId, purchaseDate, initialQuantity, currentQuantity, unit, purchaseRate, status, createdAt, updatedAt)
+    VALUES
+      (1, 'BATCH-20261101-S1-APP-001', 1, 1, '2026-11-01', 150.00, 150.00, 'BOX', 1500.00, 'ACTIVE', NOW(), NOW()),
+      (2, 'BATCH-20261101-S1-KIW-001', 2, 1, '2026-11-01', 80.00, 80.00, 'BOX', 2200.00, 'ACTIVE', NOW(), NOW()),
+      (3, 'BATCH-20261101-S1-POM-001', 3, 1, '2026-11-01', 95.00, 95.00, 'BOX', 2300.00, 'ACTIVE', NOW(), NOW())
+  `);
 
   // Ensure Ramesh customer exists for the test
   let ramesh = await Customer.findOne({ where: { customerCode: 'CUST-001' } });

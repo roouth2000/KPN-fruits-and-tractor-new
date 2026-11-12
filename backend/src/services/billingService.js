@@ -218,13 +218,34 @@ class BillingService {
         });
 
         for (const it of insertedItems) {
-          await fifoService.allocateFIFO(
-            it.productId,
-            it.quantity,
-            invoice,
-            it,
-            transaction
-          );
+          // Rule 7: Check if this sale is backdated (exists later confirmed sale for this product)
+          const laterInvoicesCount = await InvoiceItem.count({
+            include: [{
+              model: Invoice,
+              as: 'invoice',
+              where: {
+                status: { [Op.ne]: 'CANCELLED' },
+                invoiceDate: { [Op.gt]: invoiceDate },
+                id: { [Op.ne]: invoice.id },
+              },
+            }],
+            where: { productId: it.productId },
+            transaction,
+          });
+
+          if (laterInvoicesCount > 0) {
+            // Backdated sale: replay FIFO allocations across all batches & bills
+            await fifoService.recalculateFIFO(it.productId, transaction);
+          } else {
+            // Chronological sale: deduct first from oldest stock (Rules 3, 4, 5, 6)
+            await fifoService.allocateFIFO(
+              it.productId,
+              it.quantity,
+              invoice,
+              it,
+              transaction
+            );
+          }
 
           const remainingBatchStock = await Batch.sum('currentQuantity', {
             where: { productId: it.productId, status: { [Op.ne]: 'EXPIRED' } },
@@ -521,7 +542,16 @@ class BillingService {
       const customer = invoice.customer;
       const isWalkInCash = customer && (customer.customerType === 'WALK_IN' || customer.customerCode === 'CUST-CASH');
 
-      // 1. Reverse stock movements & recalculate FIFO allocations (Rule 7)
+      // 1. Mark invoice as CANCELLED first so recalculateFIFO excludes it during chronological replay
+      await Invoice.update(
+        {
+          status: 'CANCELLED',
+          notes: `${invoice.notes || ''} [Cancelled: ${reason}]`,
+        },
+        { where: { id: invoice.id }, transaction }
+      );
+
+      // 2. Reverse stock movements & recalculate FIFO allocations (Rule 7)
       for (const item of items) {
         await StockMovement.create({
           productId: item.productId,
@@ -536,11 +566,11 @@ class BillingService {
           createdById: user ? user.id : null,
         }, { transaction });
 
-        // Rule 7: Recalculate FIFO allocations for this product
+        // Rule 7: Recalculate FIFO allocations for this product without the cancelled invoice
         await fifoService.recalculateFIFO(item.productId, transaction);
       }
 
-      // 2. Reverse customer ledger
+      // 3. Reverse customer ledger
       if (!isWalkInCash && customer) {
         const currentDue = await customerService.calculateCustomerDue(customer.id, transaction);
         const grandTotal = parseFloat(invoice.grandTotal) || 0;
@@ -563,15 +593,6 @@ class BillingService {
           { where: { id: customer.id }, transaction }
         );
       }
-
-      // 3. Mark invoice as CANCELLED
-      await Invoice.update(
-        {
-          status: 'CANCELLED',
-          notes: `${invoice.notes || ''} [Cancelled: ${reason}]`,
-        },
-        { where: { id: invoice.id }, transaction }
-      );
 
       // 4. Audit Log
       await AuditLog.create({

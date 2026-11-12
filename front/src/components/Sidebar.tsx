@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'FRUIT INVENTORY',
       items: [
-        { id: 'stock', label: 'Stack & Batches (FIFO)', icon: LayersIcon, permission: 'stock.view' },
+        { id: 'stack-management', label: 'Stack Management (FIFO)', icon: LayersIcon, permission: 'stock.view' },
         { id: 'products', label: 'Products / Fruits', icon: PackageIcon, permission: 'stock.view' },
         { id: 'stock-movements', label: 'Stock Movements', icon: ArrowLeftRightIcon, permission: 'stock.view' },
         { id: 'inventory-audit', label: 'Stock Audit & Quality', icon: ClipboardCheckIcon, permission: 'stock.adjust' },
@@ -145,6 +145,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation list */}
         <nav className="px-2.5 py-2 space-y-3 max-h-[calc(100vh-210px)] overflow-y-auto">
+          {/* Stack Management (FIFO Batches) - FIRST CLASS PRIMARY NAVIGATION (FIRST ADDED AT TOP) */}
+          {!isSalesperson && (
+            <button
+              onClick={() => handleSelectTab('stack-management')}
+              title={isCollapsed ? 'Stack Management (FIFO)' : undefined}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all group relative cursor-pointer ${
+                activeTab === 'stack-management' || activeTab === 'stock'
+                  ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20'
+                  : 'text-slate-800 hover:text-indigo-900 hover:bg-indigo-50/80 border border-transparent hover:border-indigo-100'
+              }`}
+            >
+              <LayersIcon
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                  activeTab === 'stack-management' || activeTab === 'stock'
+                    ? 'text-white'
+                    : 'text-indigo-600'
+                }`}
+              />
+              {!isCollapsed && (
+                <span className="truncate text-left flex-1 flex items-center justify-between">
+                  <span className="font-bold">Stack Management</span>
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded tracking-wide ${
+                    activeTab === 'stack-management' || activeTab === 'stock'
+                      ? 'bg-indigo-700/80 text-white'
+                      : 'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    FIFO #1
+                  </span>
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Main Command Center Link - Hidden for Sales Person */}
           {!isSalesperson && (
             <button
@@ -214,39 +247,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
           </button>
-
-          {/* Stack Management (FIFO Batches) - First Class Primary Navigation */}
-          {!isSalesperson && (
-            <button
-              onClick={() => handleSelectTab('stock')}
-              title={isCollapsed ? 'Stack Management (FIFO)' : undefined}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all group relative ${
-                activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900 hover:bg-indigo-50/70'
-              }`}
-            >
-              <LayersIcon
-                className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
-                    ? 'text-white'
-                    : 'text-indigo-600'
-                }`}
-              />
-              {!isCollapsed && (
-                <span className="truncate text-left flex-1 flex items-center justify-between">
-                  <span>Stack Management</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                    activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
-                      ? 'bg-indigo-700/60 text-white'
-                      : 'bg-indigo-100 text-indigo-700'
-                  }`}>
-                    FIFO
-                  </span>
-                </span>
-              )}
-            </button>
-          )}
 
           {/* If SALESPERSON, show exclusive focus badge and hide all other modules */}
           {isSalesperson && !isCollapsed && (
