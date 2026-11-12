@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import kbnLogo from '../assets/kbn-logo.jpeg';
 import {
-  BallastLogo,
   ShieldCheckIcon,
   AlertCircleIcon,
   KeyRoundIcon,
@@ -42,12 +42,12 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md z-10 space-y-6">
         {/* Brand & Terminal Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-slate-800 border border-slate-700/80 shadow-lg">
-            <BallastLogo className="w-10 h-10 rounded-xl" />
+          <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border border-slate-700/80 shadow-lg">
+            <img src={kbnLogo} alt="KBN Fruits and Traders" className="w-14 h-14 rounded-xl object-contain" />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              Finovore Mandi ERP
+              KBN Fruits and Traders
             </h1>
             <p className="text-xs text-slate-400 mt-1">
               Fruit Wholesale &amp; Retail Business Management System

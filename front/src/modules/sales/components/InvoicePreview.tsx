@@ -317,7 +317,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
           <div className="flex justify-between items-start pb-6 border-b border-slate-200">
             <div>
               <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                FINOVORE FRESH PRODUCE
+                KBN FRUITS AND TRADERS
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 Wholesale & Cold Chain Storage · APMC Fruit Market, Bay #12, Vashi, Navi Mumbai

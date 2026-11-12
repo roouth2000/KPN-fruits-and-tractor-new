@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import kbnLogo from '../assets/kbn-logo.jpeg';
 import {
-  BallastLogo,
   LayoutGridIcon,
   PackageIcon,
   ArrowLeftRightIcon,
@@ -110,10 +110,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div>
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <BallastLogo className="w-8 h-8 rounded-lg shadow-xs flex-shrink-0" />
+            <img
+              src={kbnLogo}
+              alt="KBN Fruits and Traders"
+              className="w-8 h-8 rounded-lg object-contain shadow-xs flex-shrink-0 border border-slate-200 bg-white p-0.5"
+            />
             {!isCollapsed && (
-              <span className="font-semibold text-slate-900 tracking-tight text-base font-sans">
-                Finovore
+              <span className="font-bold text-slate-900 tracking-tight text-sm font-sans truncate" title="KBN Fruits and Traders">
+                KBN Fruits &amp; Traders
               </span>
             )}
           </div>
@@ -131,8 +135,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="px-3 pt-3 pb-1">
             <button className="w-full text-left bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2.5 transition-all flex items-center justify-between group">
               <div className="truncate">
-                <div className="text-xs font-semibold text-slate-800 tracking-tight group-hover:text-slate-900">
-                  Finovore Produce Mandi
+                <div className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-slate-900 truncate">
+                  KBN Fruits and Traders
                 </div>
                 <div className="text-[11px] text-slate-500 truncate">
                   APMC Terminal · Bay #12, Vashi

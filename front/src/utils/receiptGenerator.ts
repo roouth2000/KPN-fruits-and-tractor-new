@@ -423,7 +423,7 @@ export const receiptGenerator = {
     <div class="footer-note">
       <div>${settings.footerMessage}</div>
       <div style="margin-top: 3px; font-weight: bold;">Goods checked &amp; verified at dock. Thank you!</div>
-      <div class="text-small" style="color: #555; margin-top: 2px;">*** FINOVORE ERP MANDI SYSTEM ***</div>
+      <div class="text-small" style="color: #555; margin-top: 2px;">*** KBN FRUITS AND TRADERS MANDI SYSTEM ***</div>
     </div>
 
     <!-- Paper cut spacing for thermal printers -->

@@ -32,7 +32,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
 
   // Mandi & Business Details State
   const [mandiSettings, setMandiSettings] = useState({
-    businessName: 'Finovore Fresh Produce Mandi',
+    businessName: 'KBN Fruits and Traders',
     licenseNo: 'APMC/MUM/2026/8941',
     yardBay: 'APMC Market-1, Bay #12, Vashi, Navi Mumbai',
     city: 'Navi Mumbai',

@@ -11,7 +11,7 @@ class PdfService {
       .fillColor('#0f172a')
       .fontSize(20)
       .font('Helvetica-Bold')
-      .text('FINOVORE FRESH PRODUCE', 40, 40)
+      .text('KBN FRUITS AND TRADERS', 40, 40)
       .fontSize(9)
       .font('Helvetica')
       .fillColor('#64748b')

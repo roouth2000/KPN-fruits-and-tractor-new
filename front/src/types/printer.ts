@@ -29,7 +29,7 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   copies: 1,
   printSupplierBatchTrace: true,
   printQrCode: true,
-  shopName: 'FINOVORE PRODUCE MANDI',
+  shopName: 'KBN FRUITS AND TRADERS',
   shopAddress: 'APMC Terminal, Bay #12, Fruit Market, Vashi, Navi Mumbai - 400703',
   shopPhone: '+91 98765 43210',
   shopGst: '27AABCF1234F1Z8',
