@@ -37,7 +37,7 @@ export const receiptGenerator = {
     const paperWidth = is58mm ? '58mm' : '80mm';
 
     // Monogram initials & Shop details (Logo is completely non-mandatory)
-    const shopName = (settings.shopName || 'SR FRUITS').trim().toUpperCase();
+    const shopName = (settings.shopName || 'KBN FRUITS').trim().toUpperCase();
     const initials = (settings.shopInitials || '').trim().toUpperCase();
     const shouldPrintLogo = settings.printLogo !== false && (Boolean(settings.logoUrl) || Boolean(initials));
 
@@ -636,7 +636,7 @@ export const receiptGenerator = {
     // 3. Monogram / Header (Center aligned)
     bytes.push(ESC, 0x61, 0x01); // Center
 
-    const shopName = (settings.shopName || 'SR FRUITS').toUpperCase();
+    const shopName = (settings.shopName || 'KBN FRUITS').toUpperCase();
     const initials = (settings.shopInitials || '').trim().toUpperCase();
 
     // Initials (Non-mandatory logo monogram)

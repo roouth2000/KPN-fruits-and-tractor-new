@@ -4,7 +4,7 @@ const DEFAULT_SETTINGS = [
   // Mandi & Business Details (Category: MANDI)
   {
     key: 'mandi.businessName',
-    value: 'SR FRUITS',
+    value: 'KBN FRUITS',
     category: 'MANDI',
     dataType: 'STRING',
     description: 'Registered Trade Name of the Mandi commission agency / fruit shop',

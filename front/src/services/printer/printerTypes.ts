@@ -1,6 +1,10 @@
 export type PaperSize = '80mm' | '58mm';
 export type PrinterTransport = 'WEB_SERIAL' | 'WEB_USB' | 'BROWSER_DIALOG';
 export type SerialBaudRate = 9600 | 19200 | 38400 | 57600 | 115200;
+export type SerialDataBits = 7 | 8;
+export type SerialStopBits = 1 | 2;
+export type SerialParity = 'none' | 'even' | 'odd';
+export type SerialFlowControl = 'none' | 'hardware';
 
 export type PrinterConnectionStatus =
   | 'NOT_CONNECTED'
@@ -10,6 +14,14 @@ export type PrinterConnectionStatus =
   | 'PRINTING'
   | 'PRINT_FAILED';
 
+export interface SerialConnectionConfig {
+  baudRate: SerialBaudRate;
+  dataBits: SerialDataBits;
+  stopBits: SerialStopBits;
+  parity: SerialParity;
+  flowControl: SerialFlowControl;
+}
+
 export interface PrinterDeviceDetails {
   name: string;
   vendorId?: number;
@@ -17,6 +29,7 @@ export interface PrinterDeviceDetails {
   manufacturer?: string;
   transport: PrinterTransport;
   serialNumber?: string;
+  portPath?: string;
 }
 
 export interface PrinterSettings {
@@ -24,6 +37,10 @@ export interface PrinterSettings {
   transport: PrinterTransport;
   paperSize: PaperSize;
   baudRate: SerialBaudRate;
+  dataBits: SerialDataBits;
+  stopBits: SerialStopBits;
+  parity: SerialParity;
+  flowControl: SerialFlowControl;
   autoPrintOnSave: boolean;
   cutPaper: boolean;
   openCashDrawer: boolean;
@@ -57,6 +74,10 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   transport: 'WEB_SERIAL',
   paperSize: '80mm',
   baudRate: 9600,
+  dataBits: 8,
+  stopBits: 1,
+  parity: 'none',
+  flowControl: 'none',
   autoPrintOnSave: true,
   cutPaper: true,
   openCashDrawer: false,
@@ -65,8 +86,8 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   printQrCode: false,
   printLogo: true,
   logoUrl: '',
-  shopInitials: 'SR',
-  shopName: 'SR FRUITS',
+  shopInitials: 'KBN',
+  shopName: 'KBN FRUITS',
   shopAddress: 'T/A-18,T/E-25,ANNA FRUITS MARKET,\nKOYAMBEDU,CHENNAI-600092',
   shopPhone: '8778219770',
   shopGst: '',

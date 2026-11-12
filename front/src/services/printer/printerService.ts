@@ -121,8 +121,14 @@ class PrinterService {
       if (mode === 'WEB_USB') {
         details = await webUsbService.requestUsbPrinter();
       } else {
-        // Default: Web Serial API
-        details = await webSerialService.requestPrinterPort(settings.baudRate);
+        // Default: Web Serial API for TVS RP-3200 (Virtual COM / RS-232)
+        details = await webSerialService.requestPrinterPort({
+          baudRate: settings.baudRate || 9600,
+          dataBits: settings.dataBits || 8,
+          stopBits: settings.stopBits || 1,
+          parity: settings.parity || 'none',
+          flowControl: settings.flowControl || 'none',
+        });
       }
 
       this.activeDevice = details;
@@ -180,7 +186,13 @@ class PrinterService {
         }
       } else {
         const details = await webSerialService.autoReconnect(
-          settings.baudRate,
+          {
+            baudRate: settings.baudRate || 9600,
+            dataBits: settings.dataBits || 8,
+            stopBits: settings.stopBits || 1,
+            parity: settings.parity || 'none',
+            flowControl: settings.flowControl || 'none',
+          },
           settings.savedVendorId,
           settings.savedProductId
         );
@@ -217,7 +229,13 @@ class PrinterService {
         }
       } else {
         const dev = await webSerialService.autoReconnect(
-          settings.baudRate,
+          {
+            baudRate: settings.baudRate || 9600,
+            dataBits: settings.dataBits || 8,
+            stopBits: settings.stopBits || 1,
+            parity: settings.parity || 'none',
+            flowControl: settings.flowControl || 'none',
+          },
           settings.savedVendorId,
           settings.savedProductId
         );

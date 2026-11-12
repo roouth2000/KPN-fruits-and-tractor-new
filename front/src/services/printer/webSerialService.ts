@@ -1,9 +1,12 @@
-import type { PrinterDeviceDetails, SerialBaudRate } from './printerTypes';
+import type {
+  PrinterDeviceDetails,
+  SerialConnectionConfig,
+} from './printerTypes';
 
 /**
  * Web Serial API Hardware Controller for Direct Thermal Printing
  * Supports user-gesture device selection, automatic reconnection via getPorts(),
- * connection monitoring, and robust stream writing to USB/Serial thermal printers.
+ * configurable baud rate, data bits, stop bits, parity, and hardware flow control (DTR/DSR).
  */
 class WebSerialService {
   private activePort: any = null;
@@ -61,19 +64,23 @@ class WebSerialService {
   /**
    * Request user permission for a new serial device (Requires user gesture / click).
    */
-  public async requestPrinterPort(baudRate: SerialBaudRate = 9600): Promise<PrinterDeviceDetails> {
+  public async requestPrinterPort(
+    config?: Partial<SerialConnectionConfig>
+  ): Promise<PrinterDeviceDetails> {
     if (!this.isSupported()) {
-      throw new Error('Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge on HTTPS.');
+      throw new Error(
+        'Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge on HTTPS.'
+      );
     }
 
     try {
-      // Prompt user to pick USB Serial printer
+      // Prompt user to pick TVS RP-3200 / USB Serial printer
       const port = await (navigator as any).serial.requestPort();
       if (!port) {
         throw new Error('No device selected');
       }
 
-      await this.openPort(port, baudRate);
+      await this.openPort(port, config);
       this.activePort = port;
       const details = this.extractPortDetails(port);
       this.currentDeviceDetails = details;
@@ -83,7 +90,9 @@ class WebSerialService {
         throw new Error('Printer selection was cancelled.');
       }
       if (err.name === 'SecurityError') {
-        throw new Error('Serial access blocked by browser security policy. Please ensure the app is running over HTTPS.');
+        throw new Error(
+          'Serial access blocked by browser security policy. Please ensure the app is running over HTTPS.'
+        );
       }
       throw err;
     }
@@ -94,7 +103,7 @@ class WebSerialService {
    * Does NOT trigger a user permission dialog.
    */
   public async autoReconnect(
-    baudRate: SerialBaudRate = 9600,
+    config?: Partial<SerialConnectionConfig>,
     preferredVendorId?: number,
     preferredProductId?: number
   ): Promise<PrinterDeviceDetails | null> {
@@ -111,13 +120,15 @@ class WebSerialService {
       if (preferredVendorId !== undefined) {
         const match = ports.find((p) => {
           const info = p.getInfo();
-          return info.usbVendorId === preferredVendorId &&
-            (preferredProductId === undefined || info.usbProductId === preferredProductId);
+          return (
+            info.usbVendorId === preferredVendorId &&
+            (preferredProductId === undefined || info.usbProductId === preferredProductId)
+          );
         });
         if (match) targetPort = match;
       }
 
-      await this.openPort(targetPort, baudRate);
+      await this.openPort(targetPort, config);
       this.activePort = targetPort;
       const details = this.extractPortDetails(targetPort);
       this.currentDeviceDetails = details;
@@ -129,21 +140,27 @@ class WebSerialService {
   }
 
   /**
-   * Open the serial port connection stream.
+   * Open the serial port connection stream with full serial DIP switch parameters.
    */
-  private async openPort(port: any, baudRate: SerialBaudRate = 9600): Promise<void> {
+  private async openPort(port: any, config?: Partial<SerialConnectionConfig>): Promise<void> {
     // If port is already open (writable is active), don't reopen
     if (port.writable && this.isPortOpen) {
       return;
     }
 
+    const baudRate = config?.baudRate || 9600;
+    const dataBits = config?.dataBits || 8;
+    const stopBits = config?.stopBits || 1;
+    const parity = config?.parity || 'none';
+    const flowControl = config?.flowControl || 'none';
+
     try {
       await port.open({
         baudRate,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'none',
-        flowControl: 'none',
+        dataBits,
+        stopBits,
+        parity,
+        flowControl,
         bufferSize: 16384,
       });
       this.isPortOpen = true;
@@ -153,16 +170,18 @@ class WebSerialService {
         this.isPortOpen = true;
         return;
       }
-      throw new Error(`Failed to open serial port: ${err?.message || 'Port is busy or unavailable'}`);
+      throw new Error(
+        `Failed to open serial port: ${err?.message || 'Port is busy or unavailable. Check if another program is using the COM port.'}`
+      );
     }
   }
 
   /**
-   * Send raw ESC/POS binary data to the thermal printer.
+   * Send raw ESC/POS binary data to the TVS RP-3200 thermal printer.
    */
   public async write(data: Uint8Array): Promise<number> {
     if (!this.activePort || !this.isPortOpen) {
-      throw new Error('Printer is not connected. Please connect your USB thermal printer first.');
+      throw new Error('TVS RP-3200 printer is not connected. Please click "Connect Printer" first.');
     }
 
     if (!this.activePort.writable) {
@@ -180,7 +199,7 @@ class WebSerialService {
       try {
         writer.releaseLock();
       } catch (e) {
-        // ignore lock release error if stream already closed
+        // stream already closed or unlocked
       }
     }
   }
@@ -217,11 +236,11 @@ class WebSerialService {
     const vid = info.usbVendorId;
     const pid = info.usbProductId;
 
-    let displayName = 'USB Thermal Printer (Serial)';
+    let displayName = 'TVS RP-3200 / USB-Serial Port';
     if (vid !== undefined && pid !== undefined) {
       const hexVid = vid.toString(16).padStart(4, '0').toUpperCase();
       const hexPid = pid.toString(16).padStart(4, '0').toUpperCase();
-      displayName = `POS Thermal Printer [VID:${hexVid} PID:${hexPid}]`;
+      displayName = `TVS RP-3200 [VID:${hexVid} PID:${hexPid}]`;
     }
 
     return {
@@ -234,4 +253,3 @@ class WebSerialService {
 }
 
 export const webSerialService = new WebSerialService();
-

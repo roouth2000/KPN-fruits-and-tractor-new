@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useThermalPrinter } from '../../hooks/useThermalPrinter';
 import { PrinterConnection } from './PrinterConnection';
-import type { PrinterSettings as IPrinterSettings, SerialBaudRate, PrinterTransport } from '../../services/printer/printerTypes';
+import type { PrinterSettings as IPrinterSettings } from '../../services/printer/printerTypes';
 
 interface PrinterSettingsProps {
   onSaved?: () => void;
@@ -69,12 +69,20 @@ export const PrinterSettings: React.FC<PrinterSettingsProps> = ({
         device={device}
         supportReport={supportReport}
         baudRate={form.baudRate}
+        dataBits={form.dataBits}
+        stopBits={form.stopBits}
+        parity={form.parity}
+        flowControl={form.flowControl}
         transport={form.transport}
         onConnect={connect}
         onDisconnect={disconnect}
         onReconnect={reconnect}
-        onBaudRateChange={(baudRate: SerialBaudRate) => setForm({ ...form, baudRate })}
-        onTransportChange={(transport: PrinterTransport) => setForm({ ...form, transport })}
+        onBaudRateChange={(baudRate) => setForm({ ...form, baudRate })}
+        onDataBitsChange={(dataBits) => setForm({ ...form, dataBits })}
+        onStopBitsChange={(stopBits) => setForm({ ...form, stopBits })}
+        onParityChange={(parity) => setForm({ ...form, parity })}
+        onFlowControlChange={(flowControl) => setForm({ ...form, flowControl })}
+        onTransportChange={(transport) => setForm({ ...form, transport })}
       />
 
       {/* 2. Thermal Paper Width & Column Layout */}
@@ -245,7 +253,7 @@ export const PrinterSettings: React.FC<PrinterSettingsProps> = ({
               type="text"
               value={form.shopName || ''}
               onChange={(e) => setForm({ ...form, shopName: e.target.value.toUpperCase() })}
-              placeholder="e.g. SR FRUITS"
+              placeholder="e.g. KBN FRUITS"
               className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>

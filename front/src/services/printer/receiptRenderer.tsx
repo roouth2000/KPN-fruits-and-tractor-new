@@ -47,7 +47,7 @@ export const receiptRenderer = {
     const printerWidth = is58mm ? 32 : 48;
 
     // Monogram & Shop Details
-    const shopName = (settings.shopName || 'SR FRUITS').trim().toUpperCase();
+    const shopName = (settings.shopName || 'KBN FRUITS').trim().toUpperCase();
     const initials = (settings.shopInitials || '').trim().toUpperCase();
     const shouldPrintMonogram = settings.printLogo !== false && Boolean(initials);
 
@@ -243,23 +243,31 @@ export const receiptRenderer = {
           </Text>
         )}
         <Text align="center" bold={true}>
-          {(settings.shopName || 'SR FRUITS').toUpperCase()}
+          {(settings.shopName || 'KBN FRUITS').toUpperCase()}
         </Text>
-        <Text align="center">WEB SERIAL THERMAL PRINT TEST</Text>
+        <Text align="center">TVS RP-3200 HARDWARE TEST</Text>
         <Line character="=" />
+        <Row
+          left="Target Hardware:"
+          right="TVS RP-3200"
+        />
         <Row
           left="Width Mode:"
           right={is58mm ? '58mm (32 Col)' : '80mm (48 Col)'}
         />
         <Row left="Transport:" right={settings.transport} />
-        <Row left="Baud Rate:" right={`${settings.baudRate} bps`} />
+        <Row
+          left="Serial Config:"
+          right={`${settings.baudRate || 9600} ${settings.dataBits || 8}${settings.parity === 'even' ? 'E' : settings.parity === 'odd' ? 'O' : 'N'}${settings.stopBits || 1}`}
+        />
+        <Row left="Flow Control:" right={settings.flowControl || 'none'} />
         <Row
           left="Date / Time:"
           right={`${formatReceiptDate(now)} ${formatReceiptTime(now)}`}
         />
         <Line character="-" />
-        <Row left="TEST PRODUCE A" right="1.00  100.00" />
-        <Row left="TEST PRODUCE B" right="2.00  250.00" />
+        <Row left="TVS TEST ITEM 1" right="1.00  100.00" />
+        <Row left="TVS TEST ITEM 2" right="2.00  250.00" />
         <Line character="-" />
         <Row
           left={<Text bold={true}>TOTAL :</Text>}
@@ -267,9 +275,9 @@ export const receiptRenderer = {
         />
         <Line character="=" />
         <Text align="center" bold={true}>
-          PRINTER COMMUNICATION SUCCESSFUL
+          PRINTER TEST SUCCESSFUL
         </Text>
-        <Text align="center">Browser-Native Web Serial Active</Text>
+        <Text align="center">TVS RP-3200 Web Serial ESC/POS</Text>
         {settings.cutPaper && <Cut lineFeeds={4} partial={false} />}
       </Printer>
     );

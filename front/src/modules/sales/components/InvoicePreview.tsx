@@ -366,7 +366,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                     </span>
                   )}
                   <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">
-                    {settings.shopName || 'SR FRUITS'}
+                    {settings.shopName || 'KBN FRUITS'}
                   </h1>
                 </div>
                 <p className="text-xs text-slate-500 mt-1 whitespace-pre-line leading-relaxed">

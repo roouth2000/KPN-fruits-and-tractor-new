@@ -8,7 +8,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { BillingPage } from './modules/sales/pages/BillingPage';
 import { InvoiceListPage } from './modules/sales/pages/InvoiceListPage';
 import { CustomersPage } from './pages/CustomersPage';
-import { StackManagementPage } from './pages/StackManagementPage';
 import { RolesAndPermissionsPage } from './pages/RolesAndPermissionsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import type { ActivityItem } from './components/OperationsActivity';
@@ -221,20 +220,7 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Purchase Report')}
           />
         );
-      case 'stack':
-      case 'stack-management':
-      case 'stock':
-        if (isSalesperson || !hasPermission('stock.view')) {
-          return renderRestrictedNotice('Stack Management (FIFO)');
-        }
-        return (
-          <StackManagementPage
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onShowToast={addToast}
-          />
-        );
       case 'products':
-      case 'stock-movements':
       case 'report-stock':
         if (isSalesperson || !hasPermission('stock.view')) {
           return renderRestrictedNotice('Inventory & Stock Audit');
@@ -324,7 +310,6 @@ export const AppContent: React.FC = () => {
             onShowToast={addToast}
           />
         );
-      case 'stock-transfers':
       case 'report-tray':
         if (isSalesperson || !hasPermission('reports.view')) {
           return renderRestrictedNotice('Mandi Tray Accounting');
