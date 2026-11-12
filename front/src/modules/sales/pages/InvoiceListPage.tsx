@@ -15,6 +15,8 @@ import {
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { InvoicePreview } from '../components/InvoicePreview';
+import { qzTrayService } from '../../../services/qzTrayService';
+import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
 
 interface InvoiceListPageProps {
   onNavigateNewBill: () => void;
@@ -40,6 +42,30 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   // Selected invoice for preview modal
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
+  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState<boolean>(false);
+  const [printingId, setPrintingId] = useState<number | null>(null);
+
+  // 1-Click Silent Print via QZ Tray
+  const handleDirectPrintInvoice = async (inv: any) => {
+    setPrintingId(inv.id);
+    try {
+      const full = await salesApi.getInvoiceById(inv.id);
+      const res = await qzTrayService.printInvoice(full || inv);
+      if (res.method === 'QZ_TRAY') {
+        onShowToast?.(
+          'Receipt Printed via QZ Tray',
+          `Invoice #${inv.invoiceNumber} sent silently to ${res.printer}.`,
+          'success'
+        );
+      } else {
+        onShowToast?.('Browser Print Opened', `Printed #${inv.invoiceNumber} via Browser Print Dialog.`, 'info');
+      }
+    } catch (err: any) {
+      onShowToast?.('Print Failed', err?.message || 'Error printing invoice', 'warning');
+    } finally {
+      setPrintingId(null);
+    }
+  };
 
   // Cancel dialog state
   const [cancelModalInvoice, setCancelModalInvoice] = useState<any | null>(null);
@@ -224,6 +250,15 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
             className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
           >
             <RefreshCwIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setIsPrinterModalOpen(true)}
+            title="Configure Thermal Printer & QZ Tray"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-2xs cursor-pointer"
+          >
+            <PrinterIcon className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Thermal Printer</span>
           </button>
 
           <button
@@ -524,13 +559,23 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                             <EyeIcon className="w-3.5 h-3.5" />
                           </button>
 
+                          {/* 1-Click Direct Thermal Print via QZ Tray */}
+                          <button
+                            onClick={() => handleDirectPrintInvoice(inv)}
+                            disabled={printingId === inv.id}
+                            title="Direct Silent Print to Thermal Printer (QZ Tray)"
+                            className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
+                          >
+                            <PrinterIcon className={`w-3.5 h-3.5 ${printingId === inv.id ? 'animate-bounce text-indigo-600' : 'text-indigo-600'}`} />
+                          </button>
+
                           {/* Print PDF Download */}
                           <button
                             onClick={() => window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank')}
                             title="Download Official PDF Invoice"
                             className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
                           >
-                            <PrinterIcon className="w-3.5 h-3.5" />
+                            <DownloadIcon className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Admin Edit */}
@@ -674,6 +719,13 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* POS Thermal Printer Settings Modal */}
+      <PrinterSettingsModal
+        isOpen={isPrinterModalOpen}
+        onClose={() => setIsPrinterModalOpen(false)}
+        onShowToast={onShowToast}
+      />
     </div>
   );
 };

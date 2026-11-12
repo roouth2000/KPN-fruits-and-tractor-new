@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BuildingIcon,
   ReceiptTextIcon,
@@ -6,7 +6,11 @@ import {
   SaveIcon,
   LayersIcon,
   CheckSquareIcon,
+  PrinterIcon,
+  RefreshCwIcon,
 } from '../components/icons';
+import { qzTrayService } from '../services/qzTrayService';
+import type { PrinterSettings, QZTrayStatus } from '../types/printer';
 
 interface SettingsPageProps {
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
@@ -57,15 +61,58 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
     autoAlertExpiry: true,
   });
 
+  // QZ Tray & Thermal Printer Settings
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(qzTrayService.getSettings());
+  const [printersList, setPrintersList] = useState<string[]>([]);
+  const [isScanningPrinters, setIsScanningPrinters] = useState(false);
+  const [qzStatus, setQzStatus] = useState<QZTrayStatus>(qzTrayService.getStatus());
+  const [isTestingPrint, setIsTestingPrint] = useState(false);
+
+  useEffect(() => {
+    const unsub = qzTrayService.onStatusChange(setQzStatus);
+    qzTrayService.discoverPrinters().then(setPrintersList).catch(() => {});
+    return unsub;
+  }, []);
+
+  const handleScanPrinters = async () => {
+    setIsScanningPrinters(true);
+    try {
+      const list = await qzTrayService.discoverPrinters();
+      setPrintersList(list);
+      if (!printerSettings.printerName && list.length > 0) {
+        setPrinterSettings((prev) => ({ ...prev, printerName: list[0] }));
+      }
+    } finally {
+      setIsScanningPrinters(false);
+    }
+  };
+
+  const handleTestPrintSettings = async () => {
+    setIsTestingPrint(true);
+    try {
+      const res = await qzTrayService.printTestReceipt(printerSettings);
+      if (res.method === 'QZ_TRAY') {
+        onShowToast?.('Test Ticket Printed', `Direct silent print sent to "${res.printer}".`, 'success');
+      } else {
+        onShowToast?.('Browser Print Opened', 'Test receipt opened in Browser Print Dialog.', 'info');
+      }
+    } catch (err: any) {
+      onShowToast?.('Print Failed', err?.message || 'Error executing test print', 'warning');
+    } finally {
+      setIsTestingPrint(false);
+    }
+  };
+
   const [isSaved, setIsSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    qzTrayService.saveSettings(printerSettings);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
     onShowToast?.(
       'Settings Updated',
-      'Mandi operational parameters and billing preferences saved successfully.',
+      `Mandi operational parameters & ${printerSettings.paperSize} printer preferences saved successfully.`,
       'success'
     );
   };
@@ -261,11 +308,80 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
       {/* Tab 2: Billing & Thermal Printing */}
       {activeTab === 'billing' && (
         <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-sm font-bold text-slate-900">POS Billing &amp; Thermal Printing Preferences</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Control invoice number formatting, thermal 80mm slip layouts, and automated receipt printing.
-            </p>
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">POS Billing &amp; Thermal Printer Preferences</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control direct QZ Tray printing, thermal 80mm/58mm layouts, auto-cut, and hardware options.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleTestPrintSettings}
+              disabled={isTestingPrint}
+              className="px-3.5 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs self-start sm:self-auto disabled:opacity-50"
+            >
+              <PrinterIcon className={`w-3.5 h-3.5 ${isTestingPrint ? 'animate-bounce' : ''}`} />
+              <span>{isTestingPrint ? 'Printing Test...' : 'Run Test Print'}</span>
+            </button>
+          </div>
+
+          {/* QZ Tray Connection Status Card */}
+          <div
+            className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              qzStatus === 'CONNECTED'
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                : 'bg-amber-50/70 border-amber-200 text-amber-950'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${
+                  qzStatus === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
+              />
+              <div>
+                <div className="font-bold text-xs flex items-center gap-2">
+                  <span>
+                    {qzStatus === 'CONNECTED'
+                      ? 'QZ Tray Service: Online & Connected'
+                      : 'QZ Tray Service: Offline / Not Detected'}
+                  </span>
+                  <span
+                    className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
+                      qzStatus === 'CONNECTED'
+                        ? 'bg-emerald-200/80 text-emerald-900'
+                        : 'bg-amber-200/80 text-amber-900'
+                    }`}
+                  >
+                    {qzStatus === 'CONNECTED' ? 'Silent Print Active' : 'Browser Fallback'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  {qzStatus === 'CONNECTED'
+                    ? 'Connected on ws://localhost:8182. Receipts print silently without browser print dialogs.'
+                    : 'Start the QZ Tray desktop app for 1-click silent thermal printing. If offline, browser print is used.'}
+                </p>
+              </div>
+            </div>
+
+            {qzStatus !== 'CONNECTED' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await qzTrayService.connect();
+                  if (ok) {
+                    onShowToast?.('QZ Tray Connected', 'WebSocket link established.', 'success');
+                    handleScanPrinters();
+                  } else {
+                    onShowToast?.('QZ Tray Offline', 'Ensure QZ Tray desktop app is running on localhost.', 'warning');
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-colors cursor-pointer flex-shrink-0"
+              >
+                Connect QZ Tray
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -283,53 +399,126 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Default Print Output Format
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  Target Physical Printer
+                </label>
+                <button
+                  type="button"
+                  onClick={handleScanPrinters}
+                  disabled={isScanningPrinters}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCwIcon className={`w-3 h-3 ${isScanningPrinters ? 'animate-spin' : ''}`} />
+                  <span>{isScanningPrinters ? 'Scanning...' : 'Refresh'}</span>
+                </button>
+              </div>
               <select
-                value={billingSettings.printLayout}
-                onChange={(e) => setBillingSettings({ ...billingSettings, printLayout: e.target.value })}
+                value={printerSettings.printerName}
+                onChange={(e) => setPrinterSettings({ ...printerSettings, printerName: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium bg-white"
               >
-                <option value="THERMAL_80MM">Thermal 80mm POS Slip (Fast Mandi Receipt)</option>
-                <option value="A4_STANDARD">Standard A4 Tax Invoice (Full Details &amp; GST)</option>
+                <option value="">-- Use Default System Printer --</option>
+                {printersList.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="sm:col-span-2 space-y-3 pt-2">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={billingSettings.autoPrintOnConfirm}
-                  onChange={(e) => setBillingSettings({ ...billingSettings, autoPrintOnConfirm: e.target.checked })}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                />
-                <span className="text-xs font-medium text-slate-700">
-                  Automatically prompt print preview dialog when an invoice is confirmed
-                </span>
+            {/* Paper Size */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Thermal Paper Width &amp; Layout
               </label>
+              <select
+                value={printerSettings.paperSize}
+                onChange={(e) => setPrinterSettings({ ...printerSettings, paperSize: e.target.value as any })}
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium bg-white"
+              >
+                <option value="80mm">80mm Thermal (Standard POS - 72mm printable)</option>
+                <option value="58mm">58mm Thermal (Compact / Handheld - 48mm printable)</option>
+              </select>
+            </div>
 
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={billingSettings.roundOffCash}
-                  onChange={(e) => setBillingSettings({ ...billingSettings, roundOffCash: e.target.checked })}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                />
-                <span className="text-xs font-medium text-slate-700">
-                  Enable automatic rupee rounding on cash settlements
-                </span>
+            {/* Print Mode */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Printing Communication Mode
               </label>
+              <select
+                value={printerSettings.printMode}
+                onChange={(e) => setPrinterSettings({ ...printerSettings, printMode: e.target.value as any })}
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium bg-white"
+              >
+                <option value="QZ_TRAY_SILENT">Direct Silent Print via QZ Tray (No Dialogs)</option>
+                <option value="BROWSER_DIALOG">Standard Browser Print Dialog</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-900 block">Hardware Automation Controls</span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerSettings.autoPrintOnSave}
+                    onChange={(e) => setPrinterSettings({ ...printerSettings, autoPrintOnSave: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-medium text-slate-700">
+                    Auto-print immediately when bill is saved (F9)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerSettings.cutPaper}
+                    onChange={(e) => setPrinterSettings({ ...printerSettings, cutPaper: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-medium text-slate-700">
+                    Send paper cut command (GS V) after receipt
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerSettings.openCashDrawer}
+                    onChange={(e) => setPrinterSettings({ ...printerSettings, openCashDrawer: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-medium text-slate-700">
+                    Open RJ-11 Cash Drawer on cash sales
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerSettings.printSupplierBatchTrace}
+                    onChange={(e) => setPrinterSettings({ ...printerSettings, printSupplierBatchTrace: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-medium text-slate-700">
+                    Print Supplier &amp; Batch Trace on receipt (Rule 6)
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Invoice Footer Terms &amp; Conditions
+                Receipt Footer Message
               </label>
               <textarea
                 rows={2}
-                value={billingSettings.notesFooter}
-                onChange={(e) => setBillingSettings({ ...billingSettings, notesFooter: e.target.value })}
+                value={printerSettings.footerMessage}
+                onChange={(e) => setPrinterSettings({ ...printerSettings, footerMessage: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>

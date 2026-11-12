@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CustomerSelector } from '../components/CustomerSelector';
 import { ProductSearch } from '../components/ProductSearch';
 import { BillingItemsTable } from '../components/BillingItemsTable';
@@ -10,7 +10,10 @@ import { InvoiceActions } from '../components/InvoiceActions';
 import { InvoicePreview } from '../components/InvoicePreview';
 import { HoldInvoiceModal } from '../components/HoldInvoiceModal';
 import { useAuth } from '../../../context/AuthContext';
-import { ShieldCheckIcon } from '../../../components/icons';
+import { ShieldCheckIcon, PrinterIcon } from '../../../components/icons';
+import { qzTrayService } from '../../../services/qzTrayService';
+import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
+import type { QZTrayStatus } from '../../../types/printer';
 
 import { useBilling } from '../hooks/useBilling';
 import { useCustomerBalance } from '../hooks/useCustomers';
@@ -67,6 +70,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
+  const [qzStatus, setQzStatus] = useState<QZTrayStatus>(qzTrayService.getStatus());
+
+  useEffect(() => {
+    const unsub = qzTrayService.onStatusChange(setQzStatus);
+    return unsub;
+  }, []);
 
   // Real-time Ledger balance for selected customer
   const { data: customerBalance, refetch: refetchCustomerBalance } = useCustomerBalance(
@@ -226,7 +236,24 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
       setPreviewInvoice(result);
 
       if (printAfterSave) {
-        setIsPreviewOpen(true);
+        const pSettings = qzTrayService.getSettings();
+        if (pSettings.autoPrintOnSave && qzTrayService.isConnected()) {
+          // Direct silent printing via QZ Tray without modal disruption!
+          qzTrayService.printInvoice(result).then((printRes) => {
+            if (onShowToast) {
+              onShowToast(
+                'Receipt Printed via QZ Tray',
+                `Direct print job dispatched to "${printRes.printer}" (${pSettings.paperSize} thermal layout).`,
+                'success'
+              );
+            }
+          }).catch((printErr) => {
+            console.warn('QZ Tray direct print error, showing preview modal:', printErr);
+            setIsPreviewOpen(true);
+          });
+        } else {
+          setIsPreviewOpen(true);
+        }
       }
 
       handleReset();
@@ -336,6 +363,22 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
               ? 'Permissions: Invoice Edit, Void, Pricing Overrides & Reports'
               : 'Permissions: Fast billing, payment allocations & receipts'}
           </div>
+
+          {/* Thermal Printer Settings Button */}
+          <button
+            type="button"
+            onClick={() => setIsPrinterSettingsOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/80 shadow-2xs"
+            title="Configure QZ Tray thermal printer (80mm/58mm)"
+          >
+            <PrinterIcon className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Printer: {qzTrayService.getSettings().paperSize}</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                qzStatus === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+              }`}
+            />
+          </button>
 
           {onNavigateInvoices && (
             <button
@@ -502,6 +545,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
           refetchNextNumber();
           if (onShowToast) onShowToast('Invoice Updated', 'Admin revisions were successfully saved to database.', 'success');
         }}
+      />
+
+      {/* POS Thermal Printer Settings Modal */}
+      <PrinterSettingsModal
+        isOpen={isPrinterSettingsOpen}
+        onClose={() => setIsPrinterSettingsOpen(false)}
+        onShowToast={onShowToast}
       />
     </div>
   );

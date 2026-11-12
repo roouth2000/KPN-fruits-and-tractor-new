@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { DownloadIcon, XIcon, FileTextIcon, ShieldCheckIcon, SaveIcon } from '../../../components/icons';
+import React, { useState, useEffect } from 'react';
+import { DownloadIcon, XIcon, FileTextIcon, ShieldCheckIcon, SaveIcon, PrinterIcon, SettingsIcon } from '../../../components/icons';
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
+import { qzTrayService } from '../../../services/qzTrayService';
+import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
+import type { PaperSize, QZTrayStatus } from '../../../types/printer';
 
 interface InvoicePreviewProps {
   isOpen: boolean;
@@ -23,6 +26,15 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const [editTerms, setEditTerms] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isPrintingDirect, setIsPrintingDirect] = useState(false);
+  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
+  const [qzStatus, setQzStatus] = useState<QZTrayStatus>(qzTrayService.getStatus());
+  const [paperSize, setPaperSize] = useState<PaperSize>(qzTrayService.getSettings().paperSize);
+
+  useEffect(() => {
+    const unsub = qzTrayService.onStatusChange(setQzStatus);
+    return unsub;
+  }, []);
 
   if (!isOpen || !invoiceData) return null;
 
@@ -32,6 +44,25 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
 
   const canEditInvoice = hasPermission('sales.edit');
   const canCancelInvoice = hasPermission('sales.cancel');
+
+  // Direct silent QZ Tray printing
+  const handleDirectPrint = async () => {
+    setIsPrintingDirect(true);
+    try {
+      const res = await qzTrayService.printInvoice(inv, { paperSize });
+      if (res.method === 'QZ_TRAY') {
+        setToastMsg(`Receipt sent silently to "${res.printer}" (${paperSize})`);
+      } else {
+        setToastMsg('QZ Tray offline: opened via Browser Print Dialog');
+      }
+      setTimeout(() => setToastMsg(null), 4000);
+    } catch (err: any) {
+      setToastMsg(`Print error: ${err?.message || err}`);
+      setTimeout(() => setToastMsg(null), 4000);
+    } finally {
+      setIsPrintingDirect(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -123,21 +154,75 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               </button>
             )}
 
+            {/* 80mm / 58mm Paper Toggle */}
+            <div className="hidden sm:flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setPaperSize('80mm')}
+                className={`px-2 py-1 rounded transition-colors ${
+                  paperSize === '80mm' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                80mm
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperSize('58mm')}
+                className={`px-2 py-1 rounded transition-colors ${
+                  paperSize === '58mm' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                58mm
+              </button>
+            </div>
+
+            {/* Direct Silent QZ Tray Print */}
+            <button
+              type="button"
+              onClick={handleDirectPrint}
+              disabled={isPrintingDirect}
+              className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              title={
+                qzStatus === 'CONNECTED'
+                  ? 'Send silent thermal print job via QZ Tray'
+                  : 'QZ Tray not connected, will open browser print'
+              }
+            >
+              <PrinterIcon className={`w-3.5 h-3.5 ${isPrintingDirect ? 'animate-bounce' : ''}`} />
+              <span>{isPrintingDirect ? 'Printing...' : 'Direct Print'}</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  qzStatus === 'CONNECTED' ? 'bg-emerald-300' : 'bg-amber-300'
+                }`}
+              />
+            </button>
+
+            {/* Printer Settings Quick Launcher */}
+            <button
+              type="button"
+              onClick={() => setIsPrinterSettingsOpen(true)}
+              className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              title="Configure QZ Tray & Thermal Printers"
+            >
+              <SettingsIcon className="w-4 h-4" />
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadPdf}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold hidden md:flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <DownloadIcon className="w-3.5 h-3.5 text-slate-500" />
-              <span>Download PDF</span>
+              <span>PDF</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-sm cursor-pointer hidden sm:block"
+              title="Open standard browser print dialog"
             >
-              Print Invoice
+              Browser Print
             </button>
 
             <button
@@ -149,6 +234,13 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Printer Settings Modal */}
+        <PrinterSettingsModal
+          isOpen={isPrinterSettingsOpen}
+          onClose={() => setIsPrinterSettingsOpen(false)}
+          onShowToast={(t, m) => setToastMsg(`${t}: ${m}`)}
+        />
 
         {toastMsg && (
           <div className="bg-emerald-50 text-emerald-800 px-4 py-2 text-xs font-semibold border-b border-emerald-200 flex items-center justify-between">
