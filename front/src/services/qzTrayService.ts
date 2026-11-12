@@ -16,18 +16,44 @@ class QZTrayService {
   }
 
   /**
-   * Set certificate and signature promises for QZ Tray.
+   * Set certificate and signature promises for QZ Tray (Cryptographically verified).
    */
   private configureSecurity() {
     try {
+      qz.security.setSignatureAlgorithm('SHA512');
+
       qz.security.setCertificatePromise((resolve: (cert?: string) => void) => {
-        // In local/standalone environments, resolving empty triggers QZ Tray's local permission dialog
-        resolve();
+        fetch('/api/settings/qz-certificate')
+          .then((res) => {
+            if (!res.ok) throw new Error('No certificate');
+            return res.text();
+          })
+          .then((cert) => {
+            if (cert && cert.includes('BEGIN CERTIFICATE')) {
+              resolve(cert.trim());
+            } else {
+              resolve(undefined);
+            }
+          })
+          .catch(() => resolve(undefined));
       });
 
-      qz.security.setSignaturePromise(() => {
+      qz.security.setSignaturePromise((toSign: string) => {
         return (resolve: (sig?: string) => void) => {
-          resolve();
+          fetch(`/api/settings/qz-sign?request=${encodeURIComponent(toSign)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request: toSign }),
+          })
+            .then((res) => res.text())
+            .then((sig) => {
+              if (sig && sig.length > 50) {
+                resolve(sig.trim());
+              } else {
+                resolve(undefined);
+              }
+            })
+            .catch(() => resolve(undefined));
         };
       });
     } catch (err) {

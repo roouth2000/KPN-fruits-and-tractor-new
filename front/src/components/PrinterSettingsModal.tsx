@@ -216,6 +216,21 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                     ? 'Connected via local WebSocket on ws://localhost:8182. Receipts print silently without browser dialogs.'
                     : 'When QZ Tray desktop app is running, invoices print instantly with 1-click. If offline, standard browser print is used.'}
                 </p>
+                {qzStatus === 'CONNECTED' && (
+                  <div className="mt-2 text-[10.5px] text-slate-700 flex flex-wrap items-center gap-1.5 bg-white/70 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+                    <span className="font-semibold text-emerald-800">Auto-Approval / Zero-Dialog Tip:</span>
+                    <span>Download</span>
+                    <a
+                      href="/api/settings/qz-certificate?download=true"
+                      download="override.crt"
+                      className="text-indigo-600 hover:text-indigo-800 font-bold underline"
+                      title="Place in %APPDATA%\qz\override.crt to eliminate all security popups"
+                    >
+                      override.crt
+                    </a>
+                    <span>into QZ Tray folder to trust permanently.</span>
+                  </div>
+                )}
               </div>
             </div>
 
