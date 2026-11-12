@@ -17,14 +17,14 @@ export const BillingItemsTable: React.FC<BillingItemsTableProps> = ({
   const handleQuantityChange = (item: BillingItem, newQty: number) => {
     const qty = Math.max(0, newQty);
     const baseQuantity = Math.round(qty * item.conversionFactor * 1000) / 1000;
-    const rawTotal = qty * item.rate;
-    const taxAmt = Math.round(((rawTotal - item.discount) * (item.taxRate / 100)) * 100) / 100;
-    const totalAmount = Math.round((rawTotal - item.discount + taxAmt) * 100) / 100;
+    const totalAmount = Math.round(qty * item.rate * 100) / 100;
 
     onUpdateItem(item.id, {
       quantity: qty,
       baseQuantity,
-      taxAmount: taxAmt,
+      discount: 0,
+      taxRate: 0,
+      taxAmount: 0,
       totalAmount,
       trayQuantity: Math.ceil(qty),
     });
@@ -32,39 +32,13 @@ export const BillingItemsTable: React.FC<BillingItemsTableProps> = ({
 
   const handleRateChange = (item: BillingItem, newRate: number) => {
     const rate = Math.max(0, newRate);
-    const rawTotal = item.quantity * rate;
-    const taxAmt = Math.round(((rawTotal - item.discount) * (item.taxRate / 100)) * 100) / 100;
-    const totalAmount = Math.round((rawTotal - item.discount + taxAmt) * 100) / 100;
+    const totalAmount = Math.round(item.quantity * rate * 100) / 100;
 
     onUpdateItem(item.id, {
       rate,
-      taxAmount: taxAmt,
-      totalAmount,
-    });
-  };
-
-  const handleDiscountChange = (item: BillingItem, newDiscount: number) => {
-    const discount = Math.max(0, newDiscount);
-    const rawTotal = item.quantity * item.rate;
-    const taxAmt = Math.round(((rawTotal - discount) * (item.taxRate / 100)) * 100) / 100;
-    const totalAmount = Math.round((rawTotal - discount + taxAmt) * 100) / 100;
-
-    onUpdateItem(item.id, {
-      discount,
-      taxAmount: taxAmt,
-      totalAmount,
-    });
-  };
-
-  const handleTaxChange = (item: BillingItem, newTaxRate: number) => {
-    const taxRate = Math.max(0, newTaxRate);
-    const rawTotal = item.quantity * item.rate;
-    const taxAmt = Math.round(((rawTotal - item.discount) * (taxRate / 100)) * 100) / 100;
-    const totalAmount = Math.round((rawTotal - item.discount + taxAmt) * 100) / 100;
-
-    onUpdateItem(item.id, {
-      taxRate,
-      taxAmount: taxAmt,
+      discount: 0,
+      taxRate: 0,
+      taxAmount: 0,
       totalAmount,
     });
   };
@@ -88,8 +62,6 @@ export const BillingItemsTable: React.FC<BillingItemsTableProps> = ({
               <th className="py-2.5 px-2 w-20">Unit</th>
               <th className="py-2.5 px-2 w-24 text-right">Qty</th>
               <th className="py-2.5 px-2 w-24 text-right">Rate (₹)</th>
-              <th className="py-2.5 px-2 w-20 text-right">Disc (₹)</th>
-              <th className="py-2.5 px-2 w-16 text-center">Tax %</th>
               <th className="py-2.5 px-3 w-28 text-right font-extrabold text-slate-800">Amount (₹)</th>
               <th className="py-2.5 px-2 w-16 text-center">Tray</th>
               <th className="py-2.5 px-2 w-10 text-center"></th>
@@ -98,7 +70,7 @@ export const BillingItemsTable: React.FC<BillingItemsTableProps> = ({
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-16 text-center text-slate-400">
+                <td colSpan={10} className="py-16 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <PackageIcon className="w-8 h-8 text-slate-300 stroke-1" />
                     <p className="font-medium text-xs">No fruit items added to invoice yet</p>
@@ -180,31 +152,6 @@ export const BillingItemsTable: React.FC<BillingItemsTableProps> = ({
                         value={item.rate || ''}
                         onChange={(e) => handleRateChange(item, parseFloat(e.target.value) || 0)}
                         className="w-20 text-right font-semibold bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                      />
-                    </td>
-
-                    {/* Discount Input */}
-                    <td className="py-2.5 px-2 text-right">
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={item.discount || 0}
-                        onChange={(e) => handleDiscountChange(item, parseFloat(e.target.value) || 0)}
-                        className="w-16 text-right bg-slate-50 border border-slate-200 rounded-md px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-slate-900"
-                      />
-                    </td>
-
-                    {/* Tax % */}
-                    <td className="py-2.5 px-2 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="any"
-                        value={item.taxRate || 0}
-                        onChange={(e) => handleTaxChange(item, parseFloat(e.target.value) || 0)}
-                        className="w-12 text-center bg-slate-50 border border-slate-200 rounded-md px-1 py-1 text-xs text-slate-700 focus:outline-none focus:border-slate-900"
                       />
                     </td>
 

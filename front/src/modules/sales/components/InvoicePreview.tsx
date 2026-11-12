@@ -6,13 +6,12 @@ import {
   ShieldCheckIcon,
   SaveIcon,
   PrinterIcon,
-  SettingsIcon,
 } from '../../../components/icons';
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { printerService } from '../../../services/printer/printerService';
-import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
-import type { PaperSize, PrinterConnectionStatus, PrinterSettings } from '../../../services/printer/printerTypes';
+import type { PrinterConnectionStatus, PrinterSettings } from '../../../services/printer/printerTypes';
+import kbnLogo from '../../../assets/kbn-logo.jpeg';
 
 interface InvoicePreviewProps {
   isOpen: boolean;
@@ -35,20 +34,19 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isPrintingDirect, setIsPrintingDirect] = useState(false);
-  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [printerStatus, setPrinterStatus] = useState<PrinterConnectionStatus>(printerService.getStatus());
-  const [paperSize, setPaperSize] = useState<PaperSize>(printerService.getSettings().paperSize);
   const [settings, setSettings] = useState<PrinterSettings>(printerService.getSettings());
 
   useEffect(() => {
     const unsub = printerService.onStatusChange(setPrinterStatus);
+    printerService.attemptSilentReconnect();
     return unsub;
   }, []);
 
   useEffect(() => {
     if (isOpen) {
       setSettings(printerService.getSettings());
-      setPaperSize(printerService.getSettings().paperSize);
     }
   }, [isOpen]);
 
@@ -58,6 +56,40 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const items = inv.items || [];
   const payments = inv.payments || [];
 
+  // Calculations for thermal receipt roll layout
+  const rawSaleType = String(inv.saleType || '').toUpperCase();
+  const grandTotal = Number(inv.grandTotal || 0);
+  const subtotal = Number(inv.subtotal || grandTotal || 0);
+  const paidAmount = Number(inv.paidAmount || 0);
+  const balanceDue = Number(inv.balanceDue || 0);
+  const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+  const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
+  const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+
+  let billType = 'CREDITBILL';
+  if (rawSaleType === 'CASH' || (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0)) {
+    billType = 'CASHBILL';
+  } else if (rawSaleType === 'CREDIT') {
+    billType = 'CREDITBILL';
+  }
+
+  const cashierName =
+    inv.createdBy?.name ||
+    inv.createdBy?.username ||
+    inv.cashier ||
+    'Super Administrator';
+
+  const invTime = inv.createdAt
+    ? new Date(inv.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    : '05:00 PM';
+
+  const effectiveShopName =
+    !settings.shopName || settings.shopName.includes('SR FRUITS') || settings.shopName === 'SR'
+      ? 'KBN FRUITS'
+      : settings.shopName;
+  const effectiveInitials =
+    !settings.shopInitials || settings.shopInitials === 'SR' ? 'KBN' : settings.shopInitials;
+
   const canEditInvoice = hasPermission('sales.edit');
   const canCancelInvoice = hasPermission('sales.cancel');
 
@@ -65,14 +97,24 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const handleDirectPrint = async () => {
     setIsPrintingDirect(true);
     try {
-      const res = await printerService.printInvoice(inv, { paperSize });
+      if (!printerService.isConnected()) {
+        const reconnected = await printerService.reconnectPrinter();
+        if (!reconnected && !printerService.isConnected()) {
+          try {
+            await printerService.connectPrinter();
+          } catch (connectErr: any) {
+            setToastMsg(connectErr?.message || 'Printer connection cancelled');
+            setTimeout(() => setToastMsg(null), 4000);
+            return;
+          }
+        }
+      }
+
+      const res = await printerService.printInvoice(inv, { paperSize: '80mm' });
       if (res.success) {
-        setToastMsg(res.message || `Receipt printed successfully (${paperSize})`);
+        setToastMsg(res.message || 'Receipt printed successfully');
       } else {
         setToastMsg(res.error || 'Print failed. Check printer connection.');
-        if (!printerService.isConnected()) {
-          setIsPrinterSettingsOpen(true);
-        }
       }
       setTimeout(() => setToastMsg(null), 4000);
     } catch (err: any) {
@@ -85,11 +127,16 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
 
   const handleDownloadPdf = async () => {
     if (inv.id) {
+      setIsDownloadingPdf(true);
       try {
         await salesApi.downloadInvoicePdf(inv.id, inv.invoiceNumber);
+        setToastMsg('Thermal receipt PDF downloaded');
+        setTimeout(() => setToastMsg(null), 3000);
       } catch {
         // Fallback to token-authorized URL
         window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank');
+      } finally {
+        setIsDownloadingPdf(false);
       }
     }
   };
@@ -123,7 +170,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Top Dialog Action Bar */}
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3 no-print">
           {/* Left: Invoice Title & Status */}
@@ -158,68 +205,45 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
 
           {/* Right: Actions Bar */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* 80mm / 58mm Paper Toggle */}
-            <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
-              <button
-                type="button"
-                onClick={() => setPaperSize('80mm')}
-                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                  paperSize === '80mm'
-                    ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                    : 'text-slate-600 hover:text-slate-900'
+            {/* Device Online / Offline Status Badge */}
+            <div
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold select-none border ${
+                printerStatus === 'CONNECTED'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-slate-100 text-slate-500 border-slate-200'
+              }`}
+              title={printerStatus === 'CONNECTED' ? 'Thermal Printer: Online' : 'Thermal Printer: Offline'}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  printerStatus === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                 }`}
-              >
-                80mm
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaperSize('58mm')}
-                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                  paperSize === '58mm'
-                    ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                58mm
-              </button>
+              />
+              <span>{printerStatus === 'CONNECTED' ? 'Online' : 'Offline'}</span>
             </div>
 
-            {/* Direct Silent Thermal Print */}
+            {/* Print Button (Thermal ESC/POS) */}
             <button
               type="button"
               onClick={handleDirectPrint}
               disabled={isPrintingDirect}
               className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              title="Send silent thermal print job directly to thermal printer"
+              title="Print receipt to thermal printer"
             >
               <PrinterIcon className={`w-3.5 h-3.5 ${isPrintingDirect ? 'animate-bounce' : ''}`} />
-              <span>{isPrintingDirect ? 'Printing...' : 'Direct Print'}</span>
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  printerStatus === 'CONNECTED' ? 'bg-emerald-300 animate-pulse' : 'bg-amber-300'
-                }`}
-              />
+              <span>{isPrintingDirect ? 'Printing...' : 'Print'}</span>
             </button>
 
-            {/* Printer Settings Quick Launcher */}
-            <button
-              type="button"
-              onClick={() => setIsPrinterSettingsOpen(true)}
-              className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-slate-200/80 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-              title="Configure POS Thermal Printer (Web Serial / USB)"
-            >
-              <SettingsIcon className="w-4 h-4" />
-            </button>
-
-            {/* Official PDF Download */}
+            {/* Thermal Receipt PDF Download */}
             <button
               type="button"
               onClick={handleDownloadPdf}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-              title="Download official PDF invoice"
+              disabled={isDownloadingPdf}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
+              title="Download thermal printer receipt PDF"
             >
-              <DownloadIcon className="w-3.5 h-3.5 text-slate-500" />
-              <span>PDF</span>
+              <DownloadIcon className={`w-3.5 h-3.5 text-slate-500 ${isDownloadingPdf ? 'animate-bounce' : ''}`} />
+              <span>{isDownloadingPdf ? 'Downloading...' : 'PDF'}</span>
             </button>
 
             {/* Admin-only Invoice Edit Button */}
@@ -267,16 +291,6 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Printer Settings Modal */}
-        <PrinterSettingsModal
-          isOpen={isPrinterSettingsOpen}
-          onClose={() => {
-            setIsPrinterSettingsOpen(false);
-            setSettings(printerService.getSettings());
-          }}
-          onShowToast={(t, m) => setToastMsg(`${t}: ${m}`)}
-        />
 
         {toastMsg && (
           <div className="bg-emerald-50 text-emerald-800 px-4 py-2 text-xs font-semibold border-b border-emerald-200 flex items-center justify-between">
@@ -353,206 +367,174 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
           </div>
         )}
 
-        {/* Printable Invoice Sheet */}
-        <div className="p-6 sm:p-8 overflow-y-auto flex-1 font-sans text-slate-800 print:p-0 bg-slate-50/40">
-          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-xs max-w-3xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-start pb-5 border-b border-slate-200">
-              <div>
-                <div className="flex items-center gap-2">
-                  {settings.shopInitials && (
-                    <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-indigo-700 font-black text-xs uppercase tracking-wide">
-                      {settings.shopInitials}
-                    </span>
-                  )}
-                  <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">
-                    {settings.shopName || 'KBN FRUITS'}
-                  </h1>
-                </div>
-                <p className="text-xs text-slate-500 mt-1 whitespace-pre-line leading-relaxed">
-                  {settings.shopAddress || 'T/A-18,T/E-25,ANNA FRUITS MARKET, KOYAMBEDU, CHENNAI-600092'}
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Phone: {settings.shopPhone || '8778219770'}
-                  {settings.shopGst ? ` · GSTIN: ${settings.shopGst}` : ''}
-                </p>
+        {/* Thermal Receipt Paper Roll Preview */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-200/60 flex justify-center items-start print:p-0">
+          <div className="bg-white text-slate-900 font-mono shadow-2xl border border-slate-300 rounded-t-sm p-4 sm:p-5 transition-all duration-150 select-text w-[360px] text-xs">
+            {/* KBN Logo Print Header */}
+            {settings.printLogo !== false && (
+              <div className="flex flex-col items-center justify-center mb-1.5">
+                <img
+                  src={kbnLogo}
+                  alt="KBN Fruits"
+                  className="w-16 h-16 object-contain rounded-md filter contrast-125 mx-auto"
+                />
               </div>
-
-              <div className="text-right">
-                <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-800 rounded font-bold text-xs uppercase tracking-wider">
-                  {inv.saleType || 'TAX INVOICE'}
-                </span>
-                <div className="font-mono font-extrabold text-base text-slate-900 mt-1">
-                  {inv.invoiceNumber}
-                </div>
-                <div className="text-xs text-slate-500">
-                  Date: {inv.invoiceDate}
-                </div>
+            )}
+            {effectiveInitials && (
+              <div className="text-center font-black text-xs tracking-widest uppercase mb-0.5 text-slate-700">
+                [{effectiveInitials}]
               </div>
+            )}
+            <div className="text-center font-extrabold text-sm uppercase tracking-wide">
+              {effectiveShopName}
+            </div>
+            <div className="text-center text-[10px] text-slate-600 leading-tight mt-1 whitespace-pre-line">
+              {settings.shopAddress || 'T/A-18,T/E-25,ANNA FRUITS MARKET, KOYAMBEDU, CHENNAI-600092'}
+            </div>
+            <div className="text-center text-[10px] text-slate-600 mt-0.5">
+              Phone: {settings.shopPhone || '8778219770'}
+              {settings.shopGst ? ` · GSTIN: ${settings.shopGst}` : ''}
             </div>
 
-            {/* Customer & Bill Details */}
-            <div className="grid grid-cols-2 gap-8 py-4 border-b border-slate-200 text-xs">
-              <div>
-                <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                  Billed To:
-                </span>
-                <div className="font-bold text-slate-900 text-sm mt-0.5">
+            {/* Divider */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+
+            {/* Bill Type */}
+            <div className="text-center font-bold text-xs uppercase tracking-wider">
+              *** {billType} ***
+            </div>
+
+            {/* Divider */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+
+            {/* Customer Details */}
+            <div className="space-y-0.5 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-bold text-right truncate max-w-[200px]">
                   {inv.customerName || (inv.customer ? inv.customer.name : 'Cash Customer')}
-                </div>
-                {inv.customerPhone && (
-                  <div className="text-slate-500 mt-0.5 font-medium">Mobile: {inv.customerPhone}</div>
-                )}
-                {inv.customer?.address && (
-                  <div className="text-slate-500">{inv.customer.address}</div>
-                )}
-              </div>
-
-              <div className="text-right">
-                <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                  Payment Details:
                 </span>
-                <div className="mt-0.5">
-                  Status:{' '}
-                  <span className="font-bold text-emerald-700 uppercase">{inv.status}</span>
+              </div>
+              {inv.customerPhone && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Mobile:</span>
+                  <span className="font-medium">{inv.customerPhone}</span>
                 </div>
-                <div className="text-slate-500 mt-0.5">
-                  Due Date: {inv.dueDate || inv.invoiceDate}
-                </div>
-                {inv.notes && (
-                  <div className="text-slate-500 italic mt-0.5">Note: {inv.notes}</div>
-                )}
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+
+            {/* Bill Metadata */}
+            <div className="space-y-0.5 text-[10px] text-slate-600">
+              <div className="flex justify-between">
+                <span>Bill No: <strong className="text-slate-900">{inv.invoiceNumber}</strong></span>
+                <span>Date: {inv.invoiceDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cashier: {cashierName}</span>
+                <span>Time: {invTime}</span>
               </div>
             </div>
 
-            {/* Line Items Table */}
-            <div className="py-2 border-b border-slate-200">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-semibold text-[11px] uppercase">
-                    <th className="py-2.5">#</th>
-                    <th className="py-2.5">Fruit Item</th>
-                    <th className="py-2.5">Variety / Grade</th>
-                    <th className="py-2.5 text-right">Qty</th>
-                    <th className="py-2.5 text-right">Unit</th>
-                    <th className="py-2.5 text-right">Rate (₹)</th>
-                    <th className="py-2.5 text-right">Amount (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.map((item: any, idx: number) => (
-                    <tr key={item.id || idx}>
-                      <td className="py-2.5 text-slate-400 align-top">{idx + 1}</td>
-                      <td className="py-2.5 align-top">
-                        <div className="font-semibold text-slate-900">
-                          {item.productName || 'Fruit'}
-                        </div>
-                      </td>
-                      <td className="py-2.5 text-slate-600 align-top">
-                        {item.variety || '—'} · {item.grade || 'A'}
-                      </td>
-                      <td className="py-2.5 text-right font-mono font-medium align-top">
-                        {Number(item.quantity).toLocaleString()}
-                      </td>
-                      <td className="py-2.5 text-right text-slate-500 align-top">
-                        {item.unit || 'BOX'}
-                      </td>
-                      <td className="py-2.5 text-right font-mono align-top">
-                        ₹{Number(item.rate).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-2.5 text-right font-mono font-bold text-slate-900 align-top">
-                        ₹
-                        {Number(
-                          item.totalAmount || Number(item.quantity) * Number(item.rate)
-                        ).toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Divider */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+
+            {/* Table Header */}
+            <div className="flex justify-between text-[11px] font-bold pb-1 uppercase border-b border-dashed border-slate-400">
+              <span className="flex-1">Description</span>
+              <span className="w-9 text-right">Qty</span>
+              <span className="w-13 text-right">Rate</span>
+              <span className="w-16 text-right">Amount</span>
             </div>
 
-            {/* Totals & Financial Breakdown */}
-            <div className="pt-2 flex flex-col sm:flex-row justify-between items-start gap-4 text-xs">
-              <div className="w-full sm:w-1/2 space-y-2">
-                {payments.length > 0 && (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                    <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider block">
-                      Payment Vouchers:
-                    </span>
-                    {payments.map((p: any, idx: number) => (
-                      <div key={idx} className="flex justify-between text-[11px] text-slate-600">
-                        <span>
-                          {p.paymentMode} ({p.paymentNumber})
-                        </span>
-                        <span className="font-mono font-semibold">
-                          ₹{Number(p.amount).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    ))}
+            {/* Items */}
+            <div className="divide-y divide-dashed divide-slate-200 py-1 space-y-1">
+              {items.map((item: any, idx: number) => {
+                const qty = Number(item.quantity || 0);
+                const rate = Number(item.rate || 0);
+                const amt = Number(item.totalAmount || qty * rate);
+                return (
+                  <div key={item.id || idx} className="pt-1 text-[11px]">
+                    <div className="font-semibold uppercase text-slate-900 leading-tight">
+                      {item.productName || item.product?.name || 'Produce'}
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-700 mt-0.5">
+                      <span className="text-slate-400">{item.variety || item.unit || 'BOX'}</span>
+                      <span className="w-9 text-right font-medium">{qty}</span>
+                      <span className="w-13 text-right font-medium">{rate.toFixed(2)}</span>
+                      <span className="w-16 text-right font-bold text-slate-900">{amt.toFixed(2)}</span>
+                    </div>
                   </div>
-                )}
-                {inv.trayIssued > 0 && (
-                  <div className="text-[11px] text-slate-500">
-                    Crates Issued: <strong className="text-slate-800">{inv.trayIssued} trays</strong>
-                  </div>
-                )}
+                );
+              })}
+            </div>
+
+            {/* Divider */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+
+            {/* Financial Summary */}
+            <div className="space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Gross Amount :</span>
+                <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Net Amount :</span>
+                <span className="font-mono font-bold">₹{grandTotal.toFixed(2)}</span>
               </div>
 
-              <div className="w-full sm:w-1/2 max-w-xs space-y-1.5 text-right ml-auto">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal:</span>
-                  <span className="font-mono font-medium">
-                    ₹{Number(inv.subtotal).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Discount:</span>
-                  <span className="font-mono font-medium">
-                    - ₹{Number(inv.discount || 0).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Tax:</span>
-                  <span className="font-mono font-medium">
-                    + ₹{Number(inv.tax || 0).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-900 border-t border-slate-100 pt-1">
-                  <span>Current Sale Total:</span>
-                  <span className="font-mono">
-                    ₹{Number(inv.grandTotal).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                {Number(inv.previousDueSnapshot) > 0 && (
-                  <div className="flex justify-between text-rose-600 font-semibold">
-                    <span>Previous Ledger Due:</span>
-                    <span className="font-mono">
-                      + ₹{Number(inv.previousDueSnapshot).toLocaleString('en-IN')}
-                    </span>
+              {previousDue > 0 && (
+                <>
+                  <div className="flex justify-between text-rose-700 font-medium">
+                    <span>Opening Balance :</span>
+                    <span className="font-mono">+ ₹{previousDue.toFixed(2)}</span>
                   </div>
-                )}
-                <div className="flex justify-between font-extrabold text-slate-900 border-t-2 border-slate-300 pt-1.5 text-sm">
-                  <span>Total Payable:</span>
-                  <span className="font-mono">
-                    ₹
-                    {Number(inv.totalPayableSnapshot || inv.grandTotal).toLocaleString('en-IN')}
-                  </span>
+                  <div className="flex justify-between font-bold">
+                    <span>Total Amt :</span>
+                    <span className="font-mono">₹{totalPayable.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+
+              {payments.length > 0 ? (
+                payments.map((p: any, idx: number) => (
+                  <div key={`pay-${idx}`} className="flex justify-between text-emerald-700 font-medium">
+                    <span>{p.paymentMode || 'Payment'} Paid :</span>
+                    <span className="font-mono">- ₹{Number(p.amount || 0).toFixed(2)}</span>
+                  </div>
+                ))
+              ) : paidAmount > 0 ? (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span>Paid Amount :</span>
+                  <span className="font-mono">- ₹{paidAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>Payment Received:</span>
-                  <span className="font-mono">
-                    - ₹{Number(inv.paidAmount).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex justify-between font-extrabold text-rose-600 border-t border-slate-200 pt-1 text-sm">
-                  <span>Balance Due:</span>
-                  <span className="font-mono">
-                    ₹{Number(inv.balanceDue).toLocaleString('en-IN')}
-                  </span>
-                </div>
+              ) : null}
+
+              <div className="flex justify-between font-extrabold text-xs sm:text-sm border-t border-dashed border-slate-400 pt-1 text-slate-900">
+                <span>Closing Balance :</span>
+                <span className="font-mono">₹{balanceDue.toFixed(2)}</span>
               </div>
             </div>
+
+            {/* Items count & Qty count */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+            <div className="flex justify-between text-[10px] text-slate-600">
+              <span>No.Of.Items : <strong>{items.length}</strong></span>
+              <span>Total Qty : <strong>{totalQty}</strong></span>
+            </div>
+
+            {/* Footer */}
+            <div className="border-b border-dashed border-slate-400 my-2" />
+            <div className="text-center text-[10px] text-slate-500 space-y-0.5 pt-1">
+              <p className="font-bold tracking-wider">*** THANK YOU VISIT AGAIN ***</p>
+              <p>{settings.footerTerms || 'Goods once sold cannot be taken back'}</p>
+              <p className="text-[9px] text-slate-400 font-mono">TVS RP-3200 · Direct ESC/POS</p>
+            </div>
+
+            {/* Serrated paper tear effect at bottom */}
+            <div className="mt-4 pt-1 border-b-4 border-dashed border-slate-300" />
           </div>
         </div>
       </div>

@@ -47,8 +47,8 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="px-6 py-4 border-b border-slate-200/70 bg-white/70 backdrop-blur-md flex flex-wrap items-center justify-between gap-4 sticky top-0 z-10">
-      {/* Actions */}
+    <header className="px-6 py-3.5 border-b border-slate-200/70 bg-white/70 backdrop-blur-md flex items-center justify-between gap-4 sticky top-0 z-10 w-full">
+      {/* Left section: Search & quick order */}
       <div className="flex items-center gap-2.5">
         {/* Search trigger */}
         <button
@@ -70,7 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
           <PlusIcon className="w-3.5 h-3.5 text-white" />
           <span>New order</span>
         </button>
+      </div>
 
+      {/* Right section (justify-end): Profile badge, notification bell, and Sign Out shown last */}
+      <div className="flex items-center gap-2.5 justify-end ml-auto">
         {/* Live RBAC Staff Profile Badge (Role switching disabled) */}
         <UserRoleSwitcher />
 
@@ -114,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Sign Out Button */}
+        {/* Sign Out Button (shown last at the far right) */}
         <button
           onClick={logout}
           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/80 border border-rose-200/80 rounded-lg transition-all shadow-2xs active:scale-95 cursor-pointer"

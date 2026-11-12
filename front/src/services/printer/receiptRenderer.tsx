@@ -6,9 +6,46 @@ import {
   Cut,
   Cashdraw,
   QRCode,
+  Image,
   render,
 } from 'react-thermal-printer';
 import type { PrinterSettings } from './printerTypes';
+import kbnLogo from '../../assets/kbn-logo.jpeg';
+
+/**
+ * Scales an image to target dot width on an offscreen canvas and converts to PNG data URL
+ * so thermal rasterization is fast, crisp, and within printer head width (576/384 dots).
+ */
+function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return resolve(src);
+    }
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const scale = targetWidth / img.width;
+        const targetHeight = Math.round(img.height * scale);
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(src);
+
+        // Fill white background for clean B/W dot printing
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(src);
+      }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
 
 // Helper to format date as DD/MM/YYYY
 function formatReceiptDate(d?: string | Date | null): string {
@@ -47,9 +84,24 @@ export const receiptRenderer = {
     const printerWidth = is58mm ? 32 : 48;
 
     // Monogram & Shop Details
-    const shopName = (settings.shopName || 'KBN FRUITS').trim().toUpperCase();
-    const initials = (settings.shopInitials || '').trim().toUpperCase();
-    const shouldPrintMonogram = settings.printLogo !== false && Boolean(initials);
+    const rawShopName = (settings.shopName || '').trim().toUpperCase();
+    const shopName =
+      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+        ? 'KBN FRUITS'
+        : rawShopName;
+    const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
+    const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
+    const shouldPrintLogo = settings.printLogo !== false;
+    const shouldPrintMonogram = shouldPrintLogo && Boolean(initials);
+
+    let scaledLogoUrl = '';
+    if (shouldPrintLogo) {
+      try {
+        scaledLogoUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+      } catch (err) {
+        console.warn('Failed preparing logo for thermal print:', err);
+      }
+    }
 
     const addressLines = (settings.shopAddress || '')
       .split('\n')
@@ -112,12 +164,14 @@ export const receiptRenderer = {
 
     const receiptElement = (
       <Printer type="epson" width={printerWidth} initialize={true}>
-        {/* 1. Monogram code (e.g. SR) centered & double-sized */}
-        {shouldPrintMonogram && (
+        {/* 1. KBN Logo print if enabled, fallback to monogram */}
+        {shouldPrintLogo && scaledLogoUrl ? (
+          <Image align="center" src={scaledLogoUrl} />
+        ) : shouldPrintMonogram ? (
           <Text align="center" bold={true} size={{ width: 2, height: 2 }}>
             {initials}
           </Text>
-        )}
+        ) : null}
 
         {/* 2. Shop Name centered bold */}
         <Text align="center" bold={true}>
@@ -234,16 +288,34 @@ export const receiptRenderer = {
     const is58mm = settings.paperSize === '58mm';
     const printerWidth = is58mm ? 32 : 48;
     const now = new Date();
+    const rawShopName = (settings.shopName || '').trim().toUpperCase();
+    const shopName =
+      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+        ? 'KBN FRUITS'
+        : rawShopName;
+    const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
+    const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
+
+    let testLogoUrl = '';
+    if (settings.printLogo !== false) {
+      try {
+        testLogoUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+      } catch {
+        // fallback to text
+      }
+    }
 
     const testElement = (
       <Printer type="epson" width={printerWidth} initialize={true}>
-        {settings.shopInitials && (
+        {testLogoUrl ? (
+          <Image align="center" src={testLogoUrl} />
+        ) : initials ? (
           <Text align="center" bold={true} size={{ width: 2, height: 2 }}>
-            {settings.shopInitials.toUpperCase()}
+            {initials}
           </Text>
-        )}
+        ) : null}
         <Text align="center" bold={true}>
-          {(settings.shopName || 'KBN FRUITS').toUpperCase()}
+          {shopName}
         </Text>
         <Text align="center">TVS RP-3200 HARDWARE TEST</Text>
         <Line character="=" />

@@ -9,8 +9,6 @@ import { BillingTotals } from '../components/BillingTotals';
 import { InvoiceActions } from '../components/InvoiceActions';
 import { InvoicePreview } from '../components/InvoicePreview';
 import { HoldInvoiceModal } from '../components/HoldInvoiceModal';
-import { useAuth } from '../../../context/AuthContext';
-import { ShieldCheckIcon, PrinterIcon } from '../../../components/icons';
 import { printerService } from '../../../services/printer/printerService';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
 import type { PrinterConnectionStatus } from '../../../services/printer/printerTypes';
@@ -34,8 +32,7 @@ interface BillingPageProps {
   onNavigateInvoices?: () => void;
 }
 
-export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigateInvoices }) => {
-  const { isSalesperson, isAdminOrSuperadmin, currentUser } = useAuth();
+export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
   // Billing Engine Hook
   const {
@@ -71,7 +68,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
   const [previewInvoice, setPreviewInvoice] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
-  const [printerStatus, setPrinterStatus] = useState<PrinterConnectionStatus>(printerService.getStatus());
+  const [, setPrinterStatus] = useState<PrinterConnectionStatus>(printerService.getStatus());
   const lastPrintedInvoiceIdRef = useRef<number | string | null>(null);
 
   useEffect(() => {
@@ -340,70 +337,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast, onNavigat
   };
 
   return (
-    <div className="space-y-4 pb-12">
-      {/* RBAC Role Context Indicator */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
-        <div className="flex items-center gap-2">
-          {isSalesperson ? (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              SALESPERSON · Bill Page Mode
-            </span>
-          ) : isAdminOrSuperadmin ? (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
-              <ShieldCheckIcon className="w-3.5 h-3.5 text-blue-600" />
-              ADMINISTRATOR · Full Invoice Edit & Void Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              CASHIER · POS & Dues Collection
-            </span>
-          )}
-
-          <span className="text-xs text-slate-500">
-            Operator: <strong className="text-slate-800">{currentUser?.name || 'Staff User'}</strong>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-[11px] text-slate-400 hidden sm:block">
-            {isSalesperson
-              ? 'Restricted View: Other ERP modules are hidden'
-              : isAdminOrSuperadmin
-              ? 'Permissions: Invoice Edit, Void, Pricing Overrides & Reports'
-              : 'Permissions: Fast billing, payment allocations & receipts'}
-          </div>
-
-          {/* Thermal Printer Settings Button */}
-          <button
-            type="button"
-            onClick={() => setIsPrinterSettingsOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/80 shadow-2xs"
-            title="Configure Thermal Printer (Web Serial API / 80mm / 58mm)"
-          >
-            <PrinterIcon className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Printer: {printerService.getSettings().paperSize}</span>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                printerStatus === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-              }`}
-            />
-          </button>
-
-          {onNavigateInvoices && (
-            <button
-              type="button"
-              onClick={onNavigateInvoices}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/80 shadow-2xs"
-            >
-              <span>📋 All Invoices (History)</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Action / Header Bar */}
+    <div className="space-y-2 pb-6">
       <InvoiceActions
         invoiceNumber={nextInvoiceNumber}
         invoiceDate={invoiceDate}

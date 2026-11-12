@@ -87,7 +87,14 @@ class PrinterService {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        return { ...DEFAULT_PRINTER_SETTINGS, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw);
+        if (parsed.shopName === 'SR FRUITS' || parsed.shopName === 'SR') {
+          parsed.shopName = 'KBN FRUITS';
+        }
+        if (parsed.shopInitials === 'SR') {
+          parsed.shopInitials = 'KBN';
+        }
+        return { ...DEFAULT_PRINTER_SETTINGS, ...parsed };
       }
     } catch (err) {
       console.warn('[PrinterService] Failed reading settings:', err);

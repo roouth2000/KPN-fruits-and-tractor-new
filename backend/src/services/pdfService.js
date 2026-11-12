@@ -1,16 +1,40 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 const { Setting } = require('../models');
 
 class PdfService {
+  /**
+   * Generates a thermal receipt PDF matching the 80mm roll POS layout
+   * (Koyambedu Mandi standard, TVS RP-3200 thermal paper roll).
+   */
   async generateInvoicePdf(invoice, res) {
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const items = invoice.items || [];
+    const payments = invoice.payments || [];
 
-    doc.pipe(res);
+    // Calculate totals
+    const grandTotal = Number(invoice.grandTotal || 0);
+    const subtotal = Number(invoice.subtotal || grandTotal || 0);
+    const paidAmount = Number(invoice.paidAmount || 0);
+    const balanceDue = Number(invoice.balanceDue || 0);
+    const previousDue = Number(invoice.previousDueSnapshot || invoice.previousDue || 0);
+    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
+    const totalQty = items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+
+    // Bill Type
+    const rawSaleType = String(invoice.saleType || '').toUpperCase();
+    let billType = 'CREDITBILL';
+    if (rawSaleType === 'CASH' || (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0)) {
+      billType = 'CASHBILL';
+    } else if (rawSaleType === 'CREDIT') {
+      billType = 'CREDITBILL';
+    }
 
     // Dynamic Shop Details
     let shopName = 'KBN FRUITS';
-    let address = 'T/A-18,T/E-25,ANNA FRUITS MARKET, KOYAMBEDU,CHENNAI-600092';
-    let phone = '9677157688';
+    let addressLine1 = 'T/A-18,T/E-25,ANNA FRUITS MARKET,';
+    let addressLine2 = 'KOYAMBEDU, CHENNAI-600092';
+    let phone = '8778219770';
     let gstin = '';
 
     try {
@@ -19,176 +43,255 @@ class PdfService {
       settings.forEach((s) => {
         map[s.key] = s.value;
       });
-      if (map['mandi.businessName']) shopName = map['mandi.businessName'];
+      if (map['mandi.businessName'] && !map['mandi.businessName'].includes('SR FRUITS')) {
+        shopName = map['mandi.businessName'];
+      }
       if (map['mandi.phone']) phone = map['mandi.phone'];
       if (map['mandi.gstin']) gstin = map['mandi.gstin'];
       const yard = map['mandi.yardBay'] || 'T/A-18,T/E-25,ANNA FRUITS MARKET';
       const city = map['mandi.city'] || 'KOYAMBEDU, CHENNAI';
       const pin = map['mandi.pincode'] || '600092';
-      address = `${yard}, ${city}-${pin}`;
+      addressLine1 = `${yard},`;
+      addressLine2 = `${city}-${pin}`;
     } catch {
-      // Fallback to default
+      // Fallback
     }
 
-    // Company Header
-    doc
-      .fillColor('#0f172a')
-      .fontSize(20)
-      .font('Helvetica-Bold')
-      .text(shopName.toUpperCase(), 40, 40)
-      .fontSize(9)
-      .font('Helvetica')
-      .fillColor('#64748b')
-      .text(`Wholesale Produce & Cold Chain | ${address}`, 40, 65)
-      .text(`Phone: ${phone}${gstin ? ` | GSTIN: ${gstin}` : ''}`, 40, 78);
+    // Customer & Metadata
+    const customerName = (
+      invoice.customerName ||
+      (invoice.customer ? invoice.customer.name : 'Cash Customer')
+    ).toUpperCase();
+    const customerPhone = invoice.customerPhone || (invoice.customer ? invoice.customer.phone : '') || '9999999999';
 
-    doc.moveTo(40, 95).lineTo(555, 95).strokeColor('#cbd5e1').lineWidth(1).stroke();
+    const invNumber = invoice.invoiceNumber || 'INV-000001';
+    const invDate = invoice.invoiceDate || new Date().toISOString().slice(0, 10);
+    const cashierName =
+      invoice.createdBy?.name ||
+      invoice.createdBy?.username ||
+      invoice.cashier ||
+      'Super Administrator';
 
-    // Invoice Meta
-    doc
-      .fillColor('#0f172a')
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('TAX INVOICE', 40, 105)
-      .fontSize(9)
-      .font('Helvetica')
-      .text(`Invoice No: ${invoice.invoiceNumber}`, 40, 125)
-      .text(`Invoice Date: ${invoice.invoiceDate}`, 40, 138)
-      .text(`Sale Type: ${invoice.saleType}`, 40, 151)
-      .text(`Status: ${invoice.status}`, 40, 164);
+    const invTime = invoice.createdAt
+      ? new Date(invoice.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+      : '11:00 pm';
 
-    // Customer Info Box
-    doc
-      .rect(340, 105, 215, 75)
-      .strokeColor('#e2e8f0')
-      .stroke();
+    // Calculate continuous thermal roll height (80mm width = 226 pt)
+    const baseHeight = 350;
+    const itemsHeight = items.length * 24;
+    const dueExtraHeight = previousDue > 0 ? 24 : 0;
+    const paidExtraHeight = paidAmount > 0 ? 14 : 0;
+    const totalHeight = Math.max(380, baseHeight + itemsHeight + dueExtraHeight + paidExtraHeight);
 
-    doc
-      .fillColor('#0f172a')
-      .font('Helvetica-Bold')
-      .fontSize(9)
-      .text('Billed To:', 348, 112)
-      .font('Helvetica-Bold')
-      .text(invoice.customerName, 348, 125)
-      .font('Helvetica')
-      .fillColor('#475569')
-      .text(`Phone: ${invoice.customerPhone || 'N/A'}`, 348, 138)
-      .text(`Address: ${invoice.customer?.address || 'Counter / APMC Mandi'}`, 348, 151, { width: 200 })
-      .text(`Outstanding Trays: ${invoice.customer?.outstandingTrays || 0}`, 348, 164);
-
-    // Items Table Header
-    const tableTop = 200;
-    doc
-      .rect(40, tableTop, 515, 20)
-      .fillColor('#f1f5f9')
-      .fill();
-
-    doc
-      .fillColor('#0f172a')
-      .font('Helvetica-Bold')
-      .fontSize(8)
-      .text('#', 45, tableTop + 6)
-      .text('Item / Variety', 65, tableTop + 6)
-      .text('Grade', 220, tableTop + 6)
-      .text('Unit', 260, tableTop + 6)
-      .text('Qty', 300, tableTop + 6)
-      .text('Rate (Rs)', 340, tableTop + 6)
-      .text('Disc (Rs)', 400, tableTop + 6)
-      .text('Tax (Rs)', 450, tableTop + 6)
-      .text('Amount (Rs)', 495, tableTop + 6);
-
-    // Items List
-    let y = tableTop + 24;
-    const items = invoice.items || [];
-
-    doc.font('Helvetica').fontSize(8).fillColor('#1e293b');
-
-    items.forEach((item, index) => {
-      doc
-        .text(String(index + 1), 45, y)
-        .text(`${item.productName} - ${item.variety}`, 65, y, { width: 150 })
-        .text(item.grade || 'A', 220, y)
-        .text(item.unit, 260, y)
-        .text(String(item.quantity), 300, y)
-        .text(Number(item.rate).toLocaleString('en-IN'), 340, y)
-        .text(Number(item.discount || 0).toLocaleString('en-IN'), 400, y)
-        .text(Number(item.taxAmount || 0).toLocaleString('en-IN'), 450, y)
-        .text(Number(item.totalAmount).toLocaleString('en-IN'), 495, y);
-
-      y += 18;
-      doc.moveTo(40, y - 2).lineTo(555, y - 2).strokeColor('#f1f5f9').stroke();
+    // 80mm roll width = 226 points (standard 3-1/8 inch thermal receipt)
+    const doc = new PDFDocument({
+      size: [226, totalHeight],
+      margins: { top: 8, bottom: 8, left: 8, right: 8 },
     });
 
-    // Summary Box
-    const summaryTop = Math.max(y + 15, 340);
-    doc.moveTo(40, summaryTop).lineTo(555, summaryTop).strokeColor('#cbd5e1').stroke();
+    doc.pipe(res);
 
-    const rightCol = 380;
+    let y = 8;
+
+    // 1. KBN Logo Image (centered)
+    const logoPaths = [
+      path.join(__dirname, '../../public/kbn-logo.jpeg'),
+      path.join(__dirname, '../../../front/src/assets/kbn-logo.jpeg'),
+    ];
+    let logoPath = logoPaths.find((p) => fs.existsSync(p));
+    if (logoPath) {
+      const logoWidth = 46;
+      doc.image(logoPath, (226 - logoWidth) / 2, y, { width: logoWidth });
+      y += 50;
+    }
+
+    // 2. Monogram & Shop Header
     doc
-      .font('Helvetica')
+      .font('Courier-Bold')
       .fontSize(9)
-      .fillColor('#475569')
-      .text('Subtotal:', rightCol, summaryTop + 8)
-      .text('Invoice Discount:', rightCol, summaryTop + 22)
-      .text('Tax (GST):', rightCol, summaryTop + 36)
-      .font('Helvetica-Bold')
-      .fillColor('#0f172a')
-      .text('Current Sale Total:', rightCol, summaryTop + 50)
-      .font('Helvetica')
-      .fillColor('#475569')
-      .text('Previous Due (Ledger):', rightCol, summaryTop + 66)
-      .font('Helvetica-Bold')
-      .fillColor('#0f172a')
-      .text('Total Payable:', rightCol, summaryTop + 82)
-      .font('Helvetica')
-      .fillColor('#059669')
-      .text('Payment Received:', rightCol, summaryTop + 98)
-      .font('Helvetica-Bold')
-      .fillColor(Number(invoice.balanceDue) > 0 ? '#b91c1c' : '#059669')
-      .text('Remaining Balance Due:', rightCol, summaryTop + 114);
-
-    const valCol = 485;
-    doc
-      .font('Helvetica')
-      .fillColor('#1e293b')
-      .text(`Rs ${Number(invoice.subtotal).toLocaleString('en-IN')}`, valCol, summaryTop + 8, { align: 'right' })
-      .text(`Rs ${Number(invoice.discount).toLocaleString('en-IN')}`, valCol, summaryTop + 22, { align: 'right' })
-      .text(`Rs ${Number(invoice.tax).toLocaleString('en-IN')}`, valCol, summaryTop + 36, { align: 'right' })
-      .font('Helvetica-Bold')
-      .text(`Rs ${Number(invoice.grandTotal).toLocaleString('en-IN')}`, valCol, summaryTop + 50, { align: 'right' })
-      .font('Helvetica')
-      .text(`Rs ${Number(invoice.previousDueSnapshot || 0).toLocaleString('en-IN')}`, valCol, summaryTop + 66, { align: 'right' })
-      .font('Helvetica-Bold')
-      .text(`Rs ${Number(invoice.totalPayableSnapshot || invoice.grandTotal).toLocaleString('en-IN')}`, valCol, summaryTop + 82, { align: 'right' })
-      .font('Helvetica-Bold')
-      .fillColor('#059669')
-      .text(`Rs ${Number(invoice.paidAmount).toLocaleString('en-IN')}`, valCol, summaryTop + 98, { align: 'right' })
-      .fillColor(Number(invoice.balanceDue) > 0 ? '#b91c1c' : '#059669')
-      .text(`Rs ${Number(invoice.balanceDue).toLocaleString('en-IN')}`, valCol, summaryTop + 114, { align: 'right' });
-
-    // Tray details & signature
-    doc
-      .fontSize(8)
-      .font('Helvetica')
-      .fillColor('#64748b')
-      .text(`Trays Issued: ${invoice.trayIssued || 0} | Trays Returned: ${invoice.trayReturned || 0}`, 40, summaryTop + 8)
-      .text('Terms: All fruit goods inspected and accepted at dock. Claims valid within 24 hrs.', 40, summaryTop + 25)
-      .text('Thank you for your business!', 40, summaryTop + 40);
+      .fillColor('#000000')
+      .text('[KBN]', 0, y, { align: 'center', width: 226 });
+    y += 12;
 
     doc
-      .moveTo(40, 520)
-      .lineTo(160, 520)
-      .strokeColor('#94a3b8')
-      .stroke();
+      .font('Courier-Bold')
+      .fontSize(11)
+      .text(shopName.toUpperCase(), 0, y, { align: 'center', width: 226 });
+    y += 14;
+
     doc
-      .fontSize(8)
-      .font('Helvetica')
-      .fillColor('#475569')
-      .text('Authorized Signatory', 40, 525);
+      .font('Courier')
+      .fontSize(7)
+      .fillColor('#333333')
+      .text(addressLine1, 0, y, { align: 'center', width: 226 });
+    y += 9;
+
+    doc.text(addressLine2, 0, y, { align: 'center', width: 226 });
+    y += 9;
+
+    doc.text(`Phone: ${phone}${gstin ? ` · GSTIN: ${gstin}` : ''}`, 0, y, { align: 'center', width: 226 });
+    y += 12;
+
+    // 3. Divider
+    doc
+      .font('Courier')
+      .fontSize(7.5)
+      .fillColor('#666666')
+      .text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    // 4. Bill Type
+    doc
+      .font('Courier-Bold')
+      .fontSize(8.5)
+      .fillColor('#000000')
+      .text(`*** ${billType} ***`, 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // Divider
+    doc
+      .font('Courier')
+      .fontSize(7.5)
+      .fillColor('#666666')
+      .text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // 5. Customer Info
+    doc.font('Courier').fontSize(7.5).fillColor('#000000');
+    doc.text('Customer:', 10, y);
+    doc.font('Courier-Bold').text(customerName.slice(0, 18), 75, y, { align: 'right', width: 140 });
+    y += 11;
+
+    doc.font('Courier').text('Mobile:', 10, y);
+    doc.text(customerPhone, 75, y, { align: 'right', width: 140 });
+    y += 12;
+
+    // Divider
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // 6. Bill Meta (Bill No, Date, Cashier, Time)
+    doc.fontSize(7);
+    doc.text(`Bill No: `, 10, y);
+    doc.font('Courier-Bold').text(invNumber, 50, y);
+    doc.font('Courier').text(`Date: ${invDate}`, 125, y, { align: 'right', width: 90 });
+    y += 10;
+
+    doc.text(`Cashier: ${cashierName.slice(0, 12)}`, 10, y);
+    doc.text(`Time: ${invTime}`, 125, y, { align: 'right', width: 90 });
+    y += 11;
+
+    // Divider
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // 7. Table Header
+    doc.font('Courier-Bold').fontSize(7.5);
+    doc.text('DESCRIPTION', 10, y);
+    doc.text('QTY', 115, y, { align: 'right', width: 22 });
+    doc.text('RATE', 142, y, { align: 'right', width: 32 });
+    doc.text('AMOUNT', 178, y, { align: 'right', width: 38 });
+    y += 10;
+
+    // Divider
+    doc.font('Courier').fontSize(7.5);
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    // 8. Line Items
+    items.forEach((item) => {
+      const prodName = (item.productName || item.product?.name || 'Produce').toUpperCase();
+      const variety = item.variety || item.unit || 'BOX';
+      const qty = Number(item.quantity || 0);
+      const rate = Number(item.rate || 0).toFixed(2);
+      const amount = Number(item.totalAmount || qty * Number(item.rate || 0)).toFixed(2);
+
+      // Line 1: Produce Name
+      doc.font('Courier-Bold').fontSize(7.5).fillColor('#000000');
+      doc.text(prodName.slice(0, 24), 10, y);
+      y += 9;
+
+      // Line 2: Variety, Qty, Rate, Amount
+      doc.font('Courier').fontSize(7).fillColor('#444444');
+      doc.text(variety.slice(0, 14), 10, y);
+      doc.text(String(qty), 115, y, { align: 'right', width: 22 });
+      doc.text(rate, 142, y, { align: 'right', width: 32 });
+      doc.font('Courier-Bold').fillColor('#000000').text(amount, 178, y, { align: 'right', width: 38 });
+      y += 11;
+    });
+
+    // Divider
+    doc.font('Courier').fontSize(7.5).fillColor('#666666');
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // 9. Financial Summary
+    doc.font('Courier').fontSize(7.5).fillColor('#000000');
+    doc.text('Gross Amount :', 10, y);
+    doc.text(`Rs ${subtotal.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
+
+    doc.text('Net Amount :', 10, y);
+    doc.font('Courier-Bold').text(`Rs ${grandTotal.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
+
+    if (previousDue > 0) {
+      doc.font('Courier').text('Opening Balance :', 10, y);
+      doc.text(`+Rs ${previousDue.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+      y += 11;
+
+      doc.font('Courier-Bold').text('Total Amt :', 10, y);
+      doc.text(`Rs ${totalPayable.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+      y += 11;
+    }
+
+    if (paidAmount > 0) {
+      doc.font('Courier').text('Paid Amount :', 10, y);
+      doc.text(`-Rs ${paidAmount.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+      y += 11;
+    }
+
+    // Divider before Closing Balance
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    doc.font('Courier-Bold').fontSize(8.5);
+    doc.text('Closing Balance :', 10, y);
+    doc.text(`Rs ${balanceDue.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 13;
+
+    // Divider
+    doc.font('Courier').fontSize(7.5);
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    // 10. Counts
+    doc.fontSize(7);
+    doc.text(`No.Of.Items : ${items.length}`, 10, y);
+    doc.text(`Total Qty : ${totalQty}`, 120, y, { align: 'right', width: 95 });
+    y += 11;
+
+    // Divider
+    doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
+    y += 11;
+
+    // 11. Footer
+    doc.font('Courier-Bold').fontSize(7.5);
+    doc.text('*** THANK YOU VISIT AGAIN ***', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    doc.font('Courier').fontSize(6.5).fillColor('#555555');
+    doc.text('No Return,No Exchange', 0, y, { align: 'center', width: 226 });
+    y += 9;
+
+    doc.text('TVS RP-3200 · Direct ESC/POS', 0, y, { align: 'center', width: 226 });
+    y += 10;
+
+    // Serrated bottom tear line
+    doc.text('- - - - - - - - - - - - - - - - - - - -', 0, y, { align: 'center', width: 226 });
 
     doc.end();
   }
 }
 
 module.exports = new PdfService();
-
