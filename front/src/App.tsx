@@ -220,6 +220,8 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Purchase Report')}
           />
         );
+      case 'stack':
+      case 'stack-management':
       case 'products':
       case 'stock':
       case 'stock-movements':

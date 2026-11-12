@@ -416,6 +416,67 @@ class FifoService {
   }
 
   /**
+   * Get all batches across the entire warehouse in strict FIFO order
+   */
+  async getAllBatches(status = null) {
+    const where = {};
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    return await Batch.findAll({
+      where,
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'variety', 'grade', 'productCode', 'defaultUnit', 'wholesaleRate', 'currentStock'],
+        },
+        {
+          model: Supplier,
+          as: 'supplier',
+          attributes: ['id', 'name', 'supplierCode', 'city'],
+        },
+      ],
+      order: [
+        ['purchaseDate', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
+  }
+
+  /**
+   * Get recent sales allocations (Rule 6 Audit Trail: how much stock from which supplier was sold)
+   */
+  async getAllBatchAllocations(limit = 60) {
+    return await InvoiceItemBatch.findAll({
+      include: [
+        {
+          model: Invoice,
+          as: 'invoice',
+          attributes: ['id', 'invoiceNumber', 'invoiceDate', 'customerName', 'status'],
+        },
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'variety', 'defaultUnit'],
+        },
+        {
+          model: Batch,
+          as: 'batch',
+          attributes: ['id', 'batchNumber', 'purchaseDate', 'purchaseRate'],
+        },
+        {
+          model: Supplier,
+          as: 'supplier',
+          attributes: ['id', 'name', 'supplierCode', 'city'],
+        },
+      ],
+      order: [['id', 'DESC']],
+      limit: parseInt(limit, 10) || 60,
+    });
+  }
+
+  /**
    * Get all batches for a specific product with supplier information
    */
   async getBatchesForProduct(productId) {

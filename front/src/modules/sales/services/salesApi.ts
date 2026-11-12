@@ -89,6 +89,16 @@ export const salesApi = {
     return res.data.data;
   },
 
+  getAllBatches: async (status = 'ALL'): Promise<any[]> => {
+    const res = await apiClient.get('/products/batches/all', { params: { status } });
+    return res.data.data || [];
+  },
+
+  getAllBatchAllocations: async (limit = 60): Promise<any[]> => {
+    const res = await apiClient.get('/products/batches/allocations', { params: { limit } });
+    return res.data.data || [];
+  },
+
   getProductBatches: async (productId: number): Promise<Batch[]> => {
     const res = await apiClient.get(`/products/${productId}/batches`);
     return res.data.data || [];

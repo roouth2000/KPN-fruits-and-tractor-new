@@ -56,10 +56,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [reportsOpen, setReportsOpen] = useState(true);
 
   const reportItems: NavItem[] = [
+    { id: 'report-stock', label: 'Stack / Stock (FIFO)', icon: PackageIcon, permission: 'reports.view' },
     { id: 'report-daily-sales', label: 'Daily Sales', icon: DollarSignIcon, permission: 'reports.view' },
     { id: 'report-monthly-sales', label: 'Monthly Sales', icon: BarChart3Icon, permission: 'reports.view' },
     { id: 'report-purchase', label: 'Purchase', icon: ReceiptTextIcon, permission: 'reports.view' },
-    { id: 'report-stock', label: 'Stock', icon: PackageIcon, permission: 'reports.view' },
     { id: 'report-profit', label: 'Profit', icon: TrendingUpIcon, permission: 'reports.financial' },
     { id: 'report-loss', label: 'Loss', icon: TrendingDownIcon, permission: 'reports.financial' },
     { id: 'report-damage', label: 'Damage', icon: AlertOctagonIcon, permission: 'reports.view' },
@@ -73,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'FRUIT INVENTORY',
       items: [
+        { id: 'stock', label: 'Stack & Batches (FIFO)', icon: LayersIcon, permission: 'stock.view' },
         { id: 'products', label: 'Products / Fruits', icon: PackageIcon, permission: 'stock.view' },
         { id: 'stock-movements', label: 'Stock Movements', icon: ArrowLeftRightIcon, permission: 'stock.view' },
         { id: 'inventory-audit', label: 'Stock Audit & Quality', icon: ClipboardCheckIcon, permission: 'stock.adjust' },
@@ -213,6 +214,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
           </button>
+
+          {/* Stack Management (FIFO Batches) - First Class Primary Navigation */}
+          {!isSalesperson && (
+            <button
+              onClick={() => handleSelectTab('stock')}
+              title={isCollapsed ? 'Stack Management (FIFO)' : undefined}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all group relative ${
+                activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-indigo-50/70'
+              }`}
+            >
+              <LayersIcon
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                  activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
+                    ? 'text-white'
+                    : 'text-indigo-600'
+                }`}
+              />
+              {!isCollapsed && (
+                <span className="truncate text-left flex-1 flex items-center justify-between">
+                  <span>Stack Management</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                    activeTab === 'stock' || activeTab === 'report-stock' || activeTab === 'stack-management' || activeTab === 'products'
+                      ? 'bg-indigo-700/60 text-white'
+                      : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    FIFO
+                  </span>
+                </span>
+              )}
+            </button>
+          )}
 
           {/* If SALESPERSON, show exclusive focus badge and hide all other modules */}
           {isSalesperson && !isCollapsed && (

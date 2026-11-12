@@ -111,6 +111,20 @@ class ProductService {
   }
 
   /**
+   * Get all warehouse batches in strict FIFO order
+   */
+  async getAllBatches(status = null) {
+    return await fifoService.getAllBatches(status);
+  }
+
+  /**
+   * Get sales bill allocations (Rule 6 supplier trace audit)
+   */
+  async getAllBatchAllocations(limit = 60) {
+    return await fifoService.getAllBatchAllocations(limit);
+  }
+
+  /**
    * Get all active & completed batches for a product sorted in FIFO order
    */
   async getProductBatches(productId) {

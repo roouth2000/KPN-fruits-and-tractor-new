@@ -71,6 +71,26 @@ class ProductController {
     }
   }
 
+  async getAllBatches(req, res) {
+    try {
+      const { status } = req.query;
+      const batches = await productService.getAllBatches(status);
+      return apiSuccess(res, batches, 'All warehouse batches retrieved in FIFO order');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async getAllBatchAllocations(req, res) {
+    try {
+      const { limit = 60 } = req.query;
+      const allocations = await productService.getAllBatchAllocations(limit);
+      return apiSuccess(res, allocations, 'Batch sales bill allocations retrieved');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
   async getProductBatches(req, res) {
     try {
       const batches = await productService.getProductBatches(req.params.id);

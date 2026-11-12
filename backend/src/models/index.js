@@ -81,6 +81,9 @@ InvoiceItemBatch.belongsTo(Batch, { foreignKey: 'batchId', as: 'batch' });
 Supplier.hasMany(InvoiceItemBatch, { foreignKey: 'supplierId', as: 'batchSaleAllocations' });
 InvoiceItemBatch.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
 
+Product.hasMany(InvoiceItemBatch, { foreignKey: 'productId', as: 'batchSaleAllocations' });
+InvoiceItemBatch.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
 StockMovement.belongsTo(Batch, { foreignKey: 'batchId', as: 'batch' });
 StockMovement.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
 

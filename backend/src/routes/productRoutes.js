@@ -17,6 +17,12 @@ router.get('/units', requirePermission('stock.view'), productController.getUnits
 // Get tax configurations
 router.get('/tax-configs', requirePermission('stock.view'), productController.getTaxConfigs);
 
+// Get all warehouse batches in FIFO order
+router.get('/batches/all', requirePermission('stock.view'), productController.getAllBatches);
+
+// Get all sales bill batch allocations (Rule 6 supplier trace audit)
+router.get('/batches/allocations', requirePermission('stock.view'), productController.getAllBatchAllocations);
+
 // Get real-time product stock
 router.get('/:id/stock', requirePermission('stock.view'), productController.getProductStock);
 
