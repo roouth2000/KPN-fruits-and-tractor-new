@@ -104,6 +104,16 @@ export const salesApi = {
     return res.data.data || [];
   },
 
+  updateBatch: async (batchId: number, data: any): Promise<any> => {
+    const res = await apiClient.put(`/products/batches/${batchId}`, data);
+    return res.data.data;
+  },
+
+  deleteBatch: async (batchId: number): Promise<any> => {
+    const res = await apiClient.delete(`/products/batches/${batchId}`);
+    return res.data.data;
+  },
+
   recalculateProductFIFO: async (productId: number) => {
     const res = await apiClient.post(`/products/${productId}/recalculate-fifo`);
     return res.data.data;

@@ -15,6 +15,8 @@ import {
   FilterIcon,
   XIcon,
   TrendingUpIcon,
+  EditIcon,
+  Trash2Icon,
 } from '../components/icons';
 
 interface ProductInfo {
@@ -123,6 +125,24 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
 
   // Copy feedback state
   const [copiedBatchId, setCopiedBatchId] = useState<string | null>(null);
+
+  // Edit Batch Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<BatchRecord | null>(null);
+  const [editBatchNumber, setEditBatchNumber] = useState('');
+  const [editSupplierId, setEditSupplierId] = useState<number | null>(null);
+  const [editPurchaseDate, setEditPurchaseDate] = useState('');
+  const [editInitialQty, setEditInitialQty] = useState<number>(0);
+  const [editCurrentQty, setEditCurrentQty] = useState<number>(0);
+  const [editUnit, setEditUnit] = useState<string>('BOX');
+  const [editPurchaseRate, setEditPurchaseRate] = useState<number>(0);
+  const [editStatus, setEditStatus] = useState<string>('ACTIVE');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  // Delete Batch Modal State
+  const [deleteModalBatch, setDeleteModalBatch] = useState<BatchRecord | null>(null);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
 
   // Fetch batches and trace data
   const loadData = useCallback(async () => {
@@ -245,6 +265,94 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
       );
     } finally {
       setIsSubmittingInward(false);
+    }
+  };
+
+  // Edit Batch Handlers
+  const handleOpenEditBatch = (batch: BatchRecord) => {
+    setEditingBatch(batch);
+    setEditBatchNumber(batch.batchNumber || '');
+    setEditSupplierId(batch.supplierId || (batch.supplier ? batch.supplier.id : null));
+    setEditPurchaseDate(batch.purchaseDate ? batch.purchaseDate.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditInitialQty(Number(batch.initialQuantity) || 0);
+    setEditCurrentQty(Number(batch.currentQuantity) || 0);
+    setEditUnit(batch.unit || 'BOX');
+    setEditPurchaseRate(Number(batch.purchaseRate) || 0);
+    setEditStatus(batch.status || 'ACTIVE');
+    setEditNotes(batch.notes || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBatch) return;
+
+    if (!editBatchNumber.trim()) {
+      onShowToast?.('Validation Error', 'Batch number is required (Rule 2).', 'warning');
+      return;
+    }
+    if (editInitialQty < 0 || editCurrentQty < 0) {
+      onShowToast?.('Validation Error', 'Quantities cannot be negative.', 'warning');
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    try {
+      const payload = {
+        batchNumber: editBatchNumber.trim(),
+        supplierId: editSupplierId,
+        purchaseDate: editPurchaseDate,
+        initialQuantity: Number(editInitialQty),
+        currentQuantity: Number(editCurrentQty),
+        unit: editUnit,
+        purchaseRate: Number(editPurchaseRate),
+        status: editStatus,
+        notes: editNotes.trim(),
+      };
+
+      const result = await salesApi.updateBatch(editingBatch.id, payload);
+      const isRecalculated = result?.recalculated;
+
+      onShowToast?.(
+        'Batch Updated',
+        isRecalculated
+          ? `Batch #${editBatchNumber} updated. Historical invoices re-sequenced via FIFO Rule 7.`
+          : `Batch #${editBatchNumber} updated successfully.`,
+        'success'
+      );
+
+      setIsEditModalOpen(false);
+      setEditingBatch(null);
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to update batch:', err);
+      const message = err.response?.data?.message || err.message || 'Error updating batch';
+      onShowToast?.('Update Failed', message, 'warning');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  // Delete Batch Handler
+  const handleConfirmDeleteBatch = async () => {
+    if (!deleteModalBatch) return;
+
+    setIsDeletingBatch(true);
+    try {
+      await salesApi.deleteBatch(deleteModalBatch.id);
+      onShowToast?.(
+        'Batch Deleted',
+        `Batch #${deleteModalBatch.batchNumber} was deleted. FIFO allocations were recalculated (Rule 7).`,
+        'success'
+      );
+      setDeleteModalBatch(null);
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to delete batch:', err);
+      const message = err.response?.data?.message || err.message || 'Error deleting batch';
+      onShowToast?.('Delete Failed', message, 'warning');
+    } finally {
+      setIsDeletingBatch(false);
     }
   };
 
@@ -819,6 +927,28 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                                   )}
                                 </div>
                               </div>
+
+                              {/* Batch Actions: Edit & Delete */}
+                              <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditBatch(batch)}
+                                  className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                                  title="Edit Batch"
+                                >
+                                  <EditIcon className="w-3 h-3 text-slate-500" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteModalBatch(batch)}
+                                  className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                                  title="Delete Batch"
+                                >
+                                  <Trash2Icon className="w-3 h-3 text-slate-500" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -981,12 +1111,34 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        <button
-                          onClick={() => handleOpenAddStock(b.productId)}
-                          className="px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                        >
-                          + Inward More
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditBatch(b)}
+                            className="px-2 py-1 text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Edit Batch"
+                          >
+                            <EditIcon className="w-3 h-3 text-slate-500" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteModalBatch(b)}
+                            className="px-2 py-1 text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Delete Batch"
+                          >
+                            <Trash2Icon className="w-3 h-3 text-slate-500" />
+                            <span>Delete</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddStock(b.productId)}
+                            className="px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                            title="Inward more"
+                          >
+                            + Inward
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1367,6 +1519,332 @@ export const StackManagementPage: React.FC<StackManagementPageProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: EDIT BATCH (RULES 1, 2, 3 & 7) */}
+      {/* ========================================================= */}
+      {isEditModalOpen && editingBatch && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <EditIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit Batch #{editingBatch.batchNumber}</h3>
+                  <p className="text-xs text-slate-400">Rules 1, 2, 3 &amp; 7: Updates stock, supplier, or date with auto FIFO recalculation</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingBatch(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditBatch} className="mt-4 space-y-4">
+              {/* Product Info Read-only Pill */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Produce Item</span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {editingBatch.product ? editingBatch.product.name : `Product #${editingBatch.productId}`}
+                  </span>
+                  {editingBatch.product && (
+                    <span className="text-[11px] text-slate-500 ml-1">
+                      ({editingBatch.product.variety} · Grade {editingBatch.product.grade || 'A'})
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
+                  ID: #{editingBatch.id}
+                </span>
+              </div>
+
+              {/* Unique Batch Number & Supplier */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Batch ID (Rule 2: Unique) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editBatchNumber}
+                    onChange={(e) => setEditBatchNumber(e.target.value)}
+                    className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Supplier / Consignor (Rule 1)
+                  </label>
+                  <select
+                    value={editSupplierId || ''}
+                    onChange={(e) => setEditSupplierId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value="">Direct Mandi Consignment</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.supplierCode} - {s.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Purchase Date & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Purchase Date (Rule 3: FIFO Order) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editPurchaseDate}
+                    onChange={(e) => setEditPurchaseDate(e.target.value)}
+                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Batch Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value="ACTIVE">ACTIVE (In Stock)</option>
+                    <option value="DEPLETED">DEPLETED (Finished)</option>
+                    <option value="EXPIRED">EXPIRED (Discarded)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Quantities & Unit */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Initial Inward *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    required
+                    value={editInitialQty}
+                    onChange={(e) => setEditInitialQty(parseFloat(e.target.value) || 0)}
+                    className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Remaining Stock *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    required
+                    value={editCurrentQty}
+                    onChange={(e) => setEditCurrentQty(parseFloat(e.target.value) || 0)}
+                    className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Unit
+                  </label>
+                  <select
+                    value={editUnit}
+                    onChange={(e) => setEditUnit(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value="BOX">BOX</option>
+                    <option value="CRATE">CRATE</option>
+                    <option value="KG">KG</option>
+                    <option value="DOZEN">DOZEN</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Rate & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Cost Rate (₹/unit)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editPurchaseRate}
+                    onChange={(e) => setEditPurchaseRate(parseFloat(e.target.value) || 0)}
+                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Consignment Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="e.g. Cold storage room B4"
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Rule 7 Notice Callout */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+                <span className="font-bold block mb-0.5">Rule 7 Automatic FIFO Recalculation:</span>
+                Modifying the Purchase Date or Initial Inward changes the chronological priority. The backend engine will automatically re-sort batches and replay sales invoices in strict FIFO order.
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingBatch(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-sm transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmittingEdit ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving &amp; Replaying FIFO...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckIcon className="w-3.5 h-3.5 text-white" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: DELETE BATCH CONFIRMATION (RULE 7) */}
+      {/* ========================================================= */}
+      {deleteModalBatch && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Trash2Icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Delete Produce Batch?</h3>
+                  <p className="text-xs text-slate-400">Permanently remove batch #{deleteModalBatch.batchNumber}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalBatch(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {/* Batch details summary */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Batch ID:</span>
+                  <span className="font-mono font-bold text-slate-900">{deleteModalBatch.batchNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Produce Item:</span>
+                  <span className="font-semibold text-slate-900">
+                    {deleteModalBatch.product ? deleteModalBatch.product.name : `Product #${deleteModalBatch.productId}`}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Supplier:</span>
+                  <span className="font-semibold text-slate-800">
+                    {deleteModalBatch.supplier ? deleteModalBatch.supplier.name : 'Direct Mandi Consignment'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Inward Date:</span>
+                  <span className="font-mono text-slate-700">{deleteModalBatch.purchaseDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Remaining Stock:</span>
+                  <span className="font-mono font-bold text-rose-600">
+                    {deleteModalBatch.currentQuantity} {deleteModalBatch.unit}
+                  </span>
+                </div>
+              </div>
+
+              {/* Warning box */}
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 leading-relaxed">
+                <span className="font-bold block mb-1">Rule 7 Recalculation Notice:</span>
+                Deleting this batch will remove its inventory. Historical bills that drew from this batch will be automatically recalculated in FIFO order from remaining older lots.
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={isDeletingBatch}
+                  onClick={() => setDeleteModalBatch(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingBatch}
+                  onClick={handleConfirmDeleteBatch}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-sm transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isDeletingBatch ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Deleting &amp; Replaying FIFO...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2Icon className="w-3.5 h-3.5 text-white" />
+                      <span>Confirm Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

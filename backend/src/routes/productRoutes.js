@@ -23,6 +23,12 @@ router.get('/batches/all', requirePermission('stock.view'), productController.ge
 // Get all sales bill batch allocations (Rule 6 supplier trace audit)
 router.get('/batches/allocations', requirePermission('stock.view'), productController.getAllBatchAllocations);
 
+// Update a batch (Rules 1, 2, 3, 7)
+router.put('/batches/:id', requirePermission('stock.view'), productController.updateBatch);
+
+// Delete a batch (Rule 7 auto-recalculates)
+router.delete('/batches/:id', requirePermission('stock.view'), productController.deleteBatch);
+
 // Get real-time product stock
 router.get('/:id/stock', requirePermission('stock.view'), productController.getProductStock);
 

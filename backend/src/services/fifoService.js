@@ -517,6 +517,181 @@ class FifoService {
       order: [['id', 'ASC']],
     });
   }
+
+  /**
+   * Update an existing warehouse batch
+   * Rules:
+   * 1. Even if Product Name is same, supplier stock is separated
+   * 2. Unique batch number maintained
+   * 3. Sort based on Purchase Date in FIFO order
+   * 7. Recalculates FIFO allocation if quantity, date, or status changes
+   */
+  async updateBatch(batchId, data, user = null, externalTransaction = null) {
+    const runInTransaction = async (t) => {
+      const batch = await Batch.findByPk(batchId, {
+        include: [
+          { model: Product, as: 'product' },
+          { model: Supplier, as: 'supplier' },
+        ],
+        transaction: t,
+        lock: t.LOCK ? t.LOCK.UPDATE : true,
+      });
+
+      if (!batch) {
+        throw new Error(`Batch #${batchId} not found`);
+      }
+
+      const {
+        batchNumber,
+        supplierId,
+        purchaseDate,
+        initialQuantity,
+        currentQuantity,
+        unit,
+        purchaseRate,
+        status,
+        notes,
+      } = data;
+
+      const oldInitialQty = parseFloat(batch.initialQuantity);
+      const oldPurchaseDate = batch.purchaseDate;
+      const oldStatus = batch.status;
+
+      // Update unique batchNumber (Rule 2)
+      if (batchNumber && batchNumber.trim()) {
+        const trimmed = batchNumber.trim();
+        if (trimmed !== batch.batchNumber) {
+          const existing = await Batch.findOne({
+            where: { batchNumber: trimmed, id: { [Op.ne]: batch.id } },
+            transaction: t,
+          });
+          if (existing) {
+            throw new Error(`Batch ID "${trimmed}" is already in use (Rule 2: Each Batch must have a Unique Batch ID)`);
+          }
+          batch.batchNumber = trimmed;
+        }
+      }
+
+      if (supplierId !== undefined) {
+        batch.supplierId = supplierId ? parseInt(supplierId, 10) : null;
+      }
+      if (purchaseDate) {
+        batch.purchaseDate = purchaseDate;
+      }
+      if (initialQuantity !== undefined && !isNaN(parseFloat(initialQuantity))) {
+        batch.initialQuantity = parseFloat(initialQuantity);
+      }
+      if (currentQuantity !== undefined && !isNaN(parseFloat(currentQuantity))) {
+        batch.currentQuantity = parseFloat(currentQuantity);
+      }
+      if (unit) {
+        batch.unit = unit;
+      }
+      if (purchaseRate !== undefined && !isNaN(parseFloat(purchaseRate))) {
+        batch.purchaseRate = parseFloat(purchaseRate);
+      }
+      if (status) {
+        batch.status = status;
+      }
+      if (notes !== undefined) {
+        batch.notes = notes;
+      }
+
+      await batch.save({ transaction: t });
+
+      // Rule 7: If purchaseDate, initialQuantity, or status changed, recalculate FIFO
+      const needsRecalc =
+        oldPurchaseDate !== batch.purchaseDate ||
+        oldInitialQty !== parseFloat(batch.initialQuantity) ||
+        oldStatus !== batch.status;
+
+      let recalcResult = null;
+      if (needsRecalc) {
+        recalcResult = await this.recalculateFIFO(batch.productId, t);
+      } else {
+        const totalStock = await Batch.sum('currentQuantity', {
+          where: { productId: batch.productId, status: { [Op.ne]: 'EXPIRED' } },
+          transaction: t,
+        }) || 0;
+        await Product.update({ currentStock: totalStock }, { where: { id: batch.productId }, transaction: t });
+      }
+
+      const reloaded = await Batch.findByPk(batch.id, {
+        include: [
+          { model: Product, as: 'product' },
+          { model: Supplier, as: 'supplier' },
+        ],
+        transaction: t,
+      });
+
+      return {
+        batch: reloaded,
+        recalculated: !!needsRecalc,
+        recalcResult,
+      };
+    };
+
+    if (externalTransaction) {
+      return await runInTransaction(externalTransaction);
+    }
+    return await sequelize.transaction(runInTransaction);
+  }
+
+  /**
+   * Delete a warehouse batch
+   * Rules:
+   * 7. Recalculates FIFO allocation for the product so historical sales and stocks stay consistent
+   */
+  async deleteBatch(batchId, user = null, externalTransaction = null) {
+    const runInTransaction = async (t) => {
+      const batch = await Batch.findByPk(batchId, {
+        include: [
+          { model: Product, as: 'product' },
+          { model: Supplier, as: 'supplier' },
+        ],
+        transaction: t,
+        lock: t.LOCK ? t.LOCK.UPDATE : true,
+      });
+
+      if (!batch) {
+        throw new Error(`Batch #${batchId} not found`);
+      }
+
+      const productId = batch.productId;
+      const batchNum = batch.batchNumber;
+
+      // Clean up InvoiceItemBatch records allocated from this batch
+      await InvoiceItemBatch.destroy({
+        where: { batchId: batch.id },
+        transaction: t,
+      });
+
+      // Clean up StockMovements referencing this batch
+      await StockMovement.destroy({
+        where: { batchId: batch.id },
+        transaction: t,
+      });
+
+      // Delete the batch record
+      await batch.destroy({ transaction: t });
+
+      // Rule 7: Recalculate FIFO allocations for this product
+      const recalcResult = await this.recalculateFIFO(productId, t);
+
+      return {
+        success: true,
+        message: `Batch #${batchNum} was successfully deleted. FIFO allocations were recalculated.`,
+        deletedBatchId: batchId,
+        productId,
+        recalcResult,
+      };
+    };
+
+    if (externalTransaction) {
+      return await runInTransaction(externalTransaction);
+    }
+    return await sequelize.transaction(runInTransaction);
+  }
 }
 
 module.exports = new FifoService();

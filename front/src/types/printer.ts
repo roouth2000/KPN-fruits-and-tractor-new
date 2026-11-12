@@ -35,3 +35,4 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   shopGst: '27AABCF1234F1Z8',
   footerMessage: 'Thank you for your business! Fresh produce checked & verified at Mandi dock.',
 };
+

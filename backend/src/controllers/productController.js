@@ -118,6 +118,24 @@ class ProductController {
     }
   }
 
+  async updateBatch(req, res) {
+    try {
+      const result = await productService.updateBatch(req.params.id, req.body, req.user);
+      return apiSuccess(res, result, 'Batch updated successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async deleteBatch(req, res) {
+    try {
+      const result = await productService.deleteBatch(req.params.id, req.user);
+      return apiSuccess(res, result, 'Batch deleted successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
   async createProduct(req, res) {
     try {
       const product = await productService.createProduct(req.body, req.user);

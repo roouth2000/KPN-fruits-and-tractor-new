@@ -146,6 +146,20 @@ class ProductService {
   }
 
   /**
+   * Update an existing warehouse batch (Rule 1, 2, 3, 7)
+   */
+  async updateBatch(batchId, data, user = null) {
+    return await fifoService.updateBatch(batchId, data, user);
+  }
+
+  /**
+   * Delete a warehouse batch (Rule 7 auto-recalculates)
+   */
+  async deleteBatch(batchId, user = null) {
+    return await fifoService.deleteBatch(batchId, user);
+  }
+
+  /**
    * Register new fruit / product SKU in catalog
    */
   async createProduct(data, user = null) {
