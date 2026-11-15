@@ -7,6 +7,9 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/database/seeders/rolesAndPermissionsSeeder.js",
+    "seed:master": "node src/database/seeders/masterDataSeeder.js",
+    "seed:settings": "node src/database/seeders/settingsSeeder.js",
+    "seed:all": "node src/database/seeders/rolesAndPermissionsSeeder.js && node src/database/seeders/masterDataSeeder.js && node src/database/seeders/settingsSeeder.js",
     "db:fresh": "node src/database/freshInitialize.js",
     "test": "node tests/billing.test.js"
   },

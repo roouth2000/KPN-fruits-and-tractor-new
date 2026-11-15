@@ -299,6 +299,15 @@ async function seedSettings() {
   console.log(`✓ Settings seeded: ${seededCount} new, ${DEFAULT_SETTINGS.length - seededCount} already configured.`);
 }
 
+if (require.main === module) {
+  seedSettings()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Failed to seed settings:', err);
+      process.exit(1);
+    });
+}
+
 module.exports = {
   DEFAULT_SETTINGS,
   seedSettings,
