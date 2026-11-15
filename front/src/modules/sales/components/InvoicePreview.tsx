@@ -110,7 +110,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         }
       }
 
-      const res = await printerService.printInvoice(inv, { paperSize: '80mm' });
+      const res = await printerService.printInvoice(inv, { paperSize: settings.paperSize || '80mm' });
       if (res.success) {
         setToastMsg(res.message || 'Receipt printed successfully');
       } else {

@@ -359,8 +359,8 @@ export const receiptRenderer = {
         {/* 16. Optional cash drawer pulse */}
         {settings.openCashDrawer && rawSaleType === 'CASH' && <Cashdraw pin="2pin" />}
 
-        {/* 17. Auto cut paper */}
-        {settings.cutPaper && <Cut lineFeeds={4} partial={false} />}
+        {/* 17. Auto cut paper with generous 7-line feed to clear printhead to cutter */}
+        {settings.cutPaper && <Cut lineFeeds={7} partial={false} />}
       </Printer>
     );
 
@@ -436,7 +436,7 @@ export const receiptRenderer = {
           PRINTER TEST SUCCESSFUL
         </Text>
         <Text align="center">TVS RP-3200 Web Serial ESC/POS</Text>
-        {settings.cutPaper && <Cut lineFeeds={4} partial={false} />}
+        {settings.cutPaper && <Cut lineFeeds={7} partial={false} />}
       </Printer>
     );
 
@@ -623,6 +623,9 @@ export const receiptRenderer = {
       '',
       '',
       '',
+      '',
+      '',
+      '\x1D\x56\x00',
     ].filter((line) => line !== null && line !== undefined);
 
     const allLines = [
@@ -636,6 +639,10 @@ export const receiptRenderer = {
     ];
 
     const renderedReceiptText = allLines.join('\n');
+    const estimatedHeightMm = Math.max(
+      160,
+      110 + (items.length * 10) + (paymentRows.length * 6) + (settings.printLogo !== false ? 40 : 0) + 35
+    );
 
     return `<!DOCTYPE html>
 <html>
@@ -645,7 +652,7 @@ export const receiptRenderer = {
   <title>Receipt #${invNumber}</title>
   <style>
     @page {
-      size: ${paperWidthMm} 297mm;
+      size: ${paperWidthMm} ${estimatedHeightMm}mm;
       margin: 0mm !important;
     }
     @media print {
@@ -665,7 +672,7 @@ export const receiptRenderer = {
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 15mm 0 !important;
+        padding: 2px 0 0 0 !important;
       }
       img {
         display: block !important;
@@ -673,6 +680,11 @@ export const receiptRenderer = {
         print-color-adjust: exact !important;
         image-rendering: -webkit-optimize-contrast !important;
         image-rendering: pixelated !important;
+      }
+      .receipt-cutter-feed {
+        display: block !important;
+        height: 35mm !important;
+        width: 100% !important;
       }
     }
     * {
@@ -696,7 +708,7 @@ export const receiptRenderer = {
       line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 2px 0 15mm 0;
+      padding: 2px 0 0 0;
     }
     .receipt-container {
       width: ${contentWidthMm};
@@ -719,12 +731,18 @@ export const receiptRenderer = {
     pre.receipt-mono b {
       font-weight: bold;
     }
+    .receipt-cutter-feed {
+      display: block;
+      height: 35mm;
+      width: 100%;
+    }
   </style>
 </head>
-<body data-paper="${paperWidthMm}">
+<body data-paper="${paperWidthMm}" data-est-height="${estimatedHeightMm}">
   <div class="receipt-container">
     ${logoHtml}
     <pre class="receipt-mono">${renderedReceiptText}</pre>
+    <div class="receipt-cutter-feed"></div>
   </div>
 </body>
 </html>`;
@@ -783,9 +801,13 @@ export const receiptRenderer = {
       '',
       '',
       '',
+      '',
+      '',
+      '\x1D\x56\x00',
     ].filter((line) => line !== null && line !== undefined);
 
     const renderedTestText = testLines.join('\n');
+    const estimatedHeightMm = 180;
 
     return `<!DOCTYPE html>
 <html>
@@ -795,7 +817,7 @@ export const receiptRenderer = {
   <title>TVS RP-3200 Test Print</title>
   <style>
     @page {
-      size: ${paperWidthMm} 200mm;
+      size: ${paperWidthMm} ${estimatedHeightMm}mm;
       margin: 0mm !important;
     }
     @media print {
@@ -815,7 +837,7 @@ export const receiptRenderer = {
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 15mm 0 !important;
+        padding: 2px 0 0 0 !important;
       }
       img {
         display: block !important;
@@ -823,6 +845,11 @@ export const receiptRenderer = {
         print-color-adjust: exact !important;
         image-rendering: -webkit-optimize-contrast !important;
         image-rendering: pixelated !important;
+      }
+      .receipt-cutter-feed {
+        display: block !important;
+        height: 35mm !important;
+        width: 100% !important;
       }
     }
     * { box-sizing: border-box; }
@@ -842,7 +869,7 @@ export const receiptRenderer = {
       line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 2px 0 15mm 0;
+      padding: 2px 0 0 0;
     }
     .receipt-container {
       width: ${contentWidthMm};
@@ -865,12 +892,18 @@ export const receiptRenderer = {
     pre.receipt-mono b {
       font-weight: bold;
     }
+    .receipt-cutter-feed {
+      display: block;
+      height: 35mm;
+      width: 100%;
+    }
   </style>
 </head>
-<body data-paper="${paperWidthMm}">
+<body data-paper="${paperWidthMm}" data-est-height="${estimatedHeightMm}">
   <div class="receipt-container">
     ${logoHtml}
     <pre class="receipt-mono">${renderedTestText}</pre>
+    <div class="receipt-cutter-feed"></div>
   </div>
 </body>
 </html>`;
@@ -878,7 +911,8 @@ export const receiptRenderer = {
 
   /**
    * Prints HTML formatted thermal receipt silently via an invisible iframe,
-   * waiting for images to complete and dynamically calculating exact receipt height.
+   * waiting for images to complete and dynamically calculating exact receipt height
+   * so receipts with 10+ products scale dynamically without page-splitting or truncation.
    */
   printHtml(htmlContent: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -886,13 +920,17 @@ export const receiptRenderer = {
       if (oldIframe && oldIframe.parentNode) {
         oldIframe.parentNode.removeChild(oldIframe);
       }
+
+      const is58mm = htmlContent.includes('data-paper="58mm"');
+      const widthMm = is58mm ? '58mm' : '80mm';
+
       const iframe = document.createElement('iframe');
       iframe.id = 'thermal-print-iframe';
       iframe.style.position = 'fixed';
       iframe.style.bottom = '0';
       iframe.style.right = '0';
-      iframe.style.width = '200px';
-      iframe.style.height = '200px';
+      iframe.style.width = widthMm;
+      iframe.style.height = '8000px';
       iframe.style.border = 'none';
       iframe.style.opacity = '0.01';
       iframe.style.pointerEvents = 'none';
@@ -914,15 +952,53 @@ export const receiptRenderer = {
           const win = iframe.contentWindow;
           if (win && win.document) {
             const body = win.document.body;
-            const scrollHeight = body.scrollHeight || 500;
-            const contentHeightMm = Math.max(100, Math.ceil((scrollHeight * 25.4) / 96) + 12);
+            const container = win.document.querySelector('.receipt-container') as HTMLElement | null;
+            const pre = win.document.querySelector('.receipt-mono') as HTMLElement | null;
+            const estHeightAttr = Number(body?.getAttribute('data-est-height')) || 160;
 
-            const is58mm = body.getAttribute('data-paper') === '58mm';
-            const widthMm = is58mm ? '58mm' : '80mm';
+            // Measure actual unconstrained DOM height in pixels
+            const measuredPx = Math.max(
+              container ? container.scrollHeight : 0,
+              container ? container.offsetHeight : 0,
+              pre ? pre.scrollHeight : 0,
+              body ? body.scrollHeight : 0,
+              win.document.documentElement ? win.document.documentElement.scrollHeight : 0
+            );
+
+            // Convert px to mm at 96 DPI: 1 px = 25.4 / 96 mm
+            // Add +32mm feed margin to clear thermal printhead and cutter blade
+            const measuredMm = Math.ceil((measuredPx * 25.4) / 96) + 32;
+            const contentHeightMm = Math.max(estHeightAttr, measuredMm, 140);
 
             const styleEl = win.document.createElement('style');
             styleEl.id = 'dynamic-page-size';
-            styleEl.innerHTML = `@page { size: ${widthMm} ${contentHeightMm}mm !important; margin: 0mm !important; }`;
+            styleEl.innerHTML = `
+              @page {
+                size: ${widthMm} ${contentHeightMm}mm !important;
+                margin: 0mm !important;
+              }
+              @media print {
+                html, body {
+                  width: ${widthMm} !important;
+                  height: ${contentHeightMm}mm !important;
+                  margin: 0mm !important;
+                  padding: 0mm !important;
+                  overflow: hidden !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .receipt-container {
+                  width: ${widthMm} !important;
+                  margin: 0mm !important;
+                  padding: 2mm 0mm 0mm 0mm !important;
+                }
+                .receipt-cutter-feed {
+                  display: block !important;
+                  height: 35mm !important;
+                  width: 100% !important;
+                }
+              }
+            `;
             win.document.head.appendChild(styleEl);
 
             win.focus();
