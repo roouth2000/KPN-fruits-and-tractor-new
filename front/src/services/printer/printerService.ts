@@ -109,6 +109,9 @@ class PrinterService {
         if (parsed.shopInitials === 'SR') {
           parsed.shopInitials = 'KBN';
         }
+        if (parsed.footerTagline && (parsed.footerTagline.includes('Websyncz') || parsed.footerTagline.includes('www.') || parsed.footerTagline.includes('http'))) {
+          parsed.footerTagline = '';
+        }
         return { ...DEFAULT_PRINTER_SETTINGS, ...parsed };
       }
     } catch (err) {

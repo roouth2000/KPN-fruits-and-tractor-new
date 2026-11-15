@@ -604,19 +604,26 @@ export const receiptRenderer = {
     const countLines: string[] = formatTwoCol(`No.Of.Items : ${items.length}`, `Total Qty : ${totalQty}`, width);
 
     // Footer lines
+    const safeTagline =
+      settings.footerTagline &&
+      !settings.footerTagline.includes('Websyncz') &&
+      !settings.footerTagline.includes('www.') &&
+      !settings.footerTagline.includes('http')
+        ? padCenter(settings.footerTagline, width)
+        : '';
+
     const footerLines: string[] = [
       lineDivider,
       `<b>${padCenter('*** THANK YOU VISIT AGAIN ***', width)}</b>`,
       padCenter(settings.footerTerms || 'No Return,No Exchange', width),
-      settings.footerTagline ? padCenter(settings.footerTagline, width) : '',
-      padCenter('TVS RP-3200 - Direct ESC/POS', width),
+      safeTagline,
       lineDivider,
       '',
       '',
       '',
       '',
       '',
-    ].filter((line) => line !== null && line !== undefined);
+    ].filter((line) => line !== null && line !== undefined && line !== '');
 
     const allLines = [
       ...headerLines,
@@ -638,8 +645,7 @@ export const receiptRenderer = {
 <html>
 <head>
   <meta charset="utf-8">
-  <base href="${typeof window !== 'undefined' ? window.location.origin + '/' : '/'}">
-  <title>Receipt #${invNumber}</title>
+  <title></title>
   <style>
     @page {
       size: ${paperWidthMm} ${estimatedHeightMm}mm;
@@ -781,7 +787,6 @@ export const receiptRenderer = {
       `<b>${padRight('TOTAL :', width - 12)}${padLeft('600.00', 12)}</b>`,
       doubleDivider,
       `<b>${padCenter('PRINTER TEST SUCCESSFUL', width)}</b>`,
-      padCenter('TVS RP-3200 - Browser Print Engine', width),
       lineDivider,
       '',
       '',
@@ -797,6 +802,7 @@ export const receiptRenderer = {
 <html>
 <head>
   <meta charset="utf-8">
+  <title></title>
   <base href="${typeof window !== 'undefined' ? window.location.origin + '/' : '/'}">
   <title>TVS RP-3200 Test Print</title>
   <style>

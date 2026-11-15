@@ -318,7 +318,7 @@ export const PrinterSettings: React.FC<PrinterSettingsProps> = ({
               type="text"
               value={form.footerTagline || ''}
               onChange={(e) => setForm({ ...form, footerTagline: e.target.value })}
-              placeholder="www.Websyncz.in-9092678008"
+              placeholder="Leave blank for clean receipt"
               className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>

@@ -93,5 +93,5 @@ export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
   shopGst: '',
   footerTerms: 'No Return,No Exchange',
   footerMessage: 'Thank you!!!.Visit Again.!!!.',
-  footerTagline: 'www.Websyncz.in-9092678008',
+  footerTagline: '',
 };
