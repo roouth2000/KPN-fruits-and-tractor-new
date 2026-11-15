@@ -89,6 +89,14 @@ class WebUsbService {
       if (err.name === 'NotFoundError' || err.name === 'AbortError') {
         throw new Error('USB printer selection was cancelled.');
       }
+      if (
+        err.name === 'SecurityError' ||
+        (err.message && err.message.toLowerCase().includes('access denied'))
+      ) {
+        throw new Error(
+          "Failed to execute 'open' on 'USBDevice': Access denied. Windows locks USB printers with its default print driver. Please switch the Communication Protocol to 'Web Serial API (Recommended / COM Port)' or install the TVS Virtual COM Driver."
+        );
+      }
       throw err;
     }
   }

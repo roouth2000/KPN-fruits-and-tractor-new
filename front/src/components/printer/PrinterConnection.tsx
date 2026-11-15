@@ -370,9 +370,28 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
 
       {/* Error message if any */}
       {errorMessage && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-2.5 text-xs">
-          <span className="font-semibold block mb-0.5">Connection Error:</span>
-          {errorMessage}
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-2.5 text-xs space-y-1.5">
+          <div>
+            <span className="font-semibold block mb-0.5">Connection Error:</span>
+            {errorMessage}
+          </div>
+          {transport === 'WEB_USB' && errorMessage.toLowerCase().includes('access denied') && (
+            <div className="pt-1.5 border-t border-rose-200 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] text-rose-700">
+                💡 Tip: On Windows, TVS RP-3200 connects reliably via Virtual COM Port.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onTransportChange('WEB_SERIAL');
+                  setErrorMessage(null);
+                }}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium text-[11px] cursor-pointer transition-colors"
+              >
+                Switch to Web Serial API
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
