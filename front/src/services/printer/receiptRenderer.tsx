@@ -97,6 +97,21 @@ function formatReceiptTime(d?: string | Date | null): string {
   return `${strHours}: ${minutes} ${ampm}`;
 }
 
+function getAbsoluteUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch {
+      return url;
+    }
+  }
+  return url;
+}
+
 // Monospace ASCII formatting helpers for thermal printers
 function toAscii(str: string): string {
   if (!str) return '';
@@ -504,26 +519,21 @@ export const receiptRenderer = {
     const width = is58mm ? 32 : 48;
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
-    const logoWidth = is58mm ? 120 : 160;
+    const logoWidth = is58mm ? 120 : 150;
+    const rawLogoSrc = settings.logoUrl || kbnLogo;
+    const logoSrc = getAbsoluteUrl(rawLogoSrc);
 
     let logoHtml = '';
-    if (settings.printLogo !== false) {
-      try {
-        const logoDataUrl = await getScaledThermalLogo(kbnLogo, logoWidth);
-        if (logoDataUrl) {
-          logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
-            <img src="${logoDataUrl}" width="${logoWidth}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; image-rendering: pixelated; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" alt="${shopName}" />
-          </div>`;
-        }
-      } catch {
-        logoHtml = '';
-      }
+    if (settings.printLogo !== false && logoSrc) {
+      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
+        <img src="${logoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
+      </div>`;
     }
 
     // Header block
     const headerLines: string[] = [];
     if (initials) {
-      headerLines.push(`<b>${padCenter(initials, width)}</b>`);
+      headerLines.push(`<b>${padCenter('[' + initials + ']', width)}</b>`);
     }
     headerLines.push(`<b>${padCenter(shopName, width)}</b>`);
     for (const addr of addressLines) {
@@ -631,6 +641,7 @@ export const receiptRenderer = {
 <html>
 <head>
   <meta charset="utf-8">
+  <base href="${typeof window !== 'undefined' ? window.location.origin + '/' : '/'}">
   <title>Receipt #${invNumber}</title>
   <style>
     @page {
@@ -738,20 +749,15 @@ export const receiptRenderer = {
 
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
-    const logoWidth = is58mm ? 120 : 160;
+    const logoWidth = is58mm ? 120 : 150;
+    const rawLogoSrc = settings.logoUrl || kbnLogo;
+    const logoSrc = getAbsoluteUrl(rawLogoSrc);
 
     let logoHtml = '';
-    if (settings.printLogo !== false) {
-      try {
-        const logoDataUrl = await getScaledThermalLogo(kbnLogo, logoWidth);
-        if (logoDataUrl) {
-          logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
-            <img src="${logoDataUrl}" width="${logoWidth}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; image-rendering: pixelated; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" alt="${shopName}" />
-          </div>`;
-        }
-      } catch {
-        logoHtml = '';
-      }
+    if (settings.printLogo !== false && logoSrc) {
+      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
+        <img src="${logoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
+      </div>`;
     }
 
     const testLines: string[] = [
@@ -785,6 +791,7 @@ export const receiptRenderer = {
 <html>
 <head>
   <meta charset="utf-8">
+  <base href="${typeof window !== 'undefined' ? window.location.origin + '/' : '/'}">
   <title>TVS RP-3200 Test Print</title>
   <style>
     @page {
@@ -875,31 +882,22 @@ export const receiptRenderer = {
    */
   printHtml(htmlContent: string): Promise<boolean> {
     return new Promise((resolve) => {
-      let iframe = document.getElementById('thermal-print-iframe') as HTMLIFrameElement;
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'thermal-print-iframe';
-        iframe.style.position = 'fixed';
-        iframe.style.bottom = '0';
-        iframe.style.right = '0';
-        iframe.style.width = '200px';
-        iframe.style.height = '200px';
-        iframe.style.border = 'none';
-        iframe.style.opacity = '0.01';
-        iframe.style.pointerEvents = 'none';
-        iframe.style.zIndex = '-9999';
-        document.body.appendChild(iframe);
-      } else {
-        iframe.style.position = 'fixed';
-        iframe.style.bottom = '0';
-        iframe.style.right = '0';
-        iframe.style.width = '200px';
-        iframe.style.height = '200px';
-        iframe.style.border = 'none';
-        iframe.style.opacity = '0.01';
-        iframe.style.pointerEvents = 'none';
-        iframe.style.zIndex = '-9999';
+      const oldIframe = document.getElementById('thermal-print-iframe');
+      if (oldIframe && oldIframe.parentNode) {
+        oldIframe.parentNode.removeChild(oldIframe);
       }
+      const iframe = document.createElement('iframe');
+      iframe.id = 'thermal-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.bottom = '0';
+      iframe.style.right = '0';
+      iframe.style.width = '200px';
+      iframe.style.height = '200px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0.01';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.zIndex = '-9999';
+      document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document || iframe.contentDocument;
       if (!doc) {
