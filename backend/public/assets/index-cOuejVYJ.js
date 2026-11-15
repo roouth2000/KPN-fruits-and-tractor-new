@@ -101,23 +101,24 @@ KOYAMBEDU, CHENNAI-600092`).split(`
   <style>
     @page {
       size: ${o} 297mm;
-      margin: 0mm;
+      margin: 0mm !important;
     }
     @media print {
       html, body {
-        width: ${s} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: ${s} !important;
-        max-width: ${s} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 4px 2px 20px 2px !important;
+        padding: 2px 0 12px 0 !important;
       }
     }
     * {
@@ -134,10 +135,12 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       color: #000;
       background: #fff;
       padding: 4px 2px 20px 2px;
+      word-break: keep-all;
     }
     .receipt-container {
       width: 100%;
       margin: 0 auto;
+      word-break: keep-all;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
@@ -161,6 +164,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       letter-spacing: 2px;
       margin-bottom: 2px;
       color: #222;
+      white-space: nowrap;
     }
     .shop-title {
       font-size: 13.5px;
@@ -168,6 +172,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       text-align: center;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
     .shop-info {
       font-size: 10px;
@@ -185,6 +190,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       font-weight: bold;
       font-size: 11.5px;
       letter-spacing: 1px;
+      white-space: nowrap;
     }
     .flex-row {
       display: flex;
@@ -192,6 +198,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       align-items: baseline;
       font-size: 10.5px;
       padding: 0.5px 0;
+      white-space: nowrap;
     }
     .truncate {
       max-width: 180px;
@@ -208,6 +215,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       border-bottom: 1px dashed #444;
       padding-bottom: 2px;
       margin-bottom: 2px;
+      white-space: nowrap;
     }
     .col-desc { flex: 1; text-align: left; }
     .col-qty { width: 32px; text-align: right; }
@@ -229,6 +237,11 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     .item-subrow {
       display: flex;
       justify-content: space-between;
+      font-size: 10px;
+      color: #333;
+      margin-top: 1px;
+      white-space: nowrap;
+    }
       font-size: 10px;
       color: #333;
       margin-top: 1px;
@@ -336,31 +349,31 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     <div class="financial-totals">
       <div class="flex-row">
         <span>Gross Amount :</span>
-        <span>₹${w.toFixed(2)}</span>
+        <span>Rs.${w.toFixed(2)}</span>
       </div>
       <div class="flex-row bold">
         <span>Net Amount :</span>
-        <span>₹${_.toFixed(2)}</span>
+        <span>Rs.${_.toFixed(2)}</span>
       </div>
       ${T>0?`
       <div class="flex-row text-rose">
         <span>Opening Balance :</span>
-        <span>+ ₹${T.toFixed(2)}</span>
+        <span>+ Rs.${T.toFixed(2)}</span>
       </div>
       <div class="flex-row bold">
         <span>Total Amt :</span>
-        <span>₹${E.toFixed(2)}</span>
+        <span>Rs.${E.toFixed(2)}</span>
       </div>
       `:``}
       ${O.map(e=>`
       <div class="flex-row text-green">
         <span>${e.label} :</span>
-        <span>- ₹${e.amount.toFixed(2)}</span>
+        <span>- Rs.${e.amount.toFixed(2)}</span>
       </div>
       `).join(``)}
       <div class="flex-row closing-balance">
         <span>Closing Balance :</span>
-        <span>₹${h.toFixed(2)}</span>
+        <span>Rs.${h.toFixed(2)}</span>
       </div>
     </div>
 

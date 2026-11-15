@@ -450,23 +450,24 @@ export const receiptRenderer = {
   <style>
     @page {
       size: ${paperWidthMm} 297mm;
-      margin: 0mm;
+      margin: 0mm !important;
     }
     @media print {
       html, body {
-        width: ${contentWidthMm} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: ${contentWidthMm} !important;
-        max-width: ${contentWidthMm} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 4px 2px 20px 2px !important;
+        padding: 2px 0 12px 0 !important;
       }
     }
     * {
@@ -483,10 +484,12 @@ export const receiptRenderer = {
       color: #000;
       background: #fff;
       padding: 4px 2px 20px 2px;
+      word-break: keep-all;
     }
     .receipt-container {
       width: 100%;
       margin: 0 auto;
+      word-break: keep-all;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
@@ -510,6 +513,7 @@ export const receiptRenderer = {
       letter-spacing: 2px;
       margin-bottom: 2px;
       color: #222;
+      white-space: nowrap;
     }
     .shop-title {
       font-size: 13.5px;
@@ -517,6 +521,7 @@ export const receiptRenderer = {
       text-align: center;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
     .shop-info {
       font-size: 10px;
@@ -534,6 +539,7 @@ export const receiptRenderer = {
       font-weight: bold;
       font-size: 11.5px;
       letter-spacing: 1px;
+      white-space: nowrap;
     }
     .flex-row {
       display: flex;
@@ -541,6 +547,7 @@ export const receiptRenderer = {
       align-items: baseline;
       font-size: 10.5px;
       padding: 0.5px 0;
+      white-space: nowrap;
     }
     .truncate {
       max-width: 180px;
@@ -557,6 +564,7 @@ export const receiptRenderer = {
       border-bottom: 1px dashed #444;
       padding-bottom: 2px;
       margin-bottom: 2px;
+      white-space: nowrap;
     }
     .col-desc { flex: 1; text-align: left; }
     .col-qty { width: 32px; text-align: right; }
@@ -578,6 +586,11 @@ export const receiptRenderer = {
     .item-subrow {
       display: flex;
       justify-content: space-between;
+      font-size: 10px;
+      color: #333;
+      margin-top: 1px;
+      white-space: nowrap;
+    }
       font-size: 10px;
       color: #333;
       margin-top: 1px;
@@ -692,31 +705,31 @@ export const receiptRenderer = {
     <div class="financial-totals">
       <div class="flex-row">
         <span>Gross Amount :</span>
-        <span>₹${subtotal.toFixed(2)}</span>
+        <span>Rs.${subtotal.toFixed(2)}</span>
       </div>
       <div class="flex-row bold">
         <span>Net Amount :</span>
-        <span>₹${grandTotal.toFixed(2)}</span>
+        <span>Rs.${grandTotal.toFixed(2)}</span>
       </div>
       ${previousDue > 0 ? `
       <div class="flex-row text-rose">
         <span>Opening Balance :</span>
-        <span>+ ₹${previousDue.toFixed(2)}</span>
+        <span>+ Rs.${previousDue.toFixed(2)}</span>
       </div>
       <div class="flex-row bold">
         <span>Total Amt :</span>
-        <span>₹${totalPayable.toFixed(2)}</span>
+        <span>Rs.${totalPayable.toFixed(2)}</span>
       </div>
       ` : ''}
       ${paymentRows.map((p) => `
       <div class="flex-row text-green">
         <span>${p.label} :</span>
-        <span>- ₹${p.amount.toFixed(2)}</span>
+        <span>- Rs.${p.amount.toFixed(2)}</span>
       </div>
       `).join('')}
       <div class="flex-row closing-balance">
         <span>Closing Balance :</span>
-        <span>₹${balanceDue.toFixed(2)}</span>
+        <span>Rs.${balanceDue.toFixed(2)}</span>
       </div>
     </div>
 
