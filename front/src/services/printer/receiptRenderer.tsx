@@ -16,7 +16,7 @@ import kbnLogo from '../../assets/kbn-logo.jpeg';
  * Scales an image to target dot width on an offscreen canvas, applies a pure 1-bit high-contrast
  * monochrome threshold filter so thermal printheads burn crisp solid black dots, and returns a PNG data URL.
  */
-function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<string> {
+function getScaledThermalLogo(src: string, targetWidth: number = 150): Promise<string> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return resolve(src);
@@ -29,14 +29,14 @@ function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<s
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        const scale = targetWidth / img.width;
-        const targetHeight = Math.round(img.height * scale);
+        const scale = targetWidth / (img.width || 1);
+        const targetHeight = Math.round((img.height || 1) * scale);
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve(src);
 
-        // Fill white background for clean B/W dot printing
+        // Fill solid white background for clean B/W dot printing
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, targetWidth, targetHeight);
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
@@ -51,8 +51,8 @@ function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<s
             const b = d[i + 2];
             const a = d[i + 3];
             const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            // High contrast threshold: dark pixels become pure black (0), light pixels become pure white (255)
-            const val = a < 128 || lum > 175 ? 255 : 0;
+            // High contrast threshold: dark pixels become pure black (0), light background becomes pure white (255)
+            const val = a < 128 || lum > 195 ? 255 : 0;
             d[i] = val;
             d[i + 1] = val;
             d[i + 2] = val;
@@ -504,14 +504,15 @@ export const receiptRenderer = {
     const width = is58mm ? 32 : 48;
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
+    const logoWidth = is58mm ? 120 : 160;
 
     let logoHtml = '';
     if (settings.printLogo !== false) {
       try {
-        const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+        const logoDataUrl = await getScaledThermalLogo(kbnLogo, logoWidth);
         if (logoDataUrl) {
-          logoHtml = `<div style="text-align: center; margin-bottom: 4px;">
-            <img src="${logoDataUrl}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${shopName}" />
+          logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
+            <img src="${logoDataUrl}" width="${logoWidth}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; image-rendering: pixelated; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" alt="${shopName}" />
           </div>`;
         }
       } catch {
@@ -522,7 +523,7 @@ export const receiptRenderer = {
     // Header block
     const headerLines: string[] = [];
     if (initials) {
-      headerLines.push(`<b>${padCenter('[' + initials + ']', width)}</b>`);
+      headerLines.push(`<b>${padCenter(initials, width)}</b>`);
     }
     headerLines.push(`<b>${padCenter(shopName, width)}</b>`);
     for (const addr of addressLines) {
@@ -655,11 +656,24 @@ export const receiptRenderer = {
         border: none !important;
         padding: 2px 0 15mm 0 !important;
       }
+      img {
+        display: block !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: pixelated !important;
+      }
     }
     * {
       box-sizing: border-box;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+    img {
+      display: block;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      image-rendering: pixelated;
     }
     body {
       width: ${contentWidthMm};
@@ -724,14 +738,15 @@ export const receiptRenderer = {
 
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
+    const logoWidth = is58mm ? 120 : 160;
 
     let logoHtml = '';
     if (settings.printLogo !== false) {
       try {
-        const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+        const logoDataUrl = await getScaledThermalLogo(kbnLogo, logoWidth);
         if (logoDataUrl) {
-          logoHtml = `<div style="text-align: center; margin-bottom: 4px;">
-            <img src="${logoDataUrl}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${shopName}" />
+          logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
+            <img src="${logoDataUrl}" width="${logoWidth}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; image-rendering: pixelated; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" alt="${shopName}" />
           </div>`;
         }
       } catch {
@@ -795,8 +810,21 @@ export const receiptRenderer = {
         border: none !important;
         padding: 2px 0 15mm 0 !important;
       }
+      img {
+        display: block !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: pixelated !important;
+      }
     }
     * { box-sizing: border-box; }
+    img {
+      display: block;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      image-rendering: pixelated;
+    }
     body {
       width: ${contentWidthMm};
       max-width: ${contentWidthMm};
@@ -852,16 +880,26 @@ export const receiptRenderer = {
         iframe = document.createElement('iframe');
         iframe.id = 'thermal-print-iframe';
         iframe.style.position = 'fixed';
-        iframe.style.top = '-10000px';
-        iframe.style.left = '-10000px';
-        iframe.style.width = '80mm';
-        iframe.style.height = '1200px';
+        iframe.style.bottom = '0';
+        iframe.style.right = '0';
+        iframe.style.width = '200px';
+        iframe.style.height = '200px';
         iframe.style.border = 'none';
+        iframe.style.opacity = '0.01';
+        iframe.style.pointerEvents = 'none';
+        iframe.style.zIndex = '-9999';
         document.body.appendChild(iframe);
+      } else {
+        iframe.style.position = 'fixed';
+        iframe.style.bottom = '0';
+        iframe.style.right = '0';
+        iframe.style.width = '200px';
+        iframe.style.height = '200px';
+        iframe.style.border = 'none';
+        iframe.style.opacity = '0.01';
+        iframe.style.pointerEvents = 'none';
+        iframe.style.zIndex = '-9999';
       }
-
-      const is58mm = htmlContent.includes('data-paper="58mm"');
-      iframe.style.width = is58mm ? '58mm' : '80mm';
 
       const doc = iframe.contentWindow?.document || iframe.contentDocument;
       if (!doc) {
@@ -903,37 +941,29 @@ export const receiptRenderer = {
 
       const win = iframe.contentWindow;
       if (win && win.document) {
-        const imgs = Array.from(win.document.images || []);
+        const imgs = Array.from(win.document.images || []) as HTMLImageElement[];
         if (imgs.length > 0) {
-          let loadedCount = 0;
-          let done = false;
-          const onImgDone = () => {
-            loadedCount++;
-            if (!done && loadedCount >= imgs.length) {
-              done = true;
-              setTimeout(triggerPrint, 150);
-            }
-          };
-          imgs.forEach((img) => {
-            if (img.complete) {
-              onImgDone();
-            } else {
-              img.onload = onImgDone;
-              img.onerror = onImgDone;
-            }
+          Promise.all(
+            imgs.map((img: HTMLImageElement) => {
+              if ('decode' in img && typeof img.decode === 'function') {
+                return img.decode().catch(() => {});
+              }
+              return new Promise<void>((r) => {
+                if (img.complete) return r();
+                img.onload = () => r();
+                img.onerror = () => r();
+              });
+            })
+          ).then(() => {
+            setTimeout(triggerPrint, 350);
+          }).catch(() => {
+            setTimeout(triggerPrint, 350);
           });
-          // Fallback timer in case image load event hangs
-          setTimeout(() => {
-            if (!done) {
-              done = true;
-              triggerPrint();
-            }
-          }, 600);
           return;
         }
       }
 
-      setTimeout(triggerPrint, 300);
+      setTimeout(triggerPrint, 350);
     });
   },
 };
