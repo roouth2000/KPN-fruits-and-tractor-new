@@ -97,6 +97,51 @@ function formatReceiptTime(d?: string | Date | null): string {
   return `${strHours}: ${minutes} ${ampm}`;
 }
 
+// Monospace ASCII formatting helpers for thermal printers
+function toAscii(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/₹/g, 'Rs.')
+    .replace(/·/g, '-')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/[^\x20-\x7E\n\r]/g, '');
+}
+
+function padRight(str: string, width: number): string {
+  const s = toAscii(String(str || ''));
+  if (s.length >= width) return s.slice(0, width);
+  return s + ' '.repeat(width - s.length);
+}
+
+function padLeft(str: string, width: number): string {
+  const s = toAscii(String(str || ''));
+  if (s.length >= width) return s.slice(0, width);
+  return ' '.repeat(width - s.length) + s;
+}
+
+function padCenter(str: string, width: number): string {
+  const s = toAscii(String(str || '')).trim();
+  if (s.length >= width) return s.slice(0, width);
+  const left = Math.floor((width - s.length) / 2);
+  const right = width - s.length - left;
+  return ' '.repeat(left) + s + ' '.repeat(right);
+}
+
+function formatTwoCol(left: string, right: string, width: number): string[] {
+  const l = toAscii(String(left || '')).trim();
+  const r = toAscii(String(right || '')).trim();
+  if (!l && !r) return [];
+  if (!r) return [l];
+  if (!l) return [padLeft(r, width)];
+  if (l.length + r.length + 1 <= width) {
+    const spaces = width - l.length - r.length;
+    return [l + ' '.repeat(spaces) + r];
+  }
+  return [l, padLeft(r, width)];
+}
+
 export const receiptRenderer = {
   /**
    * Builds and renders the ESC/POS receipt element using `react-thermal-printer`
@@ -456,7 +501,9 @@ export const receiptRenderer = {
       paymentRows = [{ label: 'Paid Amount', amount: paidAmount }];
     }
 
-    const lineDivider = is58mm ? '--------------------------------' : '------------------------------------------------';
+    const width = is58mm ? 32 : 48;
+    const lineDivider = '-'.repeat(width);
+    const doubleDivider = '='.repeat(width);
 
     let logoHtml = '';
     if (settings.printLogo !== false) {
@@ -471,6 +518,113 @@ export const receiptRenderer = {
         logoHtml = '';
       }
     }
+
+    // Header block
+    const headerLines: string[] = [];
+    if (initials) {
+      headerLines.push(`<b>${padCenter('[' + initials + ']', width)}</b>`);
+    }
+    headerLines.push(`<b>${padCenter(shopName, width)}</b>`);
+    for (const addr of addressLines) {
+      headerLines.push(padCenter(addr, width));
+    }
+    const phoneStr = `Phone: ${settings.shopPhone || '8778219770'}${settings.shopGst ? ` | GSTIN: ${settings.shopGst}` : ''}`;
+    headerLines.push(padCenter(phoneStr, width));
+
+    headerLines.push(doubleDivider);
+    headerLines.push(`<b>${padCenter('*** ' + billType + ' ***', width)}</b>`);
+    headerLines.push(doubleDivider);
+
+    // Metadata lines
+    const metaLines: string[] = [];
+    metaLines.push(...formatTwoCol(`Customer: ${customerName}`, customerPhone ? `Mobile: ${customerPhone}` : '', width));
+    metaLines.push(...formatTwoCol(`Bill No: ${invNumber}`, `Date: ${invDate}`, width));
+    metaLines.push(...formatTwoCol(`Cashier: ${cashierName}`, `Time: ${invTime}`, width));
+
+    // Items table
+    const colDescWidth = is58mm ? 13 : 20;
+    const colQtyWidth = is58mm ? 4 : 6;
+    const colRateWidth = is58mm ? 7 : 10;
+    const colAmtWidth = is58mm ? 8 : 12;
+
+    const itemHeaderStr =
+      padRight('DESCRIPTION', colDescWidth) +
+      padLeft('QTY', colQtyWidth) +
+      padLeft('RATE', colRateWidth) +
+      padLeft('AMOUNT', colAmtWidth);
+
+    const itemLines: string[] = [];
+    itemLines.push(`<b>${itemHeaderStr}</b>`);
+    itemLines.push(lineDivider);
+
+    for (const it of items) {
+      const pName = toAscii(String(it.productName || it.product?.name || 'Produce')).toUpperCase();
+      const variety = toAscii(String(it.variety || it.unit || 'BOX')).toUpperCase();
+      const qty = Number(it.quantity || 0);
+      const rate = Number(it.rate || 0).toFixed(2);
+      const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
+
+      itemLines.push(`<b>${padRight(pName, width)}</b>`);
+      const rowDetails =
+        padRight((is58mm ? ' ' : '  ') + variety, colDescWidth) +
+        padLeft(String(qty), colQtyWidth) +
+        padLeft(rate, colRateWidth) +
+        padLeft(amt, colAmtWidth);
+      itemLines.push(rowDetails);
+    }
+
+    itemLines.push(lineDivider);
+
+    // Summary lines
+    const sumLblWidth = is58mm ? 20 : 34;
+    const sumValWidth = is58mm ? 12 : 14;
+
+    const summaryLines: string[] = [];
+    summaryLines.push(padRight('Gross Amount :', sumLblWidth) + padLeft('Rs.' + subtotal.toFixed(2), sumValWidth));
+    summaryLines.push(`<b>${padRight('Net Amount :', sumLblWidth) + padLeft('Rs.' + grandTotal.toFixed(2), sumValWidth)}</b>`);
+
+    if (previousDue > 0) {
+      summaryLines.push(padRight('Opening Balance :', sumLblWidth) + padLeft('+ Rs.' + previousDue.toFixed(2), sumValWidth));
+      summaryLines.push(`<b>${padRight('Total Amt :', sumLblWidth) + padLeft('Rs.' + totalPayable.toFixed(2), sumValWidth)}</b>`);
+    }
+
+    for (const p of paymentRows) {
+      summaryLines.push(padRight(p.label + ' :', sumLblWidth) + padLeft('- Rs.' + p.amount.toFixed(2), sumValWidth));
+    }
+
+    summaryLines.push(doubleDivider);
+    summaryLines.push(`<b>${padRight('Closing Balance :', sumLblWidth) + padLeft('Rs.' + balanceDue.toFixed(2), sumValWidth)}</b>`);
+    summaryLines.push(doubleDivider);
+
+    // Item count & Total quantity
+    const countLines: string[] = formatTwoCol(`No.Of.Items : ${items.length}`, `Total Qty : ${totalQty}`, width);
+
+    // Footer lines
+    const footerLines: string[] = [
+      lineDivider,
+      `<b>${padCenter('*** THANK YOU VISIT AGAIN ***', width)}</b>`,
+      padCenter(settings.footerTerms || 'No Return,No Exchange', width),
+      settings.footerTagline ? padCenter(settings.footerTagline, width) : '',
+      padCenter('TVS RP-3200 - Direct ESC/POS', width),
+      lineDivider,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ].filter((line) => line !== null && line !== undefined);
+
+    const allLines = [
+      ...headerLines,
+      ...metaLines,
+      lineDivider,
+      ...itemLines,
+      ...summaryLines,
+      ...countLines,
+      ...footerLines,
+    ];
+
+    const renderedReceiptText = allLines.join('\n');
 
     return `<!DOCTYPE html>
 <html>
@@ -484,19 +638,22 @@ export const receiptRenderer = {
     }
     @media print {
       html, body {
-        width: 100% !important;
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        min-width: ${contentWidthMm} !important;
         margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: 100% !important;
-        max-width: 100% !important;
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        min-width: ${contentWidthMm} !important;
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 16px 0 !important;
+        padding: 2px 0 15mm 0 !important;
       }
     }
     * {
@@ -506,205 +663,43 @@ export const receiptRenderer = {
     }
     body {
       width: ${contentWidthMm};
+      max-width: ${contentWidthMm};
+      min-width: ${contentWidthMm};
       margin: 0 auto;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 11px;
+      font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
+      font-size: 9.2px;
       line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 4px 2px 20px 2px;
+      padding: 2px 0 15mm 0;
     }
     .receipt-container {
-      width: 100%;
+      width: ${contentWidthMm};
+      max-width: ${contentWidthMm};
+      min-width: ${contentWidthMm};
       margin: 0 auto;
     }
-    .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .bold { font-weight: bold; }
-    .shop-title {
-      font-size: 14px;
-      font-weight: bold;
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .shop-info {
-      font-size: 10px;
-      text-align: center;
+    pre.receipt-mono {
+      font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
+      font-size: 9.2px;
       line-height: 1.25;
-      margin-top: 2px;
-      color: #000;
-    }
-    .char-divider {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: -0.5px;
-      text-align: center;
-      margin: 3px 0;
-      line-height: 1;
-      overflow: hidden;
-      white-space: nowrap;
+      letter-spacing: -0.15px;
+      white-space: pre;
+      margin: 0;
+      padding: 0;
       color: #000000 !important;
+      background: transparent !important;
+      overflow: hidden;
     }
-    .bill-type {
-      text-align: center;
+    pre.receipt-mono b {
       font-weight: bold;
-      font-size: 12px;
-      letter-spacing: 1px;
-    }
-    table.table-layout {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 10.5px;
-    }
-    table.table-layout td, table.table-layout th {
-      padding: 1px 0;
-      vertical-align: top;
-    }
-    table.data-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 10.5px;
-    }
-    table.data-table th {
-      border-bottom: 1.5px dashed #000000;
-      padding-bottom: 2px;
-      font-weight: bold;
-      font-size: 10.5px;
-    }
-    table.data-table td {
-      padding: 1.5px 0;
-    }
-    .footer-block {
-      text-align: center;
-      font-size: 10px;
-      color: #000;
-      margin-top: 5px;
-      line-height: 1.35;
-    }
-    .footer-brand {
-      font-size: 9px;
-      color: #555;
-      margin-top: 4px;
     }
   </style>
 </head>
 <body data-paper="${paperWidthMm}">
   <div class="receipt-container">
     ${logoHtml}
-    ${initials ? `<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${initials}]</div>` : ''}
-    <div class="shop-title">${shopName}</div>
-    <div class="shop-info">
-      ${addressLines.join('<br>')}
-      <div>Phone: ${settings.shopPhone || '8778219770'}${settings.shopGst ? ` · GSTIN: ${settings.shopGst}` : ''}</div>
-    </div>
-
-    <div class="char-divider">${lineDivider}</div>
-    <div class="bill-type">*** ${billType} ***</div>
-    <div class="char-divider">${lineDivider}</div>
-
-    <table class="table-layout">
-      <tr>
-        <td align="left" style="width: 55%;">Customer: <b>${customerName}</b></td>
-        <td align="right" style="width: 45%;">${customerPhone ? `Mobile: ${customerPhone}` : ''}</td>
-      </tr>
-      <tr>
-        <td align="left">Bill No: <b>${invNumber}</b></td>
-        <td align="right">Date: ${invDate}</td>
-      </tr>
-      <tr>
-        <td align="left">Cashier: ${cashierName}</td>
-        <td align="right">Time: ${invTime}</td>
-      </tr>
-    </table>
-
-    <div class="char-divider">${lineDivider}</div>
-
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th align="left" style="width: 44%;">DESCRIPTION</th>
-          <th align="right" style="width: 16%;">QTY</th>
-          <th align="right" style="width: 20%;">RATE</th>
-          <th align="right" style="width: 20%;">AMOUNT</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map((it: any) => {
-          const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
-          const variety = (it.variety || it.unit || 'BOX').toUpperCase();
-          const qty = Number(it.quantity || 0);
-          const rate = Number(it.rate || 0).toFixed(2);
-          const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
-          return `
-          <tr>
-            <td colspan="4" class="bold" style="padding-top: 3px; font-size: 11px;">${pName}</td>
-          </tr>
-          <tr>
-            <td style="color: #444; font-size: 9.5px; padding-left: 2px;">${variety}</td>
-            <td align="right">${qty}</td>
-            <td align="right">${rate}</td>
-            <td align="right" class="bold">${amt}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-
-    <div class="char-divider">${lineDivider}</div>
-
-    <table class="table-layout">
-      <tr>
-        <td align="left" style="width: 60%;">Gross Amount :</td>
-        <td align="right" style="width: 40%;">Rs.${subtotal.toFixed(2)}</td>
-      </tr>
-      <tr class="bold">
-        <td align="left">Net Amount :</td>
-        <td align="right">Rs.${grandTotal.toFixed(2)}</td>
-      </tr>
-      ${previousDue > 0 ? `
-      <tr style="color: #b91c1c;">
-        <td align="left">Opening Balance :</td>
-        <td align="right">+ Rs.${previousDue.toFixed(2)}</td>
-      </tr>
-      <tr class="bold">
-        <td align="left">Total Amt :</td>
-        <td align="right">Rs.${totalPayable.toFixed(2)}</td>
-      </tr>
-      ` : ''}
-      ${paymentRows.map((p) => `
-      <tr style="color: #047857;">
-        <td align="left">${p.label} :</td>
-        <td align="right">- Rs.${p.amount.toFixed(2)}</td>
-      </tr>
-      `).join('')}
-      <tr class="bold" style="font-size: 12px; border-top: 1.5px dashed #000000;">
-        <td align="left" style="padding-top: 3px;">Closing Balance :</td>
-        <td align="right" style="padding-top: 3px;">Rs.${balanceDue.toFixed(2)}</td>
-      </tr>
-    </table>
-
-    <div class="char-divider">${lineDivider}</div>
-
-    <table class="table-layout" style="font-size: 10px; color: #333;">
-      <tr>
-        <td align="left" style="width: 50%;">No.Of.Items : <b>${items.length}</b></td>
-        <td align="right" style="width: 50%;">Total Qty : <b>${totalQty}</b></td>
-      </tr>
-    </table>
-
-    <div class="char-divider">${lineDivider}</div>
-
-    <div class="footer-block">
-      <div class="bold">*** THANK YOU VISIT AGAIN ***</div>
-      <div>${settings.footerTerms || 'Goods once sold cannot be taken back'}</div>
-      ${settings.footerTagline ? `<div>${settings.footerTagline}</div>` : ''}
-      <div class="footer-brand">TVS RP-3200 · Direct ESC/POS</div>
-    </div>
-
-    <div class="char-divider">${lineDivider}</div>
+    <pre class="receipt-mono">${renderedReceiptText}</pre>
   </div>
 </body>
 </html>`;
@@ -717,6 +712,7 @@ export const receiptRenderer = {
     const is58mm = settings.paperSize === '58mm';
     const paperWidthMm = is58mm ? '58mm' : '80mm';
     const contentWidthMm = is58mm ? '48mm' : '72mm';
+    const width = is58mm ? 32 : 48;
     const now = new Date();
     const rawShopName = (settings.shopName || '').trim().toUpperCase();
     const shopName =
@@ -726,8 +722,8 @@ export const receiptRenderer = {
     const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
     const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
 
-    const lineDivider = is58mm ? '--------------------------------' : '------------------------------------------------';
-    const doubleDivider = is58mm ? '================================' : '================================================';
+    const lineDivider = '-'.repeat(width);
+    const doubleDivider = '='.repeat(width);
 
     let logoHtml = '';
     if (settings.printLogo !== false) {
@@ -743,6 +739,33 @@ export const receiptRenderer = {
       }
     }
 
+    const testLines: string[] = [
+      initials ? `<b>${padCenter('[' + initials + ']', width)}</b>` : '',
+      `<b>${padCenter(shopName, width)}</b>`,
+      `<b>${padCenter('TVS RP-3200 HARDWARE TEST', width)}</b>`,
+      doubleDivider,
+      ...formatTwoCol('Target Hardware:', 'TVS RP-3200', width),
+      ...formatTwoCol('Width Mode:', paperWidthMm, width),
+      ...formatTwoCol('Transport:', 'System / Browser Print', width),
+      ...formatTwoCol('Date / Time:', `${formatReceiptDate(now)} ${formatReceiptTime(now)}`, width),
+      lineDivider,
+      ...formatTwoCol('TVS TEST ITEM 1', '1.00  100.00', width),
+      ...formatTwoCol('TVS TEST ITEM 2', '2.00  250.00', width),
+      lineDivider,
+      `<b>${padRight('TOTAL :', width - 12)}${padLeft('600.00', 12)}</b>`,
+      doubleDivider,
+      `<b>${padCenter('PRINTER TEST SUCCESSFUL', width)}</b>`,
+      padCenter('TVS RP-3200 - Browser Print Engine', width),
+      lineDivider,
+      '',
+      '',
+      '',
+      '',
+      '',
+    ].filter((line) => line !== null && line !== undefined);
+
+    const renderedTestText = testLines.join('\n');
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -755,80 +778,64 @@ export const receiptRenderer = {
     }
     @media print {
       html, body {
-        width: 100% !important;
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        min-width: ${contentWidthMm} !important;
         margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: 100% !important;
-        max-width: 100% !important;
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        min-width: ${contentWidthMm} !important;
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 16px 0 !important;
+        padding: 2px 0 15mm 0 !important;
       }
     }
     * { box-sizing: border-box; }
     body {
       width: ${contentWidthMm};
+      max-width: ${contentWidthMm};
+      min-width: ${contentWidthMm};
       margin: 0 auto;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 11px;
-      line-height: 1.3;
+      font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
+      font-size: 9.2px;
+      line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 6px 2px 20px 2px;
+      padding: 2px 0 15mm 0;
     }
-    .receipt-container { width: 100%; margin: 0 auto; }
-    .text-center { text-align: center; }
-    .bold { font-weight: bold; }
-    .char-divider {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: -0.5px;
-      text-align: center;
-      margin: 3px 0;
-      line-height: 1;
-      overflow: hidden;
-      white-space: nowrap;
+    .receipt-container {
+      width: ${contentWidthMm};
+      max-width: ${contentWidthMm};
+      min-width: ${contentWidthMm};
+      margin: 0 auto;
+    }
+    pre.receipt-mono {
+      font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
+      font-size: 9.2px;
+      line-height: 1.25;
+      letter-spacing: -0.15px;
+      white-space: pre;
+      margin: 0;
+      padding: 0;
       color: #000000 !important;
+      background: transparent !important;
+      overflow: hidden;
     }
-    table.table-layout { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-    table.table-layout td { padding: 1.5px 0; }
+    pre.receipt-mono b {
+      font-weight: bold;
+    }
   </style>
 </head>
 <body data-paper="${paperWidthMm}">
   <div class="receipt-container">
     ${logoHtml}
-    ${initials ? `<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${initials}]</div>` : ''}
-    <div class="text-center bold" style="font-size: 14px; text-transform: uppercase;">${shopName}</div>
-    <div class="text-center bold" style="font-size: 11px; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
-    <div class="char-divider">${doubleDivider}</div>
-    <table class="table-layout">
-      <tr><td>Target Hardware:</td><td align="right">TVS RP-3200</td></tr>
-      <tr><td>Width Mode:</td><td align="right">${paperWidthMm}</td></tr>
-      <tr><td>Transport:</td><td align="right">System / Browser Print</td></tr>
-      <tr><td>Date / Time:</td><td align="right">${formatReceiptDate(now)} ${formatReceiptTime(now)}</td></tr>
-    </table>
-    <div class="char-divider">${lineDivider}</div>
-    <table class="table-layout">
-      <tr><td>TVS TEST ITEM 1</td><td align="right">1.00  100.00</td></tr>
-      <tr><td>TVS TEST ITEM 2</td><td align="right">2.00  250.00</td></tr>
-    </table>
-    <div class="char-divider">${lineDivider}</div>
-    <table class="table-layout">
-      <tr class="bold">
-        <td>TOTAL :</td>
-        <td align="right">600.00</td>
-      </tr>
-    </table>
-    <div class="char-divider">${doubleDivider}</div>
-    <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
-    <div class="text-center" style="font-size: 9px; color: #555; margin-top: 3px;">TVS RP-3200 · Browser Print Engine</div>
-    <div class="char-divider">${lineDivider}</div>
+    <pre class="receipt-mono">${renderedTestText}</pre>
   </div>
 </body>
 </html>`;
@@ -852,6 +859,9 @@ export const receiptRenderer = {
         iframe.style.border = 'none';
         document.body.appendChild(iframe);
       }
+
+      const is58mm = htmlContent.includes('data-paper="58mm"');
+      iframe.style.width = is58mm ? '58mm' : '80mm';
 
       const doc = iframe.contentWindow?.document || iframe.contentDocument;
       if (!doc) {
