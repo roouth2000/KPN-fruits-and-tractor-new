@@ -435,7 +435,9 @@ export const receiptRenderer = {
       try {
         const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
         if (logoDataUrl) {
-          logoHtml = `<div class="logo-container"><img src="${logoDataUrl}" class="logo-img" alt="${shopName}" /></div>`;
+          logoHtml = `<div style="text-align: center; margin-bottom: 4px;">
+            <img src="${logoDataUrl}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${shopName}" />
+          </div>`;
         }
       } catch {
         logoHtml = '';
@@ -455,7 +457,6 @@ export const receiptRenderer = {
     @media print {
       html, body {
         width: 100% !important;
-        max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
@@ -467,7 +468,7 @@ export const receiptRenderer = {
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 12px 0 !important;
+        padding: 2px 0 16px 0 !important;
       }
     }
     * {
@@ -484,158 +485,86 @@ export const receiptRenderer = {
       color: #000;
       background: #fff;
       padding: 4px 2px 20px 2px;
-      word-break: keep-all;
     }
     .receipt-container {
       width: 100%;
       margin: 0 auto;
-      word-break: keep-all;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .bold { font-weight: bold; }
-    .logo-container {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 3px;
-    }
-    .logo-img {
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      display: block;
-      margin: 0 auto;
-    }
-    .monogram {
-      text-align: center;
-      font-weight: 900;
-      font-size: 11px;
-      letter-spacing: 2px;
-      margin-bottom: 2px;
-      color: #222;
-      white-space: nowrap;
-    }
     .shop-title {
-      font-size: 13.5px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: bold;
       text-align: center;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      white-space: nowrap;
     }
     .shop-info {
       font-size: 10px;
       text-align: center;
       line-height: 1.25;
       margin-top: 2px;
-      color: #333;
+      color: #000;
     }
     .dashed-divider {
-      border-top: 1px dashed #444;
+      border-top: 1.5px dashed #000000 !important;
       margin: 5px 0;
+      height: 1px;
     }
     .bill-type {
       text-align: center;
       font-weight: bold;
-      font-size: 11.5px;
-      letter-spacing: 1px;
-      white-space: nowrap;
-    }
-    .flex-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 10.5px;
-      padding: 0.5px 0;
-      white-space: nowrap;
-    }
-    .truncate {
-      max-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .items-header {
-      display: flex;
-      justify-content: space-between;
-      font-weight: bold;
-      font-size: 10.5px;
-      text-transform: uppercase;
-      border-bottom: 1px dashed #444;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
-      white-space: nowrap;
-    }
-    .col-desc { flex: 1; text-align: left; }
-    .col-qty { width: 32px; text-align: right; }
-    .col-rate { width: 50px; text-align: right; }
-    .col-amt { width: 62px; text-align: right; }
-    .item-block {
-      padding: 2.5px 0;
-      border-bottom: 1px dashed #eee;
-    }
-    .item-block:last-child {
-      border-bottom: none;
-    }
-    .item-name {
-      font-weight: bold;
-      font-size: 10.5px;
-      text-transform: uppercase;
-      line-height: 1.2;
-    }
-    .item-subrow {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #333;
-      margin-top: 1px;
-      white-space: nowrap;
-    }
-      font-size: 10px;
-      color: #333;
-      margin-top: 1px;
-    }
-    .item-unit {
-      color: #666;
-      font-size: 9.5px;
-    }
-    .financial-totals {
-      font-size: 11px;
-    }
-    .financial-totals .flex-row {
-      padding: 1px 0;
-    }
-    .text-rose { color: #b91c1c; }
-    .text-green { color: #047857; }
-    .closing-balance {
-      border-top: 1px dashed #444;
-      padding-top: 3px;
-      margin-top: 2px;
-      font-weight: 800;
       font-size: 12px;
+      letter-spacing: 1px;
+    }
+    table.table-layout {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10.5px;
+    }
+    table.table-layout td, table.table-layout th {
+      padding: 1px 0;
+      vertical-align: top;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10.5px;
+    }
+    table.data-table th {
+      border-bottom: 1.5px dashed #000000;
+      padding-bottom: 2px;
+      font-weight: bold;
+      font-size: 10.5px;
+    }
+    table.data-table td {
+      padding: 1.5px 0;
     }
     .footer-block {
       text-align: center;
       font-size: 10px;
-      color: #444;
-      margin-top: 4px;
+      color: #000;
+      margin-top: 5px;
       line-height: 1.35;
     }
     .footer-brand {
       font-size: 9px;
-      color: #666;
+      color: #555;
       margin-top: 4px;
     }
     .tear-border {
-      border-bottom: 2px dashed #888;
-      margin-top: 8px;
+      border-bottom: 2px dashed #000000;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body data-paper="${paperWidthMm}">
   <div class="receipt-container">
     ${logoHtml}
-    ${initials ? `<div class="monogram">[${initials}]</div>` : ''}
+    ${initials ? `<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${initials}]</div>` : ''}
     <div class="shop-title">${shopName}</div>
     <div class="shop-info">
       ${addressLines.join('<br>')}
@@ -646,99 +575,94 @@ export const receiptRenderer = {
     <div class="bill-type">*** ${billType} ***</div>
     <div class="dashed-divider"></div>
 
-    <div class="customer-section">
-      <div class="flex-row">
-        <span style="color: #555;">Customer:</span>
-        <span class="bold truncate">${customerName}</span>
-      </div>
-      ${customerPhone ? `
-      <div class="flex-row">
-        <span style="color: #555;">Mobile:</span>
-        <span>${customerPhone}</span>
-      </div>` : ''}
-    </div>
+    <table class="table-layout">
+      <tr>
+        <td align="left" style="width: 55%;">Customer: <b>${customerName}</b></td>
+        <td align="right" style="width: 45%;">${customerPhone ? `Mobile: ${customerPhone}` : ''}</td>
+      </tr>
+      <tr>
+        <td align="left">Bill No: <b>${invNumber}</b></td>
+        <td align="right">Date: ${invDate}</td>
+      </tr>
+      <tr>
+        <td align="left">Cashier: ${cashierName}</td>
+        <td align="right">Time: ${invTime}</td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="metadata-section">
-      <div class="flex-row">
-        <span>Bill No: <strong class="bold">${invNumber}</strong></span>
-        <span>Date: ${invDate}</span>
-      </div>
-      <div class="flex-row">
-        <span>Cashier: ${cashierName}</span>
-        <span>Time: ${invTime}</span>
-      </div>
-    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th align="left" style="width: 44%;">DESCRIPTION</th>
+          <th align="right" style="width: 16%;">QTY</th>
+          <th align="right" style="width: 20%;">RATE</th>
+          <th align="right" style="width: 20%;">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((it: any) => {
+          const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
+          const variety = (it.variety || it.unit || 'BOX').toUpperCase();
+          const qty = Number(it.quantity || 0);
+          const rate = Number(it.rate || 0).toFixed(2);
+          const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
+          return `
+          <tr>
+            <td colspan="4" class="bold" style="padding-top: 3px; font-size: 11px;">${pName}</td>
+          </tr>
+          <tr>
+            <td style="color: #444; font-size: 9.5px; padding-left: 2px;">${variety}</td>
+            <td align="right">${qty}</td>
+            <td align="right">${rate}</td>
+            <td align="right" class="bold">${amt}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="items-header">
-      <span class="col-desc">Description</span>
-      <span class="col-qty">Qty</span>
-      <span class="col-rate">Rate</span>
-      <span class="col-amt">Amount</span>
-    </div>
-
-    <div class="items-list">
-      ${items.map((it: any) => {
-        const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
-        const variety = (it.variety || it.unit || 'BOX').toUpperCase();
-        const qty = Number(it.quantity || 0);
-        const rate = Number(it.rate || 0).toFixed(2);
-        const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
-        return `
-        <div class="item-block">
-          <div class="item-name">${pName}</div>
-          <div class="item-subrow">
-            <span class="item-unit">${variety}</span>
-            <span class="col-qty">${qty}</span>
-            <span class="col-rate">${rate}</span>
-            <span class="col-amt bold">${amt}</span>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <div class="dashed-divider"></div>
-
-    <div class="financial-totals">
-      <div class="flex-row">
-        <span>Gross Amount :</span>
-        <span>Rs.${subtotal.toFixed(2)}</span>
-      </div>
-      <div class="flex-row bold">
-        <span>Net Amount :</span>
-        <span>Rs.${grandTotal.toFixed(2)}</span>
-      </div>
+    <table class="table-layout">
+      <tr>
+        <td align="left" style="width: 60%;">Gross Amount :</td>
+        <td align="right" style="width: 40%;">Rs.${subtotal.toFixed(2)}</td>
+      </tr>
+      <tr class="bold">
+        <td align="left">Net Amount :</td>
+        <td align="right">Rs.${grandTotal.toFixed(2)}</td>
+      </tr>
       ${previousDue > 0 ? `
-      <div class="flex-row text-rose">
-        <span>Opening Balance :</span>
-        <span>+ Rs.${previousDue.toFixed(2)}</span>
-      </div>
-      <div class="flex-row bold">
-        <span>Total Amt :</span>
-        <span>Rs.${totalPayable.toFixed(2)}</span>
-      </div>
+      <tr style="color: #b91c1c;">
+        <td align="left">Opening Balance :</td>
+        <td align="right">+ Rs.${previousDue.toFixed(2)}</td>
+      </tr>
+      <tr class="bold">
+        <td align="left">Total Amt :</td>
+        <td align="right">Rs.${totalPayable.toFixed(2)}</td>
+      </tr>
       ` : ''}
       ${paymentRows.map((p) => `
-      <div class="flex-row text-green">
-        <span>${p.label} :</span>
-        <span>- Rs.${p.amount.toFixed(2)}</span>
-      </div>
+      <tr style="color: #047857;">
+        <td align="left">${p.label} :</td>
+        <td align="right">- Rs.${p.amount.toFixed(2)}</td>
+      </tr>
       `).join('')}
-      <div class="flex-row closing-balance">
-        <span>Closing Balance :</span>
-        <span>Rs.${balanceDue.toFixed(2)}</span>
-      </div>
-    </div>
+      <tr class="bold" style="font-size: 12px; border-top: 1.5px dashed #000000;">
+        <td align="left" style="padding-top: 3px;">Closing Balance :</td>
+        <td align="right" style="padding-top: 3px;">Rs.${balanceDue.toFixed(2)}</td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="flex-row" style="color: #444;">
-      <span>No.Of.Items : <strong>${items.length}</strong></span>
-      <span>Total Qty : <strong>${totalQty}</strong></span>
-    </div>
+    <table class="table-layout" style="font-size: 10px; color: #333;">
+      <tr>
+        <td align="left" style="width: 50%;">No.Of.Items : <b>${items.length}</b></td>
+        <td align="right" style="width: 50%;">Total Qty : <b>${totalQty}</b></td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
@@ -776,7 +700,9 @@ export const receiptRenderer = {
       try {
         const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
         if (logoDataUrl) {
-          logoHtml = `<div class="logo-container"><img src="${logoDataUrl}" class="logo-img" alt="${shopName}" /></div>`;
+          logoHtml = `<div style="text-align: center; margin-bottom: 4px;">
+            <img src="${logoDataUrl}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${shopName}" />
+          </div>`;
         }
       } catch {
         logoHtml = '';
@@ -791,30 +717,26 @@ export const receiptRenderer = {
   <style>
     @page {
       size: ${paperWidthMm} 200mm;
-      margin: 0mm;
+      margin: 0mm !important;
     }
     @media print {
       html, body {
-        width: ${contentWidthMm} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: ${contentWidthMm} !important;
-        max-width: ${contentWidthMm} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 4px 2px 20px 2px !important;
+        padding: 2px 0 16px 0 !important;
       }
     }
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
+    * { box-sizing: border-box; }
     body {
       width: ${contentWidthMm};
       margin: 0 auto;
@@ -828,30 +750,34 @@ export const receiptRenderer = {
     .receipt-container { width: 100%; margin: 0 auto; }
     .text-center { text-align: center; }
     .bold { font-weight: bold; }
-    .logo-container { display: flex; justify-content: center; margin-bottom: 3px; }
-    .logo-img { width: 54px; height: 54px; object-fit: contain; display: block; margin: 0 auto; }
-    .monogram { text-align: center; font-weight: 900; font-size: 11px; letter-spacing: 2px; margin-bottom: 2px; color: #222; }
-    .dashed-divider { border-top: 1px dashed #444; margin: 5px 0; }
-    .double-divider { border-top: 2px double #000; margin: 5px 0; }
-    .flex-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 1px 0; }
+    .dashed-divider { border-top: 1.5px dashed #000000 !important; margin: 5px 0; height: 1px; }
+    .double-divider { border-top: 2px double #000000 !important; margin: 5px 0; height: 2px; }
+    table.table-layout { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    table.table-layout td { padding: 1.5px 0; }
   </style>
 </head>
 <body data-paper="${paperWidthMm}">
   <div class="receipt-container">
     ${logoHtml}
-    ${initials ? `<div class="monogram">[${initials}]</div>` : ''}
-    <div class="text-center bold" style="font-size: 13.5px;">${shopName}</div>
-    <div class="text-center" style="font-size: 11px; font-weight: bold; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
+    ${initials ? `<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${initials}]</div>` : ''}
+    <div class="text-center bold" style="font-size: 14px; text-transform: uppercase;">${shopName}</div>
+    <div class="text-center bold" style="font-size: 11px; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
     <div class="double-divider"></div>
-    <div class="flex-row"><span>Target Hardware:</span><span>TVS RP-3200</span></div>
-    <div class="flex-row"><span>Width Mode:</span><span>${paperWidthMm}</span></div>
-    <div class="flex-row"><span>Transport:</span><span>System / Browser Print</span></div>
-    <div class="flex-row"><span>Date / Time:</span><span>${formatReceiptDate(now)} ${formatReceiptTime(now)}</span></div>
+    <table class="table-layout">
+      <tr><td>Target Hardware:</td><td align="right">TVS RP-3200</td></tr>
+      <tr><td>Width Mode:</td><td align="right">${paperWidthMm}</td></tr>
+      <tr><td>Transport:</td><td align="right">System / Browser Print</td></tr>
+      <tr><td>Date / Time:</td><td align="right">${formatReceiptDate(now)} ${formatReceiptTime(now)}</td></tr>
+    </table>
     <div class="dashed-divider"></div>
-    <div class="flex-row"><span>TVS TEST ITEM 1</span><span>1.00  100.00</span></div>
-    <div class="flex-row"><span>TVS TEST ITEM 2</span><span>2.00  250.00</span></div>
-    <div class="dashed-divider"></div>
-    <div class="flex-row bold"><span>TOTAL :</span><span>600.00</span></div>
+    <table class="table-layout">
+      <tr><td>TVS TEST ITEM 1</td><td align="right">1.00  100.00</td></tr>
+      <tr><td>TVS TEST ITEM 2</td><td align="right">2.00  250.00</td></tr>
+      <tr class="bold" style="border-top: 1.5px dashed #000;">
+        <td style="padding-top: 3px;">TOTAL :</td>
+        <td align="right" style="padding-top: 3px;">600.00</td>
+      </tr>
+    </table>
     <div class="double-divider"></div>
     <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
     <div class="text-center" style="font-size: 9px; color: #555; margin-top: 3px;">TVS RP-3200 · Browser Print Engine</div>

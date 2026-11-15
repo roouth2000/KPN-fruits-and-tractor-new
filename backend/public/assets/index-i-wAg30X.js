@@ -93,7 +93,9 @@ Error generating stack: `+e.message+`
 `+e.stack}return Object.defineProperty(t,"componentStack",{value:i}),i}}),t}function fa(e,t,n){if(xi(t))return e=e.onBrowserBailout,e(t,n),``;if(e=e.onError,t=e(t,n),t==null||typeof t==`string`)return t===``?void 0:t}function pa(e,t){var n=e.onShellError,r=e.onFatalError;e.pendingRootTasks!==0&&n(t),r(t),io(e),e.destination===null?(e.status=12,e.aborted||(e.fatalError=t)):(e.status=13,ie(e.destination,t))}function ma(e,t){ha(e,t.next,t.hoistables)}function ha(e,t,n){for(;t!==null;){n!==null&&(Pr(t.hoistables,n),t.inheritedHoistables=n);var r=t.boundaries;if(r!==null){t.boundaries=null;for(var i=0;i<r.length;i++){var a=r[i];n!==null&&Pr(a.contentState,n),Ba(e,a,null,null)}}if(t.pendingTasks--,0<t.pendingTasks)break;n=t.hoistables,t=t.next}}function ga(e,t){var n=t.boundaries;if(n!==null&&t.pendingTasks===n.length){for(var r=!0,i=0;i<n.length;i++){var a=n[i];if(a.pendingTasks!==1||a.parentFlushed||Xi(e,a)){r=!1;break}}r&&ha(e,t,t.hoistables)}}function _a(e){var t={pendingTasks:1,boundaries:null,hoistables:vr(),inheritedHoistables:null,together:!1,next:null};return e!==null&&0<e.pendingTasks&&(t.pendingTasks++,t.boundaries=[],e.next=t),t}function va(e,t,n,r,i){var a=t.keyPath,o=t.treeContext,s=t.row;t.keyPath=n,n=r.length;var c=null;if(t.replay!==null){var l=t.replay.slots;if(typeof l==`object`&&l)for(var u=0;u<n;u++){var d=i!==`backwards`&&i!==`unstable_legacy-backwards`?u:n-1-u,f=r[d];t.row=c=_a(c),t.treeContext=Xr(o,n,d);var p=l[d];typeof p==`number`?(Sa(e,t,p,f,d),delete l[d]):Aa(e,t,f,d),--c.pendingTasks===0&&ma(e,c)}else for(l=0;l<n;l++)u=i!==`backwards`&&i!==`unstable_legacy-backwards`?l:n-1-l,d=r[u],t.row=c=_a(c),t.treeContext=Xr(o,n,u),Aa(e,t,d,u),--c.pendingTasks===0&&ma(e,c)}else if(i!==`backwards`&&i!==`unstable_legacy-backwards`)for(i=0;i<n;i++)l=r[i],t.row=c=_a(c),t.treeContext=Xr(o,n,i),Aa(e,t,l,i),--c.pendingTasks===0&&ma(e,c);else{for(l=t.blockedSegment,u=l.children.length,d=l.chunks.length,f=0;f<n;f++){p=i===`unstable_legacy-backwards`?n-1-f:f;var m=r[p];t.row=c=_a(c),t.treeContext=Xr(o,n,p);var h=ca(e,d,null,t.formatContext,p!==0||l.lastPushedText,!0);l.children.splice(u,0,h),t.blockedSegment=h;try{Aa(e,t,m,p),h.lastPushedText&&h.textEmbedded&&h.chunks.push(He),h.status=1,za(e,t.blockedBoundary,h),--c.pendingTasks===0&&ma(e,c)}catch(t){throw h.status=e.aborted?3:4,t}}t.blockedSegment=l,l.lastPushedText=!1}s!==null&&c!==null&&0<c.pendingTasks&&(s.pendingTasks++,c.next=s),t.treeContext=o,t.row=s,t.keyPath=a}function ya(e,t,n,r,i,a){var o=t.thenableState;for(t.thenableState=null,ci={},li=t,ui=e,di=n,gi=hi=0,_i=-1,vi=0,yi=o,e=r(i,a);mi;)mi=!1,gi=hi=0,_i=-1,vi=0,wi+=1,Z=null,e=r(i,a);return ki(),e}function ba(e,t,n,r,i,a,o){var s=!1;if(a!==0&&e.formState!==null){var c=t.blockedSegment;if(c!==null){s=!0,c=c.chunks;for(var l=0;l<a;l++)l===o?c.push(ht):c.push(gt)}}a=t.keyPath,t.keyPath=n,i?(n=t.treeContext,t.treeContext=Xr(n,1,0),Aa(e,t,r,-1),t.treeContext=n):s?Aa(e,t,r,-1):Ca(e,t,r,-1),t.keyPath=a}function xa(e,t,n,i,a,f){if(typeof i==`function`){if(i.prototype&&i.prototype.isReactComponent){var g=a;if(`ref`in a)for(var x in g={},a)x!==`ref`&&(g[x]=a[x]);var C=i.defaultProps;if(C)for(var w in g===a&&(g=ae({},g,a)),C)g[w]===void 0&&(g[w]=C[w]);var E=g,O=zr,k=i.contextType;typeof k==`object`&&k&&(O=k._currentValue);var A=new i(E,O),j=A.state===void 0?null:A.state;A.updater=qr,A.props=E,A.state=j;var M={queue:[],replace:!1};A._reactInternals=M;var N=i.contextType;A.context=typeof N==`object`&&N?N._currentValue:zr;var P=i.getDerivedStateFromProps;if(typeof P==`function`){var F=P(E,j);A.state=F==null?j:ae({},j,F)}if(typeof i.getDerivedStateFromProps!=`function`&&typeof A.getSnapshotBeforeUpdate!=`function`&&(typeof A.UNSAFE_componentWillMount==`function`||typeof A.componentWillMount==`function`)){var ee=A.state;if(typeof A.componentWillMount==`function`&&A.componentWillMount(),typeof A.UNSAFE_componentWillMount==`function`&&A.UNSAFE_componentWillMount(),ee!==A.state&&qr.enqueueReplaceState(A,A.state,null),M.queue!==null&&0<M.queue.length){var I=M.queue,L=M.replace;if(M.queue=null,M.replace=!1,L&&I.length===1)A.state=I[0];else{for(var R=L?I[0]:A.state,z=!0,te=+!!L;te<I.length;te++){var ne=I[te],B=typeof ne==`function`?ne.call(A,R,E,void 0):ne;B!=null&&(z?(z=!1,R=ae({},R,B)):ae(R,B))}A.state=R}}else M.queue=null}var V=A.render();if(e.aborted)throw null;var re=t.keyPath;t.keyPath=n,Ca(e,t,V,-1),t.keyPath=re}else{var ie=ya(e,t,n,i,a,void 0);if(e.aborted)throw null;ba(e,t,n,ie,hi!==0,gi,_i)}}else if(typeof i==`string`){var oe=t.blockedSegment;if(oe===null){var se=a.children,ce=t.formatContext,H=t.keyPath;t.formatContext=Le(ce,i,a),t.keyPath=n,Aa(e,t,se,-1),t.formatContext=ce,t.keyPath=H}else{var U=Nt(oe.chunks,i,a,e.resumableState,e.renderState,t.blockedPreamble,t.hoistableState,t.formatContext,oe.lastPushedText);oe.lastPushedText=!1;var le=t.formatContext,ue=t.keyPath;if(t.keyPath=n,(t.formatContext=Le(le,i,a)).insertionMode===3){var W=ca(e,0,null,t.formatContext,!1,!1);oe.preambleChildren.push(W),t.blockedSegment=W;try{Aa(e,t,U,-1),W.lastPushedText&&W.textEmbedded&&W.chunks.push(He),W.status=1,za(e,t.blockedBoundary,W)}finally{t.blockedSegment=oe}}else Aa(e,t,U,-1);t.formatContext=le,t.keyPath=ue;a:{var de=oe.chunks,fe=e.resumableState;switch(i){case`title`:case`style`:case`script`:case`area`:case`base`:case`br`:case`col`:case`embed`:case`hr`:case`img`:case`input`:case`keygen`:case`link`:case`meta`:case`param`:case`source`:case`track`:case`wbr`:break a;case`body`:if(1>=le.insertionMode){fe.hasBody=!0;break a}break;case`html`:if(le.insertionMode===0){fe.hasHtml=!0;break a}break;case`head`:if(1>=le.insertionMode)break a}de.push(Ft(i))}oe.lastPushedText=!1}}else{switch(i){case b:case s:case c:case o:var G=t.keyPath;t.keyPath=n,Ca(e,t,a.children,-1),t.keyPath=G;return;case y:var pe=t.blockedSegment;if(pe===null){if(a.mode!==`hidden`){var me=t.keyPath;t.keyPath=n,Aa(e,t,a.children,-1),t.keyPath=me}}else if(a.mode!==`hidden`){pe.chunks.push(Bt),pe.lastPushedText=!1;var he=t.keyPath;t.keyPath=n,Aa(e,t,a.children,-1),t.keyPath=he,pe.chunks.push(Vt),pe.lastPushedText=!1}return;case m:a:{var ge=a.children,_e=a.revealOrder;if(_e!==`independent`&&_e!==`together`){if(D(ge)){va(e,t,n,ge,_e);break a}var ve=T(ge);if(ve){var ye=ve.call(ge);if(ye){var be=ye.next();if(!be.done){do be=ye.next();while(!be.done);va(e,t,n,ge,_e)}break a}}}if(_e===`together`){var xe=t.keyPath,K=t.row,Se=t.row=_a(null);Se.boundaries=[],Se.together=!0,t.keyPath=n,Ca(e,t,ge,-1),--Se.pendingTasks===0&&ma(e,Se),t.keyPath=xe,t.row=K,K!==null&&0<Se.pendingTasks&&(K.pendingTasks++,Se.next=K)}else{var Ce=t.keyPath;t.keyPath=n,Ca(e,t,ge,-1),t.keyPath=Ce}}return;case S:var we=t.formatContext,Te=t.keyPath,Ee=e.resumableState;if(a.name!=null&&a.name!==`auto`)var De=a.name;else De=Ve(Ee,Yr(t.treeContext),0);var Oe=De,ke=e.resumableState,Ae=Yi(a.default,a.update),je=Yi(a.default,a.enter),Me=Yi(a.default,a.exit),Ne=Yi(a.default,a.share),Ie=a.name;if(Ae??=`auto`,je??=`auto`,Me??=`auto`,Ie==null){var Re=we.viewTransition;Re===null?(Ie=`auto`,Ne=`none`):(Ie=Re.name,Ne=Re.share)}else Ne??=`auto`,we.tagScope&4&&(ke.instructions|=128);we.tagScope&8?ke.instructions|=128:Me=`none`,we.tagScope&16?ke.instructions|=128:je=`none`;var Ue={update:Ae,enter:je,exit:Me,share:Ne,parentEnter:`none`,parentExit:`none`,name:Ie,autoName:Oe,nameIdx:0},We=we.tagScope&-25;if(We=Ae===`none`?We&-33:We|32,je!==`none`&&(We|=64),t.formatContext=Fe(we.insertionMode,we.selectedValue,We,Ue),t.keyPath=n,a.name!=null&&a.name!==`auto`)Ca(e,t,a.children,-1);else{var Ge=t.treeContext;t.treeContext=Xr(Ge,1,0),Aa(e,t,a.children,-1),t.treeContext=Ge}t.formatContext=we,t.keyPath=Te;return;case v:throw Error(r(343));case p:a:if(t.replay!==null){var Ke=t.keyPath,qe=t.formatContext,Je=t.row;t.keyPath=n,t.formatContext=Be(e.resumableState,qe),t.row=null;var Ye=a.children;try{Aa(e,t,Ye,-1)}finally{t.keyPath=Ke,t.formatContext=qe,t.row=Je}}else{var Xe=t.keyPath,Ze=t.formatContext,Qe=t.row,$e=t.blockedBoundary,et=t.blockedPreamble,tt=t.hoistableState,nt=t.blockedSegment,rt=a.fallback,it=a.children,at=new Set,ot=aa(e,t.row,at,2>t.formatContext.insertionMode?{content:Pe(),fallback:Pe()}:null,!1),st=ca(e,nt.chunks.length,ot,t.formatContext,!1,!1);nt.children.push(st),nt.lastPushedText=!1;var q=ca(e,0,null,t.formatContext,!1,!1);q.parentFlushed=!0;var ct=e.trackedPostpones;if(ct!==null){var lt=t.componentStack,ut=[n[0],`Suspense Fallback`,n[2]];if(ct!==null){var dt=[ut[1],ut[2],[],null];ct.workingMap.set(ut,dt),ot.tracked={contentKeyPath:n,fallbackNode:dt}}t.blockedSegment=st,t.blockedPreamble=ot.preamble===null?null:ot.preamble.fallback,t.keyPath=ut,t.formatContext=ze(e.resumableState,Ze),t.componentStack=ua(lt);try{Aa(e,t,rt,-1),st.lastPushedText&&st.textEmbedded&&st.chunks.push(He),st.status=1,za(e,$e,st)}catch(t){throw st.status=e.aborted?3:4,t}finally{t.blockedSegment=nt,t.blockedPreamble=et,t.keyPath=Xe,t.formatContext=Ze}var ft=oa(e,null,it,-1,ot,q,ot.preamble===null?null:ot.preamble.content,ot.contentState,t.abortSet,n,Be(e.resumableState,t.formatContext),t.context,t.treeContext,null,lt);la(ft),e.pingedTasks.push(ft)}else{t.blockedBoundary=ot,t.blockedPreamble=ot.preamble===null?null:ot.preamble.content,t.hoistableState=ot.contentState,t.blockedSegment=q,t.keyPath=n,t.formatContext=Be(e.resumableState,Ze),t.row=null;try{if(Aa(e,t,it,-1),q.lastPushedText&&q.textEmbedded&&q.chunks.push(He),q.status=1,za(e,ot,q),Ra(ot,q),ot.pendingTasks===0&&ot.status===0){if(ot.status=1,!Xi(e,ot)){Qe!==null&&--Qe.pendingTasks===0&&ma(e,Qe),e.pendingRootTasks===0&&t.blockedPreamble&&Wa(e);break a}}else Qe!==null&&Qe.together&&ga(e,Qe)}catch(n){if(ot.status=4,e.aborted){q.status=3;var pt=e.fatalError}else q.status=4,pt=n;var mt=da(t.componentStack);ot.errorDigest=fa(e,pt,mt),Da(e,ot)}finally{t.blockedBoundary=$e,t.blockedPreamble=et,t.hoistableState=tt,t.blockedSegment=nt,t.keyPath=Xe,t.formatContext=Ze,t.row=Qe}var ht=oa(e,null,rt,-1,$e,st,ot.preamble===null?null:ot.preamble.fallback,ot.fallbackState,at,[n[0],`Suspense Fallback`,n[2]],ze(e.resumableState,t.formatContext),t.context,t.treeContext,t.row,ua(t.componentStack));la(ht),e.pingedTasks.push(ht)}}return}if(typeof i==`object`&&i)switch(i.$$typeof){case d:if(`ref`in a){var gt={};for(var _t in a)_t!==`ref`&&(gt[_t]=a[_t])}else gt=a;ba(e,t,n,ya(e,t,n,i.render,gt,f),hi!==0,gi,_i);return;case h:xa(e,t,n,i.type,a,f);return;case u:var vt=a.children,yt=t.keyPath,bt=a.value,xt=i._currentValue;i._currentValue=bt;var St=Br,Ct={parent:St,depth:St===null?0:St.depth+1,context:i,parentValue:xt,value:bt};Br=Ct,t.context=Ct,t.keyPath=n,Ca(e,t,vt,-1);var wt=Br;if(wt===null)throw Error(r(403));wt.context._currentValue=wt.parentValue,t.context=Br=wt.parent,t.keyPath=yt;return;case l:var Tt=a.children,Et=Tt(i._context._currentValue),Dt=t.keyPath;t.keyPath=n,Ca(e,t,Et,-1),t.keyPath=Dt;return;case _:var Ot=i._init,kt=Ot(i._payload);if(e.aborted)throw null;xa(e,t,n,kt,a,f);return}throw Error(r(130,i==null?i:typeof i,``))}}function Sa(e,t,n,r,i){var a=t.replay,o=t.blockedBoundary,s=ca(e,0,null,t.formatContext,!1,!1);s.id=n,s.parentFlushed=!0;try{t.replay=null,t.blockedSegment=s,Aa(e,t,r,i),s.status=1,za(e,o,s),o===null?e.completedRootSegment=s:(Ra(o,s),o.parentFlushed&&e.partialBoundaries.push(o))}finally{t.replay=a,t.blockedSegment=null}}function Ca(e,t,n,r){t.replay!==null&&typeof t.replay.slots==`number`?Sa(e,t,t.replay.slots,n,r):(t.node=n,t.childIndex=r,n=t.componentStack,la(t),wa(e,t),t.componentStack=n)}function wa(e,t){var n=t.node,o=t.childIndex;if(n!==null){if(typeof n==`object`){switch(n.$$typeof){case i:var s=n.type,c=n.key,l=n.props;n=l.ref;var d=n===void 0?null:n,f=Rr(s),m=c==null||c===E?o===-1?0:o:c;if(c=[t.keyPath,f,m],t.replay!==null)a:{var h=t.replay;for(o=h.nodes,n=0;n<o.length;n++){var g=o[n];if(m===g[1]){if(g.length===4){if(f!==null&&f!==g[0])throw Error(r(490,g[0],f));var v=g[2],y=g[3],b=t.node;t.replay={nodes:v,slots:y,pendingTasks:1};try{if(xa(e,t,c,s,l,d),t.replay.pendingTasks===1&&0<t.replay.nodes.length)throw Error(r(488));t.replay.pendingTasks--}catch(r){if(typeof r==`object`&&r&&(r===ni||typeof r.then==`function`||r.message===`Maximum call stack size exceeded`))throw t.node===b?t.replay=h:o.splice(n,1),r;t.replay.pendingTasks--,c=da(t.componentStack),b=e,l=t.blockedBoundary,e=e.aborted?e.fatalError:r,c=fa(b,e,c),Ma(b,l,v,y,e,c)}t.replay=h}else{if(s!==p)throw Error(r(490,`Suspense`,Rr(s)||`Unknown`));b:{h=g[5],s=g[2],d=g[3],f=g[4]===null?[]:g[4][2],g=g[4]===null?null:g[4][3],m=t.keyPath;var x=t.formatContext,S=t.row,C=t.replay,w=t.blockedBoundary,O=t.hoistableState,k=l.children;l=l.fallback;var A=new Set,j=aa(e,t.row,A,2>t.formatContext.insertionMode?{content:Pe(),fallback:Pe()}:null,!1);j.parentFlushed=!0,j.rootSegmentID=h,t.blockedBoundary=j,t.hoistableState=j.contentState,t.keyPath=c,t.formatContext=Be(e.resumableState,x),t.row=null,t.replay={nodes:s,slots:d,pendingTasks:1};try{if(Aa(e,t,k,-1),t.replay.pendingTasks===1&&0<t.replay.nodes.length)throw Error(r(488));if(t.replay.pendingTasks--,j.pendingTasks===0&&j.status===0){j.status=1,e.completedBoundaries.push(j);break b}}catch(n){j.status=4,v=e.aborted?e.fatalError:n,y=da(t.componentStack),b=fa(e,v,y),j.errorDigest=b,t.replay.pendingTasks--,e.clientRenderedBoundaries.push(j)}finally{t.blockedBoundary=w,t.hoistableState=O,t.replay=C,t.keyPath=m,t.formatContext=x,t.row=S}v=sa(e,null,{nodes:f,slots:g,pendingTasks:0},l,-1,w,j.fallbackState,A,[c[0],`Suspense Fallback`,c[2]],ze(e.resumableState,t.formatContext),t.context,t.treeContext,t.row,ua(t.componentStack)),la(v),e.pingedTasks.push(v)}}o.splice(n,1);break a}}}else xa(e,t,c,s,l,d);return;case a:throw Error(r(257));case _:if(v=n._init,n=v(n._payload),e.aborted)throw null;Ca(e,t,n,o);return}if(D(n)){Ta(e,t,n,o);return}if((v=T(n))&&(v=v.call(n))){if(n=v.next(),!n.done){y=[];do y.push(n.value),n=v.next();while(!n.done);Ta(e,t,y,o)}return}if(typeof n.then==`function`)return t.thenableState=null,Ca(e,t,Ri(n),o);if(n.$$typeof===u)return Ca(e,t,n._currentValue,o);throw o=Object.prototype.toString.call(n),Error(r(31,o===`[object Object]`?`object with keys {`+Object.keys(n).join(`, `)+`}`:o))}typeof n==`string`?(o=t.blockedSegment,o!==null&&(o.lastPushedText=Ue(o.chunks,n,e.renderState,o.lastPushedText))):(typeof n==`number`||typeof n==`bigint`)&&(o=t.blockedSegment,o!==null&&(o.lastPushedText=Ue(o.chunks,``+n,e.renderState,o.lastPushedText)))}}function Ta(e,t,n,i){var a=t.keyPath;if(i!==-1&&(t.keyPath=[t.keyPath,`Fragment`,i],t.replay!==null)){for(var o=t.replay,s=o.nodes,c=0;c<s.length;c++){var l=s[c];if(l[1]===i){i=l[2],l=l[3],t.replay={nodes:i,slots:l,pendingTasks:1};try{if(Ta(e,t,n,-1),t.replay.pendingTasks===1&&0<t.replay.nodes.length)throw Error(r(488));t.replay.pendingTasks--}catch(r){if(typeof r==`object`&&r&&(r===ni||typeof r.then==`function`))throw r;t.replay.pendingTasks--;var u=da(t.componentStack);n=e;var d=t.blockedBoundary;e=e.aborted?e.fatalError:r,u=fa(n,e,u),Ma(n,d,i,l,e,u)}t.replay=o,s.splice(c,1);break}}t.keyPath=a}else if(o=t.treeContext,s=n.length,t.replay!==null&&(c=t.replay.slots,typeof c==`object`&&c)){for(i=0;i<s;i++)l=n[i],t.treeContext=Xr(o,s,i),d=c[i],typeof d==`number`?(Sa(e,t,d,l,i),delete c[i]):Aa(e,t,l,i);t.treeContext=o,t.keyPath=a}else{for(c=0;c<s;c++)i=n[c],t.treeContext=Xr(o,s,c),Aa(e,t,i,c);t.treeContext=o,t.keyPath=a}}function Q(e,t,n){n.status=5,n.rootSegmentID=e.nextSegmentId++;var i=n.tracked;if(i===null||(e=i.contentKeyPath,e===null))throw Error(r(486));i=i.fallbackNode;var a=[],o=t.workingMap.get(e);return o===void 0?(n=[e[1],e[2],a,null,i,n.rootSegmentID],t.workingMap.set(e,n),so(n,e[0],t),n):(o[4]=i,o[5]=n.rootSegmentID,o)}function Ea(e,t,n,i){i.status=5;var a=n.keyPath,o=n.blockedBoundary;if(o===null)i.id=e.nextSegmentId++,t.rootSlots=i.id,e.completedRootSegment!==null&&(e.completedRootSegment.status=5);else{if(o!==null&&o.status===0){var s=Q(e,t,o);if(o.tracked!==null&&o.tracked.contentKeyPath===a&&n.childIndex===-1){i.id===-1&&(i.id=i.parentFlushed?o.rootSegmentID:e.nextSegmentId++),s[3]=i.id;return}}if(i.id===-1&&(i.id=i.parentFlushed&&o!==null?o.rootSegmentID:e.nextSegmentId++),n.childIndex===-1)a===null?t.rootSlots=i.id:(n=t.workingMap.get(a),n===void 0?(n=[a[1],a[2],[],i.id],so(n,a[0],t)):n[3]=i.id);else{if(a===null){if(e=t.rootSlots,e===null)e=t.rootSlots={};else if(typeof e==`number`)throw Error(r(491))}else if(o=t.workingMap,s=o.get(a),s===void 0)e={},s=[a[1],a[2],[],e],o.set(a,s),so(s,a[0],t);else if(e=s[3],e===null)e=s[3]={};else if(typeof e==`number`)throw Error(r(491));e[n.childIndex]=i.id}}}function Da(e,t){e=e.trackedPostpones,e!==null&&(t=t.tracked,t!==null&&(t=t.contentKeyPath,t!==null&&(e=e.workingMap.get(t),e!==void 0&&(e.length=4,e[2]=[],e[3]=null))))}function Oa(e,t,n){return sa(e,n,t.replay,t.node,t.childIndex,t.blockedBoundary,t.hoistableState,t.abortSet,t.keyPath,t.formatContext,t.context,t.treeContext,t.row,t.componentStack)}function ka(e,t,n){var r=t.blockedSegment,i=ca(e,r.chunks.length,null,t.formatContext,r.lastPushedText,!0);return r.children.push(i),r.lastPushedText=!1,oa(e,n,t.node,t.childIndex,t.blockedBoundary,i,t.blockedPreamble,t.hoistableState,t.abortSet,t.keyPath,t.formatContext,t.context,t.treeContext,t.row,t.componentStack)}function Aa(e,t,n,r){var i=t.formatContext,a=t.context,o=t.keyPath,s=t.treeContext,c=t.componentStack,l=t.blockedSegment;if(l===null){l=t.replay;try{return Ca(e,t,n,r)}catch(u){if(ki(),n=u===ni?ai():u,!e.aborted&&typeof n==`object`&&n){if(typeof n.then==`function`){r=u===ni?Oi():null,e=Oa(e,t,r).ping,n.then(e.resolve,e.reject),t.formatContext=i,t.context=a,t.keyPath=o,t.treeContext=s,t.componentStack=c,t.replay=l,Kr(a);return}if(n.message===`Maximum call stack size exceeded`){n=u===ni?Oi():null,n=Oa(e,t,n),e.pingedTasks.push(n),t.formatContext=i,t.context=a,t.keyPath=o,t.treeContext=s,t.componentStack=c,t.replay=l,Kr(a);return}}}}else{var u=l.children.length,d=l.chunks.length;try{return Ca(e,t,n,r)}catch(r){if(ki(),l.children.length=u,l.chunks.length=d,n=r===ni?ai():r,!e.aborted&&typeof n==`object`&&n){if(typeof n.then==`function`){l=n,n=r===ni?Oi():null,e=ka(e,t,n).ping,l.then(e.resolve,e.reject),t.formatContext=i,t.context=a,t.keyPath=o,t.treeContext=s,t.componentStack=c,Kr(a);return}if(n.message===`Maximum call stack size exceeded`){l=r===ni?Oi():null,l=ka(e,t,l),e.pingedTasks.push(l),t.formatContext=i,t.context=a,t.keyPath=o,t.treeContext=s,t.componentStack=c,Kr(a);return}}}}throw t.formatContext=i,t.context=a,t.keyPath=o,t.treeContext=s,Kr(a),n}function ja(e){var t=e.blockedBoundary,n=e.blockedSegment;n!==null&&(n.status=3,Ba(this,t,e.row,n))}function Ma(e,t,n,i,a,o){for(var s=0;s<n.length;s++){var c=n[s];if(c.length===4)Ma(e,t,c[2],c[3],a,o);else{c=c[5];var l=e,u=o,d=aa(l,null,new Set,null,!1);d.parentFlushed=!0,d.rootSegmentID=c,d.status=4,d.errorDigest=u,d.parentFlushed&&l.clientRenderedBoundaries.push(d)}}if(n.length=0,i!==null){if(t===null)throw Error(r(487));if(t.status!==4&&(t.status=4,t.errorDigest=o,t.parentFlushed&&e.clientRenderedBoundaries.push(t)),typeof i==`object`)for(var f in i)delete i[f]}}function Na(e,t){if(e!==t.currentTask){var n=e.blockedBoundary;e=e.blockedSegment,e!==null&&(e.status=3),n!==null&&n.fallbackAbortableTasks.forEach(function(e){return Na(e,t)})}}function Pa(e,t,n){if(e!==t.currentTask){var r=e.blockedBoundary,i=e.blockedSegment;if(i===null||i.status===3){var a=da(e.componentStack),o=xi(n);if(r===null){if(r=e.replay,r===null){o||t.trackedPostpones===null||i===null?o?(e=Si(n),fa(t,e,a),t.status!==12&&t.status!==13&&pa(t,e)):(fa(t,n,a),t.status!==12&&t.status!==13&&pa(t,n)):(r=t.trackedPostpones,fa(t,n,a),Ea(t,r,e,i),Ba(t,null,e.row,i));return}t.status!==12&&t.status!==13&&(r.pendingTasks--,r.pendingTasks===0&&0<r.nodes.length&&(a=fa(t,n,a),Ma(t,null,r.nodes,r.slots,n,a)),t.pendingRootTasks--,t.pendingRootTasks===0&&Ia(t))}else{var s=t.trackedPostpones;if(r.status!==4){if(!o&&s!==null&&i!==null)return fa(t,n,a),Ea(t,s,e,i),r.fallbackAbortableTasks.forEach(function(e){return Pa(e,t,n)}),r.fallbackAbortableTasks.clear(),Ba(t,r,e.row,i);r.status=4,a=fa(t,n,a),r.errorDigest=a,Da(t,r),r.parentFlushed&&t.clientRenderedBoundaries.push(r)}r.pendingTasks--,a=r.row,a!==null&&--a.pendingTasks===0&&ma(t,a),r.fallbackAbortableTasks.forEach(function(e){return Pa(e,t,n)}),r.fallbackAbortableTasks.clear()}e=e.row,e!==null&&--e.pendingTasks===0&&ma(t,e),t.allPendingTasks--,t.allPendingTasks===0&&La(t)}}}function Fa(e,t){try{var n=e.renderState,r=n.onHeaders;if(r){var i=n.headers;if(i){n.headers=null;var a=i.preconnects;if(i.fontPreloads&&(a&&(a+=`, `),a+=i.fontPreloads),i.highImagePreloads&&(a&&(a+=`, `),a+=i.highImagePreloads),!t){var o=n.styles.values(),s=o.next();b:for(;0<i.remainingCapacity&&!s.done;s=o.next())for(var c=s.value.sheets.values(),l=c.next();0<i.remainingCapacity&&!l.done;l=c.next()){var u=l.value,d=u.props,f=d.href,p=u.props,m=Dr(p.href,`style`,{crossOrigin:p.crossOrigin,integrity:p.integrity,nonce:p.nonce,type:p.type,fetchPriority:p.fetchPriority,referrerPolicy:p.referrerPolicy,media:p.media});if(0<=(i.remainingCapacity-=m.length+2))n.resets.style[f]=ve,a&&(a+=`, `),a+=m,n.resets.style[f]=typeof d.crossOrigin==`string`||typeof d.integrity==`string`?[d.crossOrigin,d.integrity]:ve;else break b}}r(a?{Link:a}:{})}}}catch(t){fa(e,t,{})}}function Ia(e){e.trackedPostpones===null&&Fa(e,!0),e.trackedPostpones===null&&Wa(e),e=e.onShellReady,e()}function La(e){Fa(e,e.trackedPostpones===null||e.completedRootSegment===null||e.completedRootSegment.status!==5),Wa(e),e=e.onAllReady,e()}function Ra(e,t){if(t.chunks.length===0&&t.children.length===1&&t.children[0].boundary===null&&t.children[0].id===-1){var n=t.children[0];n.id=t.id,n.parentFlushed=!0,n.status!==1&&n.status!==3&&n.status!==4||Ra(e,n)}else e.completedSegments.push(t)}function za(e,t,n){if(re!==null){n=n.chunks;for(var r=0,i=0;i<n.length;i++)r+=n[i].byteLength;t===null?e.byteSize+=r:t.byteSize+=r}}function Ba(e,t,n,i){if(n!==null&&(--n.pendingTasks===0?ma(e,n):n.together&&ga(e,n)),e.allPendingTasks--,t===null){if(i!==null&&i.parentFlushed){if(e.completedRootSegment!==null)throw Error(r(389));e.completedRootSegment=i}e.pendingRootTasks--,e.pendingRootTasks===0&&Ia(e)}else if(t.pendingTasks--,t.status!==4){if(t.pendingTasks===0){if(t.status===0&&(t.status=1),i!==null&&i.parentFlushed&&(i.status===1||i.status===3)&&Ra(t,i),t.parentFlushed&&e.completedBoundaries.push(t),t.status===1)n=t.row,n!==null&&Pr(n.hoistables,t.contentState),Xi(e,t)||(e.allPendingTasks++,t.fallbackAbortableTasks.forEach(ja,e),t.fallbackAbortableTasks.clear(),n!==null&&--n.pendingTasks===0&&ma(e,n),e.allPendingTasks--),e.pendingRootTasks===0&&e.trackedPostpones===null&&t.preamble!==null&&Wa(e);else if(t.status===5&&(t=t.row,t!==null)){if(e.trackedPostpones!==null){n=e.trackedPostpones;var a=t.next;if(a!==null&&(i=a.boundaries,i!==null))for(a.boundaries=null,a=0;a<i.length;a++){var o=i[a];Q(e,n,o),Ba(e,o,null,null)}}e.allPendingTasks++,--t.pendingTasks===0&&ma(e,t),e.allPendingTasks--}}else i===null||!i.parentFlushed||i.status!==1&&i.status!==3||(Ra(t,i),t.completedSegments.length===1&&t.parentFlushed&&e.partialBoundaries.push(t)),t=t.row,t!==null&&t.together&&ga(e,t)}e.allPendingTasks===0&&La(e)}function Va(e){if(!(e.aborted||11<e.status)){var t=Br,n=me.H;me.H=Bi;var i=me.A;me.A=Hi;var a=ra;ra=e;var o=Vi;Vi=e.resumableState;try{for(var s=e.pingedTasks,c=0;c<s.length;c++){var l=s[c],u=e,d=l.blockedSegment;if(d===null){a:if(l.replay.pendingTasks!==0){var f=u.currentTask;u.currentTask=l,Kr(l.context);var p=l.node;try{if(typeof l.replay.slots==`number`?Sa(u,l,l.replay.slots,l.node,l.childIndex):wa(u,l),l.replay.pendingTasks===1&&0<l.replay.nodes.length)throw Error(r(488));l.replay.pendingTasks--,l.abortSet.delete(l),Ba(u,l.blockedBoundary,l.row,null)}catch(e){ki();var m=e===ni?ai():e;if(u.aborted){e===ni&&(l.thenableState=Oi()),u.currentTask=f;var h=u;Na(l,h),l.abortSet.delete(l),Pa(l,h,h.fatalError)}else{if(typeof m==`object`&&m){if(typeof m.then==`function`){var g=l.ping;m.then(g.resolve,g.reject),l.thenableState=e===ni?Oi():null;break a}if(m.message===`Maximum call stack size exceeded`&&l.node!==p){l.thenableState=null,u.pingedTasks.push(l);break a}}l.replay.pendingTasks--,l.abortSet.delete(l);var _=da(l.componentStack);h=u;var v=l.blockedBoundary,y=u.aborted?u.fatalError:m,b=l.replay.nodes,x=l.replay.slots,S=fa(h,y,_);Ma(h,v,b,x,y,S),u.pendingRootTasks--,u.pendingRootTasks===0&&Ia(u),u.allPendingTasks--,u.allPendingTasks===0&&La(u)}}finally{u.currentTask=f}}}else a:if(h=d,h.status===0){var C=u.currentTask;u.currentTask=l,Kr(l.context);var w=h.children.length,T=h.chunks.length,E=l.node;try{wa(u,l),h.lastPushedText&&h.textEmbedded&&h.chunks.push(He),l.abortSet.delete(l),h.status=1,za(u,l.blockedBoundary,h),Ba(u,l.blockedBoundary,l.row,h)}catch(e){ki(),h.children.length=w,h.chunks.length=T;var D=e===ni?ai():e;if(u.aborted)e===ni&&(l.thenableState=Oi()),u.currentTask=C,h=u,Na(l,h),l.abortSet.delete(l),Pa(l,h,h.fatalError);else{if(typeof D==`object`&&D){if(typeof D.then==`function`){h.status=0,l.thenableState=e===ni?Oi():null;var O=l.ping;D.then(O.resolve,O.reject);break a}if(D.message===`Maximum call stack size exceeded`&&l.node!==E){h.status=0,l.thenableState=null,u.pingedTasks.push(l);break a}}var k=da(l.componentStack);l.abortSet.delete(l),h.status=4;var A=l.blockedBoundary,j=l.row;if(j!==null&&--j.pendingTasks===0&&ma(u,j),u.allPendingTasks--,A===null){if(xi(D)){var M=Si(D);fa(u,M,k),pa(u,M)}else fa(u,D,k),pa(u,D)}else{var N=fa(u,D,k);if(A.pendingTasks--,A.status!==4){A.status=4,A.errorDigest=N,Da(u,A);var P=A.row;P!==null&&(u.allPendingTasks++,--P.pendingTasks===0&&ma(u,P),u.allPendingTasks--),A.parentFlushed&&u.clientRenderedBoundaries.push(A),u.pendingRootTasks===0&&u.trackedPostpones===null&&A.preamble!==null&&Wa(u)}u.allPendingTasks===0&&La(u)}}}finally{u.currentTask=C}}}s.splice(0,c),e.destination!==null&&$a(e,e.destination)}catch(t){fa(e,t,{}),pa(e,t)}finally{Vi=o,me.H=n,me.A=i,n===Bi&&Kr(t),ra=a}}}function Ha(e,t,n){t.preambleChildren.length&&n.push(t.preambleChildren);for(var r=!1,i=0;i<t.children.length;i++)r=Ua(e,t.children[i],n)||r;return r}function Ua(e,t,n){var i=t.boundary;if(i===null)return Ha(e,t,n);var a=i.preamble;if(a===null)return!1;switch(i.status){case 1:if(It(e.renderState,a.content),e.byteSize+=i.byteSize,t=i.completedSegments[0],!t)throw Error(r(391));return Ha(e,t,n);case 5:if(e.trackedPostpones!==null)return!0;case 4:if(t.status===1)return It(e.renderState,a.fallback),Ha(e,t,n);default:return!0}}function Wa(e){if(e.completedRootSegment&&e.completedPreambleSegments===null){var t=[],n=e.byteSize,r=Ua(e,e.completedRootSegment,t),i=e.renderState.preamble;!1===r||i.headChunks&&i.bodyChunks?e.completedPreambleSegments=t:e.byteSize=n}}function Ga(e,t,n,i){switch(n.parentFlushed=!0,n.status){case 0:n.id=e.nextSegmentId++;case 5:return i=n.id,n.lastPushedText=!1,n.textEmbedded=!1,e=e.renderState,R(t,Rt),R(t,e.placeholderPrefix),e=B(i.toString(16)),R(t,e),z(t,zt);case 1:n.status=2;var a=!0,o=n.chunks,s=0;n=n.children;for(var c=0;c<n.length;c++){for(a=n[c];s<a.index;s++)R(t,o[s]);a=qa(e,t,a,i)}for(;s<o.length-1;s++)R(t,o[s]);return s<o.length&&(a=z(t,o[s])),a;case 3:return!0;default:throw Error(r(390))}}var Ka=0;function qa(e,t,n,i){var a=n.boundary;if(a===null)return Ga(e,t,n,i);if(n.boundary=null,a.parentFlushed=!0,a.status===4){var o=a.row;o!==null&&--o.pendingTasks===0&&ma(e,o),a=a.errorDigest,z(t,Gt),R(t,qt),a!=null&&(R(t,Yt),R(t,B(W(a))),R(t,Jt)),z(t,Xt),Ga(e,t,n,i)}else if(a.status!==1)a.status===0&&(a.rootSegmentID=e.nextSegmentId++),0<a.completedSegments.length&&e.partialBoundaries.push(a),Zt(t,e.renderState,a.rootSegmentID),i&&Pr(i,a.fallbackState),Ga(e,t,n,i);else if(!Za&&Xi(e,a)&&(Ka+a.byteSize>e.progressiveChunkSize||Fr(a.contentState,Qa)||a.defer))a.rootSegmentID=e.nextSegmentId++,e.completedBoundaries.push(a),Zt(t,e.renderState,a.rootSegmentID),Ga(e,t,n,i);else{if(Ka+=a.byteSize,i&&Pr(i,a.contentState),n=a.row,n!==null&&Xi(e,a)&&--n.pendingTasks===0&&ma(e,n),z(t,Ht),n=a.completedSegments,n.length!==1)throw Error(r(391));qa(e,t,n[0],i)}return z(t,Kt)}function Ja(e,t,n,r){return bn(t,e.renderState,n.parentFormatContext,n.id),qa(e,t,n,r),Y(t,n.parentFormatContext)}function Ya(e,t,n){Ka=n.byteSize;for(var r=n.completedSegments,i=0;i<r.length;i++)Xa(e,t,n,r[i]);r.length=0,r=n.row,r!==null&&Xi(e,n)&&--r.pendingTasks===0&&ma(e,r),$n(t,n.contentState,e.renderState),r=e.resumableState,e=e.renderState,i=n.rootSegmentID,n=n.contentState;var a=e.stylesToHoist,o=!!(r.instructions&128);return e.stylesToHoist=!1,R(t,e.startInlineScript),R(t,ct),a?(!(r.instructions&4)&&(r.instructions|=4,R(t,Pn)),!(r.instructions&2)&&(r.instructions|=2,R(t,Tn)),o&&!(r.instructions&256)&&(r.instructions|=256,R(t,En)),r.instructions&8?R(t,kn):(r.instructions|=8,R(t,On))):(!(r.instructions&2)&&(r.instructions|=2,R(t,Tn)),o&&!(r.instructions&256)&&(r.instructions|=256,R(t,En)),R(t,Dn)),r=B(i.toString(16)),R(t,e.boundaryPrefix),R(t,r),R(t,An),R(t,e.segmentPrefix),R(t,r),a?(R(t,jn),gr(t,n)):R(t,Mn),n=z(t,Nn),J(t,e)&&n}function Xa(e,t,n,i){if(i.status===2)return!0;var a=n.contentState,o=i.id;if(o===-1){if((i.id=n.rootSegmentID)===-1)throw Error(r(392));return Ja(e,t,i,a)}return o===n.rootSegmentID?Ja(e,t,i,a):(Ja(e,t,i,a),n=e.resumableState,e=e.renderState,R(t,e.startInlineScript),R(t,ct),n.instructions&1?R(t,Sn):(n.instructions|=1,R(t,xn)),R(t,e.segmentPrefix),o=B(o.toString(16)),R(t,o),R(t,Cn),R(t,e.placeholderPrefix),R(t,o),t=z(t,wn),t)}var Za=!1,Qa=!1;function $a(e,t){I=new Uint8Array(2048),L=0;try{if(!(0<e.pendingRootTasks)){var n,r=e.completedRootSegment;if(r!==null){if(r.status===5)return;var i=e.completedPreambleSegments;if(i===null)return;Ka=e.byteSize;var a=e.resumableState,o=e.renderState,s=o.preamble,c=s.htmlChunks,l=s.headChunks,u;if(c){for(u=0;u<c.length;u++)R(t,c[u]);if(l)for(u=0;u<l.length;u++)R(t,l[u]);else R(t,jt(`head`)),R(t,ct)}else if(l)for(u=0;u<l.length;u++)R(t,l[u]);var d=o.charsetChunks;for(u=0;u<d.length;u++)R(t,d[u]);d.length=0,o.preconnects.forEach(X,t),o.preconnects.clear();var f=o.viewportChunks;for(u=0;u<f.length;u++)R(t,f[u]);f.length=0,o.fontPreloads.forEach(X,t),o.fontPreloads.clear(),o.highImagePreloads.forEach(X,t),o.highImagePreloads.clear(),ye=o,o.styles.forEach(sr,t),ye=null;var p=o.importMapChunks;for(u=0;u<p.length;u++)R(t,p[u]);p.length=0,o.bootstrapScripts.forEach(X,t),o.scripts.forEach(X,t),o.scripts.clear(),o.bulkPreloads.forEach(X,t),o.bulkPreloads.clear(),c||l||(a.instructions|=32);var m=o.hoistableChunks;for(u=0;u<m.length;u++)R(t,m[u]);for(a=m.length=0;a<i.length;a++){var h=i[a];for(o=0;o<h.length;o++)qa(e,t,h[o],null)}var g=e.renderState.preamble,_=g.headChunks;(g.htmlChunks||_)&&R(t,Ft(`head`));var v=g.bodyChunks;if(v)for(i=0;i<v.length;i++)R(t,v[i]);Qa=!0,qa(e,t,r,null),Qa=!1,e.completedRootSegment=null;var y=e.renderState;if(e.allPendingTasks!==0||e.clientRenderedBoundaries.length!==0||e.completedBoundaries.length!==0||e.trackedPostpones!==null&&(e.trackedPostpones.rootNodes.length!==0||e.trackedPostpones.rootSlots!==null)){var b=e.resumableState;if(!(b.instructions&64)){if(b.instructions|=64,R(t,y.startInlineScript),!(b.instructions&32)){b.instructions|=32;var x=`_`+b.idPrefix+`R_`;R(t,ur),R(t,B(W(x))),R(t,Qe)}R(t,ct),R(t,Lt),z(t,xe)}}J(t,y)}var S=e.renderState;r=0;var C=S.viewportChunks;for(r=0;r<C.length;r++)R(t,C[r]);C.length=0,S.preconnects.forEach(X,t),S.preconnects.clear(),S.fontPreloads.forEach(X,t),S.fontPreloads.clear(),S.highImagePreloads.forEach(X,t),S.highImagePreloads.clear(),S.styles.forEach(lr,t),S.scripts.forEach(X,t),S.scripts.clear(),S.bulkPreloads.forEach(X,t),S.bulkPreloads.clear();var w=S.hoistableChunks;for(r=0;r<w.length;r++)R(t,w[r]);w.length=0;var T=e.clientRenderedBoundaries;for(n=0;n<T.length;n++){var E=T[n];S=t;var D=e.resumableState,O=e.renderState,k=E.rootSegmentID,A=E.errorDigest;R(S,O.startInlineScript),R(S,ct),D.instructions&4?R(S,In):(D.instructions|=4,R(S,Fn)),R(S,O.boundaryPrefix),R(S,B(k.toString(16))),R(S,Ln),A!=null&&(R(S,Rn),A==null?R(S,zn):R(S,B(Hn(A))));var j=z(S,Bn);if(!j){e.destination=null,n++,T.splice(0,n);return}}T.splice(0,n);var M=e.completedBoundaries;for(n=0;n<M.length;n++)if(!Ya(e,t,M[n])){e.destination=null,n++,M.splice(0,n);return}M.splice(0,n),te(t),I=new Uint8Array(2048),L=0,Za=!0;var N=e.partialBoundaries;for(n=0;n<N.length;n++){var P=N[n];a:{T=e,E=t,Ka=P.byteSize;var F=P.completedSegments;for(j=0;j<F.length;j++)if(!Xa(T,E,P,F[j])){j++,F.splice(0,j);var ee=!1;break a}F.splice(0,j);var ne=P.row;ne!==null&&ne.together&&P.pendingTasks===1&&(ne.pendingTasks===1?ha(T,ne,ne.hoistables):ne.pendingTasks--),ee=$n(E,P.contentState,T.renderState)}if(!ee){e.destination=null,n++,N.splice(0,n);return}}N.splice(0,n),Za=!1;var V=e.completedBoundaries;for(n=0;n<V.length;n++)if(!Ya(e,t,V[n])){e.destination=null,n++,V.splice(0,n);return}V.splice(0,n)}}finally{Za=!1,n=e.postponedState,n!==null&&(n.nextSegmentId=e.nextSegmentId),e.allPendingTasks===0&&e.clientRenderedBoundaries.length===0&&e.completedBoundaries.length===0?(e.flushScheduled=!1,n=e.resumableState,n.hasBody&&R(t,Ft(`body`)),n.hasHtml&&R(t,Ft(`html`)),te(t),io(e),e.status=13,t.close(),e.destination=null):te(t)}}function eo(e){e.flushScheduled=e.destination!==null,ee(function(){return Va(e)}),N(function(){e.status===10&&(e.status=11),e.trackedPostpones===null&&Fa(e,e.pendingRootTasks===0)})}function to(e){!1===e.flushScheduled&&e.pingedTasks.length===0&&e.destination!==null&&(e.flushScheduled=!0,N(function(){var t=e.destination;t?$a(e,t):e.flushScheduled=!1}))}function no(e,t){if(e.status===12)e.status=13,e=e.fatalError,xi(e)&&(e=Si(e)),ie(t,e);else if(e.status!==13&&e.destination===null){e.destination=t;try{$a(e,t)}catch(t){fa(e,t,{}),pa(e,t)}}}function ro(e,t){try{if(0<t.size){var n=e.fatalError;t.forEach(function(t){return Pa(t,e,n)}),t.clear()}e.destination!==null&&$a(e,e.destination)}catch(t){fa(e,t,{}),pa(e,t)}}function io(e){e=e.renderLifetimeController,e!==null&&e.abort(`The render ended.`)}function ao(e,t){if(t.aborted)oo(e,t.reason);else{var n=new AbortController;e.renderLifetimeController=n,t.addEventListener(`abort`,function(){oo(e,t.reason)},{signal:n.signal})}}function oo(e,t){if(!(e.aborted||e.status!==11&&e.status!==10)){io(e);var n=typeof t==`object`&&!!t&&t.$$typeof===C;e.aborted=!0,t=n?bi(t):t===void 0?Error(r(432)):typeof t==`object`&&t&&typeof t.then==`function`?Error(r(530)):t,e.fatalError=t;var i=e.abortableTasks;i.forEach(function(t){return Na(t,e)}),N(function(){return ro(e,i)})}}function so(e,t,n){if(t===null)n.rootNodes.push(e);else{var r=n.workingMap,i=r.get(t);i===void 0&&(i=[t[1],t[2],[],null],r.set(t,i),so(i,t[0],n)),i[2].push(e)}}function co(e){var t=e.trackedPostpones;if(t===null||t.rootNodes.length===0&&t.rootSlots===null)return e.trackedPostpones=null;var n=e.completedRootSegment===null||e.completedRootSegment.status!==5&&e.completedPreambleSegments!==null;if(n){var r=e.nextSegmentId,i=t.rootSlots,a=e.resumableState;a.bootstrapScriptContent=void 0,a.bootstrapScripts=void 0,a.bootstrapModules=void 0}else{r=0,i=-1,a=e.resumableState;var o=e.renderState;a.nextFormID=0,a.hasBody=!1,a.hasHtml=!1,a.unknownResources={font:o.resets.font},a.dnsResources=o.resets.dns,a.connectResources=o.resets.connect,a.imageResources=o.resets.image,a.styleResources=o.resets.style,a.scriptResources={},a.moduleUnknownResources={},a.moduleScriptResources={},a.instructions=0}return t={nextSegmentId:r,rootFormatContext:e.rootFormatContext,progressiveChunkSize:e.progressiveChunkSize,resumableState:e.resumableState,replayNodes:t.rootNodes,replaySlots:i},n&&(e.postponedState=t),t}function lo(){var e=t.version;if(e!==`19.3.1`)throw Error(r(527,e,`19.3.1`))}lo(),lo(),e.prerender=function(e,t){return new Promise(function(n,r){var i=t?t.onHeaders:void 0,a;i&&(a=function(e){i(new Headers(e))});var o=Ne(t?t.identifierPrefix:void 0,t?t.unstable_externalRuntimeSrc:void 0,t?t.bootstrapScriptContent:void 0,t?t.bootstrapScripts:void 0,t?t.bootstrapModules:void 0),s=ea(e,o,Me(o,void 0,t?t.unstable_externalRuntimeSrc:void 0,t?t.importMap:void 0,a,t?t.maxHeadersLength:void 0),Ie(t?t.namespaceURI:void 0),t?t.progressiveChunkSize:void 0,t?t.onError:void 0,t?t.onBrowserBailout:void 0,function(){var e=new ReadableStream({type:`bytes`,pull:function(e){no(s,e)},cancel:function(e){s.destination=null,oo(s,e)}},{highWaterMark:0});e={postponed:co(s),prelude:e},n(e)},void 0,void 0,r);t&&t.signal&&ao(s,t.signal),eo(s)})},e.renderToReadableStream=function(e,t){return new Promise(function(n,r){var i,a,o=new Promise(function(e,t){a=e,i=t}),s=t?t.onHeaders:void 0,c;s&&(c=function(e){s(new Headers(e))});var l=Ne(t?t.identifierPrefix:void 0,t?t.unstable_externalRuntimeSrc:void 0,t?t.bootstrapScriptContent:void 0,t?t.bootstrapScripts:void 0,t?t.bootstrapModules:void 0),u=$i(e,l,Me(l,t?t.nonce:void 0,t?t.unstable_externalRuntimeSrc:void 0,t?t.importMap:void 0,c,t?t.maxHeadersLength:void 0),Ie(t?t.namespaceURI:void 0),t?t.progressiveChunkSize:void 0,t?t.onError:void 0,t?t.onBrowserBailout:void 0,a,function(){var e=new ReadableStream({type:`bytes`,pull:function(e){no(u,e)},cancel:function(e){u.destination=null,oo(u,e)}},{highWaterMark:0});e.allReady=o,n(e)},function(e){o.catch(function(){}),r(e)},i,t?t.formState:void 0);t&&t.signal&&ao(u,t.signal),eo(u)})},e.resume=function(e,t,n){return new Promise(function(r,i){var a,o,s=new Promise(function(e,t){o=e,a=t}),c=ta(e,t,Me(t.resumableState,n?n.nonce:void 0,void 0,void 0,void 0,void 0),n?n.onError:void 0,n?n.onBrowserBailout:void 0,o,function(){var e=new ReadableStream({type:`bytes`,pull:function(e){no(c,e)},cancel:function(e){c.destination=null,oo(c,e)}},{highWaterMark:0});e.allReady=s,r(e)},function(e){s.catch(function(){}),i(e)},a);n&&n.signal&&ao(c,n.signal),eo(c)})},e.resumeAndPrerender=function(e,t,n){return new Promise(function(r,i){var a=na(e,t,Me(t.resumableState,void 0,void 0,void 0,void 0,void 0),n?n.onError:void 0,n?n.onBrowserBailout:void 0,function(){var e=new ReadableStream({type:`bytes`,pull:function(e){no(a,e)},cancel:function(e){a.destination=null,oo(a,e)}},{highWaterMark:0});e={postponed:co(a),prelude:e},r(e)},void 0,void 0,i);n&&n.signal&&ao(a,n.signal),eo(a)})},e.version=`19.3.1`})),jc=o((e=>{var t=kc(),n=Ac();e.version=t.version,e.renderToString=t.renderToString,e.renderToStaticMarkup=t.renderToStaticMarkup,e.renderToReadableStream=n.renderToReadableStream,e.resume=n.resume}))();function Mc(e,t){if(e==null)return{};var n={};for(var r in e)if({}.hasOwnProperty.call(e,r)){if(t.includes(r))continue;n[r]=e[r]}return n}function Nc(e,t){if(e==null)return{};var n,r,i=Mc(e,t);if(Object.getOwnPropertySymbols){var a=Object.getOwnPropertySymbols(e);for(r=0;r<a.length;r++)n=a[r],t.includes(n)||{}.propertyIsEnumerable.call(e,n)&&(i[n]=e[n])}return i}function Pc(...e){return e.filter(e=>e!=null).join(` `)}function Fc(e){"@babel/helpers - typeof";return Fc=typeof Symbol==`function`&&typeof Symbol.iterator==`symbol`?function(e){return typeof e}:function(e){return e&&typeof Symbol==`function`&&e.constructor===Symbol&&e!==Symbol.prototype?`symbol`:typeof e},Fc(e)}function Ic(e,t){if(Fc(e)!=`object`||!e)return e;var n=e[Symbol.toPrimitive];if(n!==void 0){var r=n.call(e,t||`default`);if(Fc(r)!=`object`)return r;throw TypeError(`@@toPrimitive must return a primitive value.`)}return(t===`string`?String:Number)(e)}function Lc(e){var t=Ic(e,`string`);return Fc(t)==`symbol`?t:t+``}function Rc(e,t,n){return(t=Lc(t))in e?Object.defineProperty(e,t,{value:n,enumerable:!0,configurable:!0,writable:!0}):e[t]=n,e}function zc(e,t){var n=Object.keys(e);if(Object.getOwnPropertySymbols){var r=Object.getOwnPropertySymbols(e);t&&(r=r.filter(function(t){return Object.getOwnPropertyDescriptor(e,t).enumerable})),n.push.apply(n,r)}return n}function Bc(e){for(var t=1;t<arguments.length;t++){var n=arguments[t]==null?{}:arguments[t];t%2?zc(Object(n),!0).forEach(function(t){Rc(e,t,n[t])}):Object.getOwnPropertyDescriptors?Object.defineProperties(e,Object.getOwnPropertyDescriptors(n)):zc(Object(n)).forEach(function(t){Object.defineProperty(e,t,Object.getOwnPropertyDescriptor(n,t))})}return e}var Vc=()=>null;Vc.print=(e,{printer:t})=>{let{pin:n}=e.props;t.cashdraw(n)};var Hc=()=>null;Hc.print=(e,{printer:t})=>{let{lineFeeds:n=6,partial:r=!1,feedToCutter:i=!1}=e.props;for(let e=0;e<n;e++)t.newLine();t.cut(r,i)};function Uc(e){return new Promise((t,n)=>{let r=new Image;r.crossOrigin=``,r.onload=()=>{let e=document.createElement(`canvas`);e.width=r.width,e.height=r.height;let i=e.getContext(`2d`);if(i==null){n(Error(`cannot get context`));return}i.drawImage(r,0,0);let{data:a}=i.getImageData(0,0,r.width,r.height);t({data:new Uint8Array(a),width:r.width,height:r.height})},r.onerror=e=>n(e),r.src=e})}function Wc(e,t,n,r,i,a,o){try{var s=e[a](o),c=s.value}catch(e){n(e);return}s.done?t(c):Promise.resolve(c).then(r,i)}function Gc(e){return function(){var t=this,n=arguments;return new Promise(function(r,i){var a=e.apply(t,n);function o(e){Wc(a,r,i,o,s,`next`,e)}function s(e){Wc(a,r,i,o,s,`throw`,e)}o(void 0)})}}var Kc=[`align`,`src`,`reader`,`className`],qc=e=>{let{align:t,src:n,reader:r,className:i}=e,a=Nc(e,Kc);return(0,S.jsx)(`img`,Bc({"data-align":t,"data-src":n,src:n,className:Pc(`rtp-image`,i)},a))};qc.print=function(){var e=Gc(function*(e,{printer:t}){let{align:n,transforms:r=[],rgbToBlack:i,reader:a=({props:{src:e}})=>Uc(e)}=e.props,o=yield a(e);for(let e of r)o=e(o);n!=null&&t.setAlign(n),t.image(o,{rgbToBlack:i})});return function(t,n){return e.apply(this,arguments)}}();var Jc=[`character`,`className`],Yc=e=>{let{character:t,className:n}=e,r=Nc(e,Jc);return(0,S.jsx)(`hr`,Bc({"data-character":t,className:Pc(`rtp-line`,n)},r))};Yc.print=(e,{printer:t,width:n})=>{let{character:r=`-`}=e.props;for(let e=0;e<n;e++)t.text(r);t.newLine()};var Xc=[`type`,`width`,`characterSet`,`initialize`,`debug`,`children`,`className`];function Zc(e){let{type:t,width:n,characterSet:r,initialize:i,debug:a,children:o,className:s}=e,c=Nc(e,Xc);return(0,S.jsx)(`div`,Bc(Bc({"data-printer-type":t,"data-character-set":r,"data-initialize":i,"data-width":n,"data-debug":a,className:Pc(`rtp-printer`,s)},c),{},{children:o}))}var Qc=[`content`,`align`],$c=()=>null;$c.print=(e,{printer:t})=>{let n=e.props,{content:r,align:i=`left`}=n,a=Nc(n,Qc);i!=null&&t.setAlign(i),t.qrcode(r,a)};var el=[{from:/&quot;/g,to:`"`},{from:/&amp;/g,to:`&`},{from:/&#x27;/g,to:`'`},{from:/&lt;/g,to:`<`},{from:/&gt;/g,to:`>`}];function tl(e){let t=(0,jc.renderToStaticMarkup)(e);for(let{from:e,to:n}of el)t=t.replace(e,n);return t}function nl(e){e.setTextNormal().setTextSize(1,1).setAlign(`left`).invert(!1)}function rl(e){let t=0;for(let n of e)t+=n;return t}function il(e,{size:t=1}={}){return rl(e.split(``).map(al).map(e=>e*t))}function al(e){let t=e.charCodeAt(0);return t>127&&t<=65535?2:1}function ol(e,t){let{size:n,width:r,wordBreak:i}=t;return i===`break-word`?sl(e,n,r):cl(e,n,r)}function sl(e,t,n){let r=[],i=``,a=e.split(` `);for(let e of a){if(e===``)continue;let a=i?`${i} ${e}`:e;if(il(a,{size:t})<=n)i=a;else if(i&&=(r.push(ll(i,t,n)),``),il(e,{size:t})>n){let a=dl(e,t,n);for(let e=0;e<a.length-1;e++)r.push(ll(a[e],t,n));i=a[a.length-1]||``}else i=e}return i&&r.push(ll(i,t,n)),r}function cl(e,t,n){let r=[],i=e.split(``),a=``;return i.forEach((e,o)=>{a=`${a}${e}`,il(a,{size:t})>n&&(a=a.slice(0,a.length-1),r.push(ll(a,t,n)),a=e),o===i.length-1&&a.length>0&&r.push(ll(a,t,n))}),r}function ll(e,t,n){let r=ul(e,t,n),i=Math.max(r,0);return`${e}${` `.repeat(i)}`}function ul(e,t,n){let r=0;for(;;){let i=il(`${e}${` `.repeat(r)}`,{size:t});if(i>=n)return i===n?r:r-1;r+=1}}function dl(e,t,n){let r=[],i=e;for(;i.length>0;){if(il(i,{size:t})<=n){r.push(i);break}let e=1,a=i.length,o=0;for(;e<=a;){let r=Math.floor((e+a)/2);il(i.substring(0,r),{size:t})<=n?(o=r,e=r+1):a=r-1}r.push(i.substring(0,o)),i=i.substring(o)}return r}var fl=[`align`,`bold`,`font`,`underline`,`invert`,`size`,`inline`,`wordBreak`,`className`,`children`],pl=e=>{let{align:t,bold:n,font:r,underline:i,invert:a,size:o,inline:s,wordBreak:c,className:l,children:u}=e,d=Nc(e,fl);return(0,S.jsx)(`div`,Bc(Bc({"data-align":t,"data-bold":n,"data-font":r,"data-underline":i,"data-invert":a,"data-size-width":o?.width,"data-size-height":o?.height,"data-inline":s,"data-word-break":c,className:Pc(`rtp-text`,l)},d),{},{children:u}))};pl.print=(e,{printer:t})=>{let{children:n,align:r,bold:i,underline:a,invert:o,size:s,inline:c=!1}=e.props;n!=null&&(r!=null&&t.setAlign(r),i!=null&&t.setTextBold(i),a!=null&&t.setTextUnderline(a),o!=null&&t.invert(!0),s!=null&&t.setTextSize(s.width,s.height),t.text(tl(n)),c||t.newLine())};var ml=[`left`,`center`,`right`,`gap`,`className`],hl=e=>{let{left:t,center:n,right:r,gap:i,className:a}=e,o=Nc(e,ml),s=typeof t==`string`?(0,S.jsx)(pl,{children:t}):t,c=typeof n==`string`?(0,S.jsx)(pl,{children:n}):n,l=typeof r==`string`?(0,S.jsx)(pl,{children:r}):r;return(0,S.jsxs)(`div`,Bc(Bc({"data-gap":i,className:Pc(`rtp-row`,a)},o),{},{children:[(0,y.cloneElement)(s,{className:Pc(`rtp-row-left`,s.props.className)}),c===void 0?null:(0,y.cloneElement)(c,{className:Pc(`rtp-row-center`,c.props.className)}),(0,y.cloneElement)(l,{className:Pc(`rtp-row-right`,l.props.className)})]}))};hl.print=(e,t)=>{var n;let{printer:r,width:i}=t,{left:a,center:o,right:s,gap:c=0}=e.props,l=typeof a==`string`?(0,S.jsx)(pl,{children:a}):a,u=typeof o==`string`?(0,S.jsx)(pl,{children:o}):o,d=typeof s==`string`?(0,S.jsx)(pl,{children:s}):s,f=tl(l.props.children),p=l.props.size?.width,m=il(f,{size:p}),h=l.props.wordBreak,g=u===void 0?void 0:tl(u.props.children),_=u==null||(n=u.props.size)==null?void 0:n.width,v=tl(d.props.children),y=d.props.size?.width,b=il(v,{size:y}),x=d.props.wordBreak,C=u===void 0?i-c-b:m,w=ol(f,{size:p,width:C,wordBreak:h}),T=i-Math.max(c*2,1)-m-b,E=g===void 0?void 0:ol(g,{size:_,width:T}),D=b,O=ol(v,{size:y,width:D,wordBreak:x}),k=Math.max(w.length,E?.length??0,O.length);for(let e=0;e<k;e++){let n=w[e],i=E?.[e],a=O[e];n==null?gl(r,C):(pl.print(_l(l,n),t),nl(r)),u!=null&&(gl(r,c),i==null?gl(r,T):(pl.print(_l(u,i),t),nl(r))),gl(r,c),a==null?gl(r,D):(pl.print(_l(d,a),t),nl(r)),r.newLine()}};function gl(e,t){let n=Math.max(t,0);e.text(` `.repeat(n))}function _l(e,t){return(0,y.cloneElement)(e,{align:`left`,inline:!0,children:t})}function vl(e){return typeof e==`function`&&typeof e.print==`function`}function yl(e,t){return bl.apply(this,arguments)}function bl(){return bl=Gc(function*(e,t){let{type:n,characterSet:r,width:i=48,encoder:a,initialize:o=!0,debug:s=!1}=e.props,c=Oc({type:n,characterSet:r,encoder:a});return r!=null&&c.setCharacterSet(r),yield xl(e,{printer:c,width:i,reset(){return typeof t?.resetPrinter==`function`?t.resetPrinter(c):nl(c)}}),o&&c.initialize(),s&&c.debug(),c.getData()}),bl.apply(this,arguments)}function xl(e,t){return Sl.apply(this,arguments)}function Sl(){return Sl=Gc(function*(e,t){if((0,y.isValidElement)(e)){if(vl(e.type))yield e.type.print(e,t),nl(t.printer);else for(let n of Cl(e))yield xl(n,t)}}),Sl.apply(this,arguments)}function Cl(e){let t=[];return typeof e.type==`function`?t=e.type.prototype&&e.type.prototype.isReactComponent?new e.type(e.props).render():e.type(e.props):e.props.children&&(t=e.props.children),y.Children.toArray(t)}function wl(e,t=140){return new Promise(n=>{if(typeof window>`u`||typeof document>`u`)return n(e);let r=new window.Image;r.crossOrigin=`anonymous`,r.onload=()=>{try{let i=document.createElement(`canvas`),a=t/r.width,o=Math.round(r.height*a);i.width=t,i.height=o;let s=i.getContext(`2d`);if(!s)return n(e);s.fillStyle=`#ffffff`,s.fillRect(0,0,t,o),s.drawImage(r,0,0,t,o),n(i.toDataURL(`image/png`))}catch{n(e)}},r.onerror=()=>n(e),r.src=e})}function Tl(e){e||=new Date;let t=new Date(e);return isNaN(t.getTime())?new Date().toLocaleDateString(`en-GB`):`${String(t.getDate()).padStart(2,`0`)}/${String(t.getMonth()+1).padStart(2,`0`)}/${t.getFullYear()}`}function El(e){let t=e?new Date(e):new Date,n=isNaN(t.getTime())?new Date:t,r=n.getHours(),i=String(n.getMinutes()).padStart(2,`0`),a=r>=12?`PM`:`AM`;return r%=12,r||=12,`${String(r).padStart(2,`0`)}: ${i} ${a}`}var Dl={async renderInvoiceToEscPos(e,t){let n=e.invoice||e,r=n.items||[],i=n.payments||[],a=t.paperSize===`58mm`,o=a?32:48,s=(t.shopName||``).trim().toUpperCase(),c=!s||s===`SR FRUITS`||s===`SR`?`KBN FRUITS`:s,l=(t.shopInitials||``).trim().toUpperCase(),u=!l||l===`SR`?`KBN`:l,d=t.printLogo!==!1,f=d&&!!u,p=``;if(d)try{p=await wl(ja,a?120:160)}catch(e){console.warn(`Failed preparing logo for thermal print:`,e)}let m=(t.shopAddress||``).split(`
 `).map(e=>e.trim().toUpperCase()).filter(Boolean),h=`CREDITBILL`,g=String(n.saleType||``).toUpperCase(),_=Number(n.balanceDue||0),v=Number(n.paidAmount||0),y=Number(n.grandTotal||0);g===`CASH`?h=`CASHBILL`:g===`CREDIT`?h=`CREDITBILL`:_<=0&&v>=y&&y>0&&(h=`CASHBILL`);let b=(n.customerName||(n.customer?n.customer.name:`Walk-in Customer`)).toUpperCase(),x=n.customerPhone||(n.customer?n.customer.phone:``),C=n.invoiceNumber||`1453`,w=n.createdBy?.name||n.createdBy?.username||n.creator?.name||n.creator?.username||n.cashier||`admin`,T=Tl(n.invoiceDate||n.createdAt),E=El(n.createdAt||n.invoiceDate),D=Number(n.subtotal||y||0),O=Number(n.previousDueSnapshot||n.previousDue||0),k=O>0?O+y:y,A=r.reduce((e,t)=>e+Number(t.quantity||0),0),j=[];return j=Array.isArray(i)&&i.length>0?i.map(e=>{let t=String(e.paymentMode||e.method||`CASH`).toUpperCase();return{label:t===`GPAY`||t===`UPI`?`Gpay Received`:`Cash Received`,amount:Number(e.amount||0)}}):v>0?[{label:`Cash Received`,amount:v}]:[{label:`Cash Received`,amount:0}],await yl((0,S.jsxs)(Zc,{type:`epson`,width:o,initialize:!0,children:[d&&p?(0,S.jsx)(qc,{align:`center`,src:p}):f?(0,S.jsx)(pl,{align:`center`,bold:!0,size:{width:2,height:2},children:u}):null,(0,S.jsx)(pl,{align:`center`,bold:!0,children:c}),m.map((e,t)=>(0,S.jsx)(pl,{align:`center`,children:e},`addr-${t}`)),t.shopGst?(0,S.jsx)(pl,{align:`center`,children:`GSTIN: ${t.shopGst}`}):null,t.shopPhone?(0,S.jsx)(pl,{align:`center`,children:`Ph: ${t.shopPhone}`}):null,(0,S.jsx)(pl,{align:`right`,bold:!0,children:h}),(0,S.jsx)(pl,{align:`left`,bold:!0,children:b}),x?(0,S.jsx)(pl,{align:`left`,children:x}):null,(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:`Bill No : ${C}`,right:`Date : ${T}`}),(0,S.jsx)(hl,{left:`Cashier : ${w}`,right:`Time : ${E}`}),(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:`Description`,right:a?`Qty  Rate   Amt`:`Qty    Rate     Amount`}),(0,S.jsx)(Yc,{character:`-`}),r.map((e,t)=>{let n=(e.productName||e.product?.name||`Produce`).toUpperCase(),r=Number(e.quantity||0),i=Number(e.rate||0).toFixed(2),o=Number(e.totalAmount||r*Number(e.rate||0)).toFixed(2),s=a?`${r} ${i} ${o}`:`${r.toString().padStart(3,` `)}  ${i.padStart(7,` `)}  ${o.padStart(9,` `)}`;return(0,S.jsx)(hl,{left:n,right:s},`item-${t}`)}),(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:`Gross Amount :`,right:D.toFixed(2)}),(0,S.jsx)(hl,{left:`Net Amount :`,right:y.toFixed(2)}),O>0&&(0,S.jsx)(hl,{left:`Opening Balance :`,right:O.toFixed(2)}),O>0&&(0,S.jsx)(hl,{left:`Total Amt :`,right:k.toFixed(2)}),j.map((e,t)=>(0,S.jsx)(hl,{left:`${e.label} :`,right:e.amount.toFixed(2)},`pay-${t}`)),(0,S.jsx)(hl,{left:(0,S.jsx)(pl,{bold:!0,children:`Closing Balance :`}),right:(0,S.jsx)(pl,{bold:!0,children:_.toFixed(2)})}),(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:`No.Of.Items : ${r.length}`,right:`Total Qty : ${A}`}),(0,S.jsx)(Yc,{character:`-`}),t.printQrCode&&(0,S.jsx)($c,{content:`upi://pay?pa=8778219770@upi&pn=SR%20FRUITS&am=${_>0?_:y}&cu=INR`,align:`center`}),t.footerTerms&&(0,S.jsx)(pl,{align:`center`,children:t.footerTerms}),t.footerMessage&&(0,S.jsx)(pl,{align:`center`,children:t.footerMessage}),t.footerTagline&&(0,S.jsx)(pl,{align:`center`,children:t.footerTagline}),t.openCashDrawer&&g===`CASH`&&(0,S.jsx)(Vc,{pin:`2pin`}),t.cutPaper&&(0,S.jsx)(Hc,{lineFeeds:4,partial:!1})]}))},async renderTestReceipt(e){let t=e.paperSize===`58mm`,n=t?32:48,r=new Date,i=(e.shopName||``).trim().toUpperCase(),a=!i||i===`SR FRUITS`||i===`SR`?`KBN FRUITS`:i,o=(e.shopInitials||``).trim().toUpperCase(),s=!o||o===`SR`?`KBN`:o,c=``;if(e.printLogo!==!1)try{c=await wl(ja,t?120:160)}catch{}return await yl((0,S.jsxs)(Zc,{type:`epson`,width:n,initialize:!0,children:[c?(0,S.jsx)(qc,{align:`center`,src:c}):s?(0,S.jsx)(pl,{align:`center`,bold:!0,size:{width:2,height:2},children:s}):null,(0,S.jsx)(pl,{align:`center`,bold:!0,children:a}),(0,S.jsx)(pl,{align:`center`,children:`TVS RP-3200 HARDWARE TEST`}),(0,S.jsx)(Yc,{character:`=`}),(0,S.jsx)(hl,{left:`Target Hardware:`,right:`TVS RP-3200`}),(0,S.jsx)(hl,{left:`Width Mode:`,right:t?`58mm (32 Col)`:`80mm (48 Col)`}),(0,S.jsx)(hl,{left:`Transport:`,right:e.transport}),(0,S.jsx)(hl,{left:`Serial Config:`,right:`${e.baudRate||9600} ${e.dataBits||8}${e.parity===`even`?`E`:e.parity===`odd`?`O`:`N`}${e.stopBits||1}`}),(0,S.jsx)(hl,{left:`Flow Control:`,right:e.flowControl||`none`}),(0,S.jsx)(hl,{left:`Date / Time:`,right:`${Tl(r)} ${El(r)}`}),(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:`TVS TEST ITEM 1`,right:`1.00  100.00`}),(0,S.jsx)(hl,{left:`TVS TEST ITEM 2`,right:`2.00  250.00`}),(0,S.jsx)(Yc,{character:`-`}),(0,S.jsx)(hl,{left:(0,S.jsx)(pl,{bold:!0,children:`TOTAL :`}),right:(0,S.jsx)(pl,{bold:!0,children:`600.00`})}),(0,S.jsx)(Yc,{character:`=`}),(0,S.jsx)(pl,{align:`center`,bold:!0,children:`PRINTER TEST SUCCESSFUL`}),(0,S.jsx)(pl,{align:`center`,children:`TVS RP-3200 Web Serial ESC/POS`}),e.cutPaper&&(0,S.jsx)(Hc,{lineFeeds:4,partial:!1})]}))},async renderInvoiceToHtml(e,t){let n=e.invoice||e,r=n.items||[],i=n.payments||[],a=t.paperSize===`58mm`,o=a?`58mm`:`80mm`,s=a?`48mm`:`72mm`,c=(t.shopName||``).trim().toUpperCase(),l=!c||c.includes(`SR FRUITS`)||c===`SR`?`KBN FRUITS`:c,u=(t.shopInitials||``).trim().toUpperCase(),d=!u||u===`SR`?`KBN`:u,f=(t.shopAddress||`T/A-18,T/E-25,ANNA FRUITS MARKET
 KOYAMBEDU, CHENNAI-600092`).split(`
-`).map(e=>e.trim().toUpperCase()).filter(Boolean),p=`CREDITBILL`,m=String(n.saleType||``).toUpperCase(),h=Number(n.balanceDue||0),g=Number(n.paidAmount||0),_=Number(n.grandTotal||0);m===`CASH`?p=`CASHBILL`:m===`CREDIT`?p=`CREDITBILL`:h<=0&&g>=_&&_>0&&(p=`CASHBILL`);let v=(n.customerName||(n.customer?n.customer.name:`Walk-in Customer`)).toUpperCase(),y=n.customerPhone||(n.customer?n.customer.phone:``),b=n.invoiceNumber||`1453`,x=n.createdBy?.name||n.createdBy?.username||n.creator?.name||n.cashier||`Admin`,S=Tl(n.invoiceDate||n.createdAt),C=El(n.createdAt||n.invoiceDate),w=Number(n.subtotal||_||0),T=Number(n.previousDueSnapshot||n.previousDue||0),E=T>0?T+_:_,D=r.reduce((e,t)=>e+Number(t.quantity||0),0),O=[];Array.isArray(i)&&i.length>0?O=i.map(e=>{let t=String(e.paymentMode||e.method||`CASH`).toUpperCase();return{label:t===`GPAY`||t===`UPI`?`Gpay Received`:`${e.paymentMode||`Payment`} Paid`,amount:Number(e.amount||0)}}):g>0&&(O=[{label:`Paid Amount`,amount:g}]);let k=``;if(t.printLogo!==!1)try{let e=await wl(ja,a?120:160);e&&(k=`<div class="logo-container"><img src="${e}" class="logo-img" alt="${l}" /></div>`)}catch{k=``}return`<!DOCTYPE html>
+`).map(e=>e.trim().toUpperCase()).filter(Boolean),p=`CREDITBILL`,m=String(n.saleType||``).toUpperCase(),h=Number(n.balanceDue||0),g=Number(n.paidAmount||0),_=Number(n.grandTotal||0);m===`CASH`?p=`CASHBILL`:m===`CREDIT`?p=`CREDITBILL`:h<=0&&g>=_&&_>0&&(p=`CASHBILL`);let v=(n.customerName||(n.customer?n.customer.name:`Walk-in Customer`)).toUpperCase(),y=n.customerPhone||(n.customer?n.customer.phone:``),b=n.invoiceNumber||`1453`,x=n.createdBy?.name||n.createdBy?.username||n.creator?.name||n.cashier||`Admin`,S=Tl(n.invoiceDate||n.createdAt),C=El(n.createdAt||n.invoiceDate),w=Number(n.subtotal||_||0),T=Number(n.previousDueSnapshot||n.previousDue||0),E=T>0?T+_:_,D=r.reduce((e,t)=>e+Number(t.quantity||0),0),O=[];Array.isArray(i)&&i.length>0?O=i.map(e=>{let t=String(e.paymentMode||e.method||`CASH`).toUpperCase();return{label:t===`GPAY`||t===`UPI`?`Gpay Received`:`${e.paymentMode||`Payment`} Paid`,amount:Number(e.amount||0)}}):g>0&&(O=[{label:`Paid Amount`,amount:g}]);let k=``;if(t.printLogo!==!1)try{let e=await wl(ja,a?120:160);e&&(k=`<div style="text-align: center; margin-bottom: 4px;">
+            <img src="${e}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${l}" />
+          </div>`)}catch{k=``}return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -106,7 +108,6 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     @media print {
       html, body {
         width: 100% !important;
-        max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
@@ -118,7 +119,7 @@ KOYAMBEDU, CHENNAI-600092`).split(`
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 12px 0 !important;
+        padding: 2px 0 16px 0 !important;
       }
     }
     * {
@@ -135,158 +136,86 @@ KOYAMBEDU, CHENNAI-600092`).split(`
       color: #000;
       background: #fff;
       padding: 4px 2px 20px 2px;
-      word-break: keep-all;
     }
     .receipt-container {
       width: 100%;
       margin: 0 auto;
-      word-break: keep-all;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .bold { font-weight: bold; }
-    .logo-container {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 3px;
-    }
-    .logo-img {
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      display: block;
-      margin: 0 auto;
-    }
-    .monogram {
-      text-align: center;
-      font-weight: 900;
-      font-size: 11px;
-      letter-spacing: 2px;
-      margin-bottom: 2px;
-      color: #222;
-      white-space: nowrap;
-    }
     .shop-title {
-      font-size: 13.5px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: bold;
       text-align: center;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      white-space: nowrap;
     }
     .shop-info {
       font-size: 10px;
       text-align: center;
       line-height: 1.25;
       margin-top: 2px;
-      color: #333;
+      color: #000;
     }
     .dashed-divider {
-      border-top: 1px dashed #444;
+      border-top: 1.5px dashed #000000 !important;
       margin: 5px 0;
+      height: 1px;
     }
     .bill-type {
       text-align: center;
       font-weight: bold;
-      font-size: 11.5px;
-      letter-spacing: 1px;
-      white-space: nowrap;
-    }
-    .flex-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 10.5px;
-      padding: 0.5px 0;
-      white-space: nowrap;
-    }
-    .truncate {
-      max-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .items-header {
-      display: flex;
-      justify-content: space-between;
-      font-weight: bold;
-      font-size: 10.5px;
-      text-transform: uppercase;
-      border-bottom: 1px dashed #444;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
-      white-space: nowrap;
-    }
-    .col-desc { flex: 1; text-align: left; }
-    .col-qty { width: 32px; text-align: right; }
-    .col-rate { width: 50px; text-align: right; }
-    .col-amt { width: 62px; text-align: right; }
-    .item-block {
-      padding: 2.5px 0;
-      border-bottom: 1px dashed #eee;
-    }
-    .item-block:last-child {
-      border-bottom: none;
-    }
-    .item-name {
-      font-weight: bold;
-      font-size: 10.5px;
-      text-transform: uppercase;
-      line-height: 1.2;
-    }
-    .item-subrow {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #333;
-      margin-top: 1px;
-      white-space: nowrap;
-    }
-      font-size: 10px;
-      color: #333;
-      margin-top: 1px;
-    }
-    .item-unit {
-      color: #666;
-      font-size: 9.5px;
-    }
-    .financial-totals {
-      font-size: 11px;
-    }
-    .financial-totals .flex-row {
-      padding: 1px 0;
-    }
-    .text-rose { color: #b91c1c; }
-    .text-green { color: #047857; }
-    .closing-balance {
-      border-top: 1px dashed #444;
-      padding-top: 3px;
-      margin-top: 2px;
-      font-weight: 800;
       font-size: 12px;
+      letter-spacing: 1px;
+    }
+    table.table-layout {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10.5px;
+    }
+    table.table-layout td, table.table-layout th {
+      padding: 1px 0;
+      vertical-align: top;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10.5px;
+    }
+    table.data-table th {
+      border-bottom: 1.5px dashed #000000;
+      padding-bottom: 2px;
+      font-weight: bold;
+      font-size: 10.5px;
+    }
+    table.data-table td {
+      padding: 1.5px 0;
     }
     .footer-block {
       text-align: center;
       font-size: 10px;
-      color: #444;
-      margin-top: 4px;
+      color: #000;
+      margin-top: 5px;
       line-height: 1.35;
     }
     .footer-brand {
       font-size: 9px;
-      color: #666;
+      color: #555;
       margin-top: 4px;
     }
     .tear-border {
-      border-bottom: 2px dashed #888;
-      margin-top: 8px;
+      border-bottom: 2px dashed #000000;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body data-paper="${o}">
   <div class="receipt-container">
     ${k}
-    ${d?`<div class="monogram">[${d}]</div>`:``}
+    ${d?`<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${d}]</div>`:``}
     <div class="shop-title">${l}</div>
     <div class="shop-info">
       ${f.join(`<br>`)}
@@ -297,92 +226,87 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     <div class="bill-type">*** ${p} ***</div>
     <div class="dashed-divider"></div>
 
-    <div class="customer-section">
-      <div class="flex-row">
-        <span style="color: #555;">Customer:</span>
-        <span class="bold truncate">${v}</span>
-      </div>
-      ${y?`
-      <div class="flex-row">
-        <span style="color: #555;">Mobile:</span>
-        <span>${y}</span>
-      </div>`:``}
-    </div>
+    <table class="table-layout">
+      <tr>
+        <td align="left" style="width: 55%;">Customer: <b>${v}</b></td>
+        <td align="right" style="width: 45%;">${y?`Mobile: ${y}`:``}</td>
+      </tr>
+      <tr>
+        <td align="left">Bill No: <b>${b}</b></td>
+        <td align="right">Date: ${S}</td>
+      </tr>
+      <tr>
+        <td align="left">Cashier: ${x}</td>
+        <td align="right">Time: ${C}</td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="metadata-section">
-      <div class="flex-row">
-        <span>Bill No: <strong class="bold">${b}</strong></span>
-        <span>Date: ${S}</span>
-      </div>
-      <div class="flex-row">
-        <span>Cashier: ${x}</span>
-        <span>Time: ${C}</span>
-      </div>
-    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th align="left" style="width: 44%;">DESCRIPTION</th>
+          <th align="right" style="width: 16%;">QTY</th>
+          <th align="right" style="width: 20%;">RATE</th>
+          <th align="right" style="width: 20%;">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${r.map(e=>{let t=(e.productName||e.product?.name||`Produce`).toUpperCase(),n=(e.variety||e.unit||`BOX`).toUpperCase(),r=Number(e.quantity||0);return`
+          <tr>
+            <td colspan="4" class="bold" style="padding-top: 3px; font-size: 11px;">${t}</td>
+          </tr>
+          <tr>
+            <td style="color: #444; font-size: 9.5px; padding-left: 2px;">${n}</td>
+            <td align="right">${r}</td>
+            <td align="right">${Number(e.rate||0).toFixed(2)}</td>
+            <td align="right" class="bold">${Number(e.totalAmount||r*Number(e.rate||0)).toFixed(2)}</td>
+          </tr>`}).join(``)}
+      </tbody>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="items-header">
-      <span class="col-desc">Description</span>
-      <span class="col-qty">Qty</span>
-      <span class="col-rate">Rate</span>
-      <span class="col-amt">Amount</span>
-    </div>
-
-    <div class="items-list">
-      ${r.map(e=>{let t=(e.productName||e.product?.name||`Produce`).toUpperCase(),n=(e.variety||e.unit||`BOX`).toUpperCase(),r=Number(e.quantity||0);return`
-        <div class="item-block">
-          <div class="item-name">${t}</div>
-          <div class="item-subrow">
-            <span class="item-unit">${n}</span>
-            <span class="col-qty">${r}</span>
-            <span class="col-rate">${Number(e.rate||0).toFixed(2)}</span>
-            <span class="col-amt bold">${Number(e.totalAmount||r*Number(e.rate||0)).toFixed(2)}</span>
-          </div>
-        </div>`}).join(``)}
-    </div>
-
-    <div class="dashed-divider"></div>
-
-    <div class="financial-totals">
-      <div class="flex-row">
-        <span>Gross Amount :</span>
-        <span>Rs.${w.toFixed(2)}</span>
-      </div>
-      <div class="flex-row bold">
-        <span>Net Amount :</span>
-        <span>Rs.${_.toFixed(2)}</span>
-      </div>
+    <table class="table-layout">
+      <tr>
+        <td align="left" style="width: 60%;">Gross Amount :</td>
+        <td align="right" style="width: 40%;">Rs.${w.toFixed(2)}</td>
+      </tr>
+      <tr class="bold">
+        <td align="left">Net Amount :</td>
+        <td align="right">Rs.${_.toFixed(2)}</td>
+      </tr>
       ${T>0?`
-      <div class="flex-row text-rose">
-        <span>Opening Balance :</span>
-        <span>+ Rs.${T.toFixed(2)}</span>
-      </div>
-      <div class="flex-row bold">
-        <span>Total Amt :</span>
-        <span>Rs.${E.toFixed(2)}</span>
-      </div>
+      <tr style="color: #b91c1c;">
+        <td align="left">Opening Balance :</td>
+        <td align="right">+ Rs.${T.toFixed(2)}</td>
+      </tr>
+      <tr class="bold">
+        <td align="left">Total Amt :</td>
+        <td align="right">Rs.${E.toFixed(2)}</td>
+      </tr>
       `:``}
       ${O.map(e=>`
-      <div class="flex-row text-green">
-        <span>${e.label} :</span>
-        <span>- Rs.${e.amount.toFixed(2)}</span>
-      </div>
+      <tr style="color: #047857;">
+        <td align="left">${e.label} :</td>
+        <td align="right">- Rs.${e.amount.toFixed(2)}</td>
+      </tr>
       `).join(``)}
-      <div class="flex-row closing-balance">
-        <span>Closing Balance :</span>
-        <span>Rs.${h.toFixed(2)}</span>
-      </div>
-    </div>
+      <tr class="bold" style="font-size: 12px; border-top: 1.5px dashed #000000;">
+        <td align="left" style="padding-top: 3px;">Closing Balance :</td>
+        <td align="right" style="padding-top: 3px;">Rs.${h.toFixed(2)}</td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
-    <div class="flex-row" style="color: #444;">
-      <span>No.Of.Items : <strong>${r.length}</strong></span>
-      <span>Total Qty : <strong>${D}</strong></span>
-    </div>
+    <table class="table-layout" style="font-size: 10px; color: #333;">
+      <tr>
+        <td align="left" style="width: 50%;">No.Of.Items : <b>${r.length}</b></td>
+        <td align="right" style="width: 50%;">Total Qty : <b>${D}</b></td>
+      </tr>
+    </table>
 
     <div class="dashed-divider"></div>
 
@@ -396,7 +320,9 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     <div class="tear-border"></div>
   </div>
 </body>
-</html>`},async renderTestToHtml(e){let t=e.paperSize===`58mm`,n=t?`58mm`:`80mm`,r=t?`48mm`:`72mm`,i=new Date,a=(e.shopName||``).trim().toUpperCase(),o=!a||a.includes(`SR FRUITS`)||a===`SR`?`KBN FRUITS`:a,s=(e.shopInitials||``).trim().toUpperCase(),c=!s||s===`SR`?`KBN`:s,l=``;if(e.printLogo!==!1)try{let e=await wl(ja,t?120:160);e&&(l=`<div class="logo-container"><img src="${e}" class="logo-img" alt="${o}" /></div>`)}catch{l=``}return`<!DOCTYPE html>
+</html>`},async renderTestToHtml(e){let t=e.paperSize===`58mm`,n=t?`58mm`:`80mm`,r=t?`48mm`:`72mm`,i=new Date,a=(e.shopName||``).trim().toUpperCase(),o=!a||a.includes(`SR FRUITS`)||a===`SR`?`KBN FRUITS`:a,s=(e.shopInitials||``).trim().toUpperCase(),c=!s||s===`SR`?`KBN`:s,l=``;if(e.printLogo!==!1)try{let e=await wl(ja,t?120:160);e&&(l=`<div style="text-align: center; margin-bottom: 4px;">
+            <img src="${e}" width="64" height="64" style="display: block; margin: 0 auto; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact;" alt="${o}" />
+          </div>`)}catch{l=``}return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -404,30 +330,26 @@ KOYAMBEDU, CHENNAI-600092`).split(`
   <style>
     @page {
       size: ${n} 200mm;
-      margin: 0mm;
+      margin: 0mm !important;
     }
     @media print {
       html, body {
-        width: ${r} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .receipt-container {
-        width: ${r} !important;
-        max-width: ${r} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 4px 2px 20px 2px !important;
+        padding: 2px 0 16px 0 !important;
       }
     }
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
+    * { box-sizing: border-box; }
     body {
       width: ${r};
       margin: 0 auto;
@@ -441,30 +363,34 @@ KOYAMBEDU, CHENNAI-600092`).split(`
     .receipt-container { width: 100%; margin: 0 auto; }
     .text-center { text-align: center; }
     .bold { font-weight: bold; }
-    .logo-container { display: flex; justify-content: center; margin-bottom: 3px; }
-    .logo-img { width: 54px; height: 54px; object-fit: contain; display: block; margin: 0 auto; }
-    .monogram { text-align: center; font-weight: 900; font-size: 11px; letter-spacing: 2px; margin-bottom: 2px; color: #222; }
-    .dashed-divider { border-top: 1px dashed #444; margin: 5px 0; }
-    .double-divider { border-top: 2px double #000; margin: 5px 0; }
-    .flex-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 1px 0; }
+    .dashed-divider { border-top: 1.5px dashed #000000 !important; margin: 5px 0; height: 1px; }
+    .double-divider { border-top: 2px double #000000 !important; margin: 5px 0; height: 2px; }
+    table.table-layout { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    table.table-layout td { padding: 1.5px 0; }
   </style>
 </head>
 <body data-paper="${n}">
   <div class="receipt-container">
     ${l}
-    ${c?`<div class="monogram">[${c}]</div>`:``}
-    <div class="text-center bold" style="font-size: 13.5px;">${o}</div>
-    <div class="text-center" style="font-size: 11px; font-weight: bold; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
+    ${c?`<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${c}]</div>`:``}
+    <div class="text-center bold" style="font-size: 14px; text-transform: uppercase;">${o}</div>
+    <div class="text-center bold" style="font-size: 11px; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
     <div class="double-divider"></div>
-    <div class="flex-row"><span>Target Hardware:</span><span>TVS RP-3200</span></div>
-    <div class="flex-row"><span>Width Mode:</span><span>${n}</span></div>
-    <div class="flex-row"><span>Transport:</span><span>System / Browser Print</span></div>
-    <div class="flex-row"><span>Date / Time:</span><span>${Tl(i)} ${El(i)}</span></div>
+    <table class="table-layout">
+      <tr><td>Target Hardware:</td><td align="right">TVS RP-3200</td></tr>
+      <tr><td>Width Mode:</td><td align="right">${n}</td></tr>
+      <tr><td>Transport:</td><td align="right">System / Browser Print</td></tr>
+      <tr><td>Date / Time:</td><td align="right">${Tl(i)} ${El(i)}</td></tr>
+    </table>
     <div class="dashed-divider"></div>
-    <div class="flex-row"><span>TVS TEST ITEM 1</span><span>1.00  100.00</span></div>
-    <div class="flex-row"><span>TVS TEST ITEM 2</span><span>2.00  250.00</span></div>
-    <div class="dashed-divider"></div>
-    <div class="flex-row bold"><span>TOTAL :</span><span>600.00</span></div>
+    <table class="table-layout">
+      <tr><td>TVS TEST ITEM 1</td><td align="right">1.00  100.00</td></tr>
+      <tr><td>TVS TEST ITEM 2</td><td align="right">2.00  250.00</td></tr>
+      <tr class="bold" style="border-top: 1.5px dashed #000;">
+        <td style="padding-top: 3px;">TOTAL :</td>
+        <td align="right" style="padding-top: 3px;">600.00</td>
+      </tr>
+    </table>
     <div class="double-divider"></div>
     <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
     <div class="text-center" style="font-size: 9px; color: #555; margin-top: 3px;">TVS RP-3200 · Browser Print Engine</div>
