@@ -164,6 +164,58 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
     };
   }, [onShowToast]);
 
+  // Compress and resize logo image to optimized thermal-printer dimensions (< 25 KB)
+  const handleLogoFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const rawDataUrl = e.target?.result;
+      if (typeof rawDataUrl !== 'string') return;
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDimension = 320; // optimal crisp resolution for thermal receipt printing
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+            return;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compress to lightweight JPEG (~10KB - 20KB)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setMandiSettings((prev) => ({ ...prev, logoUrl: compressedDataUrl }));
+        } catch {
+          setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+        }
+      };
+      img.onerror = () => {
+        setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Save all settings to MySQL database
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -451,13 +503,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === 'string') {
-                                    setMandiSettings({ ...mandiSettings, logoUrl: reader.result });
-                                  }
-                                };
-                                reader.readAsDataURL(file);
+                                handleLogoFileUpload(file);
                               }
                             }}
                           />
