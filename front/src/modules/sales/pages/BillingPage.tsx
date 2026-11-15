@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CustomerSelector } from '../components/CustomerSelector';
-import { ProductSearch } from '../components/ProductSearch';
 import { BillingItemsTable } from '../components/BillingItemsTable';
 import { PreviousDuePanel } from '../components/PreviousDuePanel';
 import { PaymentPanel } from '../components/PaymentPanel';
@@ -96,7 +95,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
   const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(String(p.amount)) || 0), 0);
 
   // Add Product to Invoice
-  const handleSelectProduct = (product: Product) => {
+  const handleSelectProduct = (product: Product): string => {
     const defaultRate =
       saleType === 'RETAIL'
         ? parseFloat(String(product.retailRate))
@@ -105,10 +104,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
     const conversion = parseFloat(String(product.conversionFactor)) || 1.0;
     const existingIndex = items.findIndex((i) => i.productId === product.id);
 
+    let targetId: string;
     if (existingIndex >= 0) {
       // Increase qty of existing line
       const updated = [...items];
       const existing = updated[existingIndex];
+      targetId = existing.id;
       const newQty = existing.quantity + 1;
       const baseQty = Math.round(newQty * conversion * 1000) / 1000;
       const raw = newQty * existing.rate;
@@ -131,9 +132,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
       const taxRate = 0;
       const taxAmt = 0;
       const totalAmount = raw;
+      targetId = `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
       const newItem: BillingItem = {
-        id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: targetId,
         productId: product.id,
         productName: product.name,
         variety: product.variety,
@@ -159,6 +161,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
     if (onShowToast) {
       onShowToast('Product Added', `${product.name} (${product.variety}) added to invoice.`, 'info');
     }
+
+    return targetId;
   };
 
   const handleUpdateItem = (id: string, updates: Partial<BillingItem>) => {
@@ -356,25 +360,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
       {/* Main 2-Column Responsive Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT COLUMN: Product Entry + Items Table (7 cols on lg) */}
+        {/* LEFT COLUMN: Items Table with Inline Product Search (7 cols on lg) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Fast Product Entry Bar (F3) */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between">
-              <span>Fast Fruit Entry (Barcode / SKU / Name)</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                Press <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded">F3</kbd> to search, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded">↑↓</kbd> to select, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded">Enter</kbd> to add
-              </span>
-            </div>
-            <ProductSearch onSelectProduct={handleSelectProduct} />
-          </div>
-
-          {/* Billing Items Table */}
           <BillingItemsTable
             items={items}
             availableUnits={units}
             onUpdateItem={handleUpdateItem}
             onRemoveItem={handleRemoveItem}
+            onSelectProduct={handleSelectProduct}
+            saleType={saleType}
           />
         </div>
 
