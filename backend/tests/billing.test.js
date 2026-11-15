@@ -217,6 +217,33 @@ async function runTests() {
   assert.strictEqual(appleStockAfter, appleStockBefore - 10, 'Apple stock reduced by 10');
   console.log('✓ Scenario 53 PASSED perfectly!\n');
 
+  // ========================================================
+  // Test 2b: No customer selected (Auto Cash Customer fallback)
+  // ========================================================
+  console.log('[Test 2b] No customer selected => Auto takes as Cash Customer');
+  const noCustomerPayload = {
+    // customerId is omitted / undefined
+    invoiceDate: '2026-11-09',
+    saleType: 'CASH',
+    items: [
+      { productId: apple.id, quantity: 5, rate: 2000, discount: 0, taxRate: 0, unit: 'BOX' },
+    ],
+    payments: [
+      { method: 'CASH', amount: 10000 },
+    ],
+    status: 'CONFIRMED',
+  };
+
+  const res2b = await billingService.createInvoice(noCustomerPayload, adminUser);
+  console.log(`- Created Invoice without customerId: ${res2b.invoiceNumber}, customer: ${res2b.customerName || 'Cash Customer'}`);
+  assert.strictEqual(res2b.grandTotal, 10000, 'Invoice total must be 10,000');
+  assert.strictEqual(res2b.paid, 10000, 'Paid must be 10,000');
+  assert.strictEqual(res2b.due, 0, 'Due must be 0');
+
+  // Cancel Test 2b invoice to restore test stock
+  await billingService.cancelInvoice(res2b.invoiceId, 'Test 2b cleanup', adminUser);
+  console.log('✓ Auto Cash Customer fallback PASSED perfectly!\n');
+
   // =======================================================
   // Test 3: EXACT SCENARIO 54 (Previous Due Collection Only)
   // =======================================================

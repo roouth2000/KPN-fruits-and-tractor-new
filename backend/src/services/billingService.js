@@ -45,10 +45,38 @@ class BillingService {
         status = 'CONFIRMED', // 'CONFIRMED' or 'DRAFT'
       } = payload;
 
-      // 1. Fetch & validate customer directly via Customer model
-      const customer = await Customer.findByPk(customerId, { transaction });
-      if (!customer) {
-        throw new Error('Customer not found');
+      // 1. Fetch & validate customer directly via Customer model (or default to Cash Customer)
+      let customer;
+      if (customerId) {
+        customer = await Customer.findByPk(customerId, { transaction });
+        if (!customer) {
+          throw new Error('Customer not found');
+        }
+      } else {
+        // If no customer is selected, take it as Cash Customer
+        customer = await Customer.findOne({
+          where: { customerCode: 'CUST-CASH' },
+          transaction,
+        });
+        if (!customer) {
+          customer = await Customer.findOne({
+            where: { customerType: 'WALK_IN' },
+            transaction,
+          });
+        }
+        if (!customer) {
+          customer = await Customer.create({
+            customerCode: 'CUST-CASH',
+            name: 'Cash Customer',
+            phone: '9999999999',
+            city: 'Mumbai',
+            address: 'APMC Counter Sale',
+            creditLimit: 0.00,
+            currentDue: 0.00,
+            outstandingTrays: 0,
+            customerType: 'WALK_IN',
+          }, { transaction });
+        }
       }
 
       const isWalkInCash = customer.customerType === 'WALK_IN' || customer.customerCode === 'CUST-CASH';
@@ -56,7 +84,7 @@ class BillingService {
       // 2. Calculate true previous due from CustomerLedger transactions (Source of Truth)
       let previousDue = 0;
       if (!isWalkInCash) {
-        previousDue = await customerService.calculateCustomerDue(customerId, transaction);
+        previousDue = await customerService.calculateCustomerDue(customer.id, transaction);
       }
 
       // 3. Process & recalculate each item on backend (never trust frontend totals)
@@ -354,8 +382,8 @@ class BillingService {
 
         // E. Update Customer cache balances
         if (!isWalkInCash) {
-          const finalRealDue = await customerService.calculateCustomerDue(customerId, transaction);
-          const finalRealTrays = await customerService.calculateOutstandingTrays(customerId, transaction);
+          const finalRealDue = await customerService.calculateCustomerDue(customer.id, transaction);
+          const finalRealTrays = await customerService.calculateOutstandingTrays(customer.id, transaction);
           await Customer.update(
             {
               currentDue: finalRealDue,

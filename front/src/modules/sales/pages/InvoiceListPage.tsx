@@ -16,6 +16,7 @@ import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { InvoicePreview } from '../components/InvoicePreview';
 import { printerService } from '../../../services/printer/printerService';
+import { receiptRenderer } from '../../../services/printer/receiptRenderer';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
 
 interface InvoiceListPageProps {
@@ -42,29 +43,43 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   // Selected invoice for preview modal
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState<boolean>(false);
   const [printingId, setPrintingId] = useState<number | null>(null);
 
-  // 1-Click Thermal Print via Web Serial
+  // 1-Click Thermal Print
   const handleDirectPrintInvoice = async (inv: any) => {
     setPrintingId(inv.id);
     try {
       const full = await salesApi.getInvoiceById(inv.id);
-      const res = await printerService.printInvoice(full || inv);
+      const invoiceData = full || inv;
+      const res = await printerService.printInvoice(invoiceData);
       if (res.success) {
         onShowToast?.(
-          'Receipt Printed via Web Serial',
-          `Invoice #${inv.invoiceNumber} printed directly on "${res.printerName}".`,
+          'Receipt Printed',
+          `Invoice #${inv.invoiceNumber} sent to printer (${res.printerName || 'Thermal Printer'}).`,
           'success'
         );
       } else {
-        onShowToast?.('Print Failed', res.error || 'Failed to print invoice', 'warning');
-        if (!printerService.isConnected()) {
-          setIsPrinterModalOpen(true);
-        }
+        // Fallback: render HTML and print via system dialog directly
+        const settings = printerService.getSettings();
+        const html = await receiptRenderer.renderInvoiceToHtml(invoiceData, {
+          ...settings,
+          transport: 'BROWSER_DIALOG',
+        });
+        await receiptRenderer.printHtml(html);
+        onShowToast?.(
+          'Receipt Printed',
+          `Invoice #${inv.invoiceNumber} sent to system printer.`,
+          'success'
+        );
       }
     } catch (err: any) {
-      onShowToast?.('Print Failed', err?.message || 'Error printing invoice', 'warning');
+      console.error('Print error:', err);
+      // Fallback: open invoice preview modal with print button
+      setSelectedInvoice(inv);
+      setIsPreviewOpen(true);
+      onShowToast?.('Print Notification', 'Opening invoice preview to print.', 'info');
     } finally {
       setPrintingId(null);
     }
@@ -123,7 +138,8 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const totalDue = invoices.reduce((acc, curr) => acc + (Number(curr.balanceDue) || 0), 0);
   const pendingInvoicesCount = invoices.filter((inv) => Number(inv.balanceDue) > 0 && inv.status !== 'CANCELLED').length;
 
-  const handleOpenPreview = async (inv: any) => {
+  const handleOpenPreview = async (inv: any, editMode = false) => {
+    setIsEditMode(editMode);
     try {
       // Fetch full details if needed
       const full = await salesApi.getInvoiceById(inv.id);
@@ -480,7 +496,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                     <tr
                       key={inv.id}
                       className="hover:bg-slate-50/90 transition-colors group cursor-pointer"
-                      onClick={() => handleOpenPreview(inv)}
+                      onClick={() => handleOpenPreview(inv, false)}
                     >
                       {/* Invoice Number */}
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900 group-hover:text-emerald-700">
@@ -555,7 +571,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                         <div className="flex items-center justify-center gap-1.5">
                           {/* View details / Print */}
                           <button
-                            onClick={() => handleOpenPreview(inv)}
+                            onClick={() => handleOpenPreview(inv, false)}
                             title="View Full Bill & Print Receipt"
                             className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
                           >
@@ -588,8 +604,8 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                           {/* Admin Edit */}
                           {canEdit && inv.status !== 'CANCELLED' && (
                             <button
-                              onClick={() => handleOpenPreview(inv)}
-                              title="Edit Invoice Terms / Notes (Admin Permission)"
+                              onClick={() => handleOpenPreview(inv, true)}
+                              title="Edit Invoice Terms / Notes / Discount"
                               className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors"
                             >
                               <EditIcon className="w-3.5 h-3.5" />
@@ -657,8 +673,10 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
           onClose={() => {
             setIsPreviewOpen(false);
             setSelectedInvoice(null);
+            setIsEditMode(false);
           }}
           invoiceData={selectedInvoice}
+          initialEditMode={isEditMode}
           onInvoiceUpdated={() => {
             fetchInvoices();
           }}

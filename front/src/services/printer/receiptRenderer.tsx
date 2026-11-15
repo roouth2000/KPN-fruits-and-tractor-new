@@ -186,7 +186,14 @@ export const receiptRenderer = {
     const paidAmount = Number(inv.paidAmount || 0);
     const grandTotal = Number(inv.grandTotal || 0);
 
-    if (rawSaleType === 'CASH') {
+    const isCashCust = !inv.customerId ||
+      inv.customerCode === 'CUST-CASH' ||
+      inv.customerType === 'WALK_IN' ||
+      inv.customerName === 'Cash Customer' ||
+      inv.customer?.customerCode === 'CUST-CASH' ||
+      inv.customer?.customerType === 'WALK_IN';
+
+    if (rawSaleType === 'CASH' || isCashCust) {
       billType = 'CASHBILL';
     } else if (rawSaleType === 'CREDIT') {
       billType = 'CREDITBILL';
@@ -197,7 +204,7 @@ export const receiptRenderer = {
     // Customer
     const customerName = (
       inv.customerName ||
-      (inv.customer ? inv.customer.name : 'Walk-in Customer')
+      (inv.customer ? inv.customer.name : 'Cash Customer')
     ).toUpperCase();
     const customerPhone = inv.customerPhone || (inv.customer ? inv.customer.phone : '');
 
@@ -462,7 +469,14 @@ export const receiptRenderer = {
     const paidAmount = Number(inv.paidAmount || 0);
     const grandTotal = Number(inv.grandTotal || 0);
 
-    if (rawSaleType === 'CASH') {
+    const isCashCust = !inv.customerId ||
+      inv.customerCode === 'CUST-CASH' ||
+      inv.customerType === 'WALK_IN' ||
+      inv.customerName === 'Cash Customer' ||
+      inv.customer?.customerCode === 'CUST-CASH' ||
+      inv.customer?.customerType === 'WALK_IN';
+
+    if (rawSaleType === 'CASH' || isCashCust) {
       billType = 'CASHBILL';
     } else if (rawSaleType === 'CREDIT') {
       billType = 'CREDITBILL';
@@ -472,7 +486,7 @@ export const receiptRenderer = {
 
     const customerName = (
       inv.customerName ||
-      (inv.customer ? inv.customer.name : 'Walk-in Customer')
+      (inv.customer ? inv.customer.name : 'Cash Customer')
     ).toUpperCase();
     const customerPhone = inv.customerPhone || (inv.customer ? inv.customer.phone : '');
     const invNumber = inv.invoiceNumber || '1453';

@@ -28,10 +28,8 @@ export const paymentEntrySchema = z.object({
 });
 
 export const billingFormSchema = z.object({
-  customerId: z.number().nullable().refine((val) => val !== null && val > 0, {
-    message: 'Please select a customer or Walk-in Cash Customer',
-  }),
-  customerName: z.string().min(1, 'Customer name is required'),
+  customerId: z.number().nullable().optional(),
+  customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
   saleType: z.enum(['WHOLESALE', 'RETAIL', 'CASH', 'CREDIT']),

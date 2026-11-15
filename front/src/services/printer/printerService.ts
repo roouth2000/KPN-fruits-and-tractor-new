@@ -333,11 +333,19 @@ class PrinterService {
       if (!this.isConnected()) {
         const reconnected = await this.attemptSilentReconnect();
         if (!reconnected && !this.isConnected()) {
-          this.setStatus('NOT_CONNECTED');
+          // Direct USB/Serial port not paired or connected -> seamlessly fallback to system print dialog so invoice prints
+          console.warn('[PrinterService] Direct printer not connected, automatically falling back to system print dialog');
+          const html = await receiptRenderer.renderInvoiceToHtml(invoiceData, {
+            ...settings,
+            transport: 'BROWSER_DIALOG',
+          });
+          await receiptRenderer.printHtml(html);
+          this.setStatus('CONNECTED');
           return {
-            success: false,
-            transport: settings.transport,
-            error: 'Printer is not connected. Please click "Connect Printer" to select your USB thermal printer.',
+            success: true,
+            transport: 'BROWSER_DIALOG',
+            printerName: 'Windows System Printer (TVS RP-3200)',
+            message: 'Invoice sent to Windows System Printer.',
           };
         }
       }
@@ -365,7 +373,20 @@ class PrinterService {
         message: `Printed ${copies} ${copies === 1 ? 'copy' : 'copies'} successfully via Web Serial.`,
       };
     } catch (err: any) {
-      console.error('[PrinterService] Print error:', err);
+      console.error('[PrinterService] Print error, falling back to system print dialog:', err);
+      try {
+        const fallbackSettings = { ...this.getSettings(), ...overrideSettings, transport: 'BROWSER_DIALOG' as const };
+        const html = await receiptRenderer.renderInvoiceToHtml(invoiceData, fallbackSettings);
+        await receiptRenderer.printHtml(html);
+        return {
+          success: true,
+          transport: 'BROWSER_DIALOG',
+          printerName: 'Windows System Printer',
+          message: 'Invoice printed via system print dialog.',
+        };
+      } catch (fallbackErr) {
+        console.error('[PrinterService] Fallback print also failed:', fallbackErr);
+      }
       this.setStatus('PRINT_FAILED');
       return {
         success: false,

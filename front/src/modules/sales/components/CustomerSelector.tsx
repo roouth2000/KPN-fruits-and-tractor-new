@@ -56,28 +56,20 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
   }, []);
 
   const handleSelect = (cust: Customer) => {
-    onSelectCustomer(cust);
+    if (cust.customerType === 'WALK_IN' || cust.customerCode === 'CUST-CASH' || cust.name === 'Cash Customer') {
+      onSelectCustomer(null);
+    } else {
+      onSelectCustomer(cust);
+    }
     setIsOpen(false);
     setSearchTerm('');
   };
 
   const handleSelectCashCustomer = () => {
-    const cashCustomer = customers.find((c) => c.customerType === 'WALK_IN' || c.customerCode === 'CUST-CASH');
-    if (cashCustomer) {
-      onSelectCustomer(cashCustomer);
-    } else {
-      onSelectCustomer({
-        id: 2,
-        customerCode: 'CUST-CASH',
-        name: 'Cash Customer',
-        phone: '9999999999',
-        customerType: 'WALK_IN',
-        creditLimit: 0,
-        openingBalance: 0,
-        currentDue: 0,
-        outstandingTrays: 0,
-        isActive: true,
-      });
+    // If Cash Customer button is clicked, don't do anything;
+    // If an account customer was previously chosen, clear it back to default cash customer
+    if (selectedCustomerId) {
+      onSelectCustomer(null);
     }
     setIsOpen(false);
   };
@@ -110,6 +102,12 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+  const isAccountCustomer = !!(
+    selectedCustomer &&
+    selectedCustomer.customerCode !== 'CUST-CASH' &&
+    selectedCustomer.customerType !== 'WALK_IN' &&
+    selectedCustomer.name !== 'Cash Customer'
+  );
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-2xs relative" ref={dropdownRef}>
@@ -151,7 +149,7 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
         >
           <div className="flex items-center gap-2 min-w-0">
             <SearchIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-            {selectedCustomer ? (
+            {isAccountCustomer && selectedCustomer ? (
               <span className="font-semibold text-slate-900 truncate">
                 {selectedCustomer.name} ({selectedCustomer.customerCode})
               </span>
@@ -159,9 +157,24 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
               <span className="text-slate-400">Search customer by name, mobile, code...</span>
             )}
           </div>
-          <kbd className="text-[10px] bg-white border border-slate-200 text-slate-400 px-1 rounded shadow-2xs font-mono">
-            F2
-          </kbd>
+          <div className="flex items-center gap-1.5">
+            {isAccountCustomer && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectCustomer(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-0.5 rounded hover:bg-slate-200 transition-colors"
+                title="Clear customer"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <kbd className="text-[10px] bg-white border border-slate-200 text-slate-400 px-1 rounded shadow-2xs font-mono">
+              F2
+            </kbd>
+          </div>
         </div>
 
         {/* Dropdown Menu */}
@@ -243,9 +256,9 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
         )}
       </div>
 
-      {/* Selected Customer Highlight Card */}
-      {selectedCustomer && (
-        <div className="mt-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/70 text-xs space-y-1.5">
+      {/* Selected Customer Highlight Card (Customer Bill Details) */}
+      {isAccountCustomer && selectedCustomer && (
+        <div className="mt-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/70 text-xs space-y-1.5 animate-in fade-in duration-150">
           <div className="flex items-center justify-between">
             <span className="font-bold text-slate-900 text-sm">{selectedCustomer.name}</span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700">

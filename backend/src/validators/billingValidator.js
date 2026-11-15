@@ -4,9 +4,7 @@ const validateCreateInvoice = (req, res, next) => {
   const { customerId, invoiceDate, items, payments, discount, tax, status } = req.body;
   const errors = {};
 
-  if (!customerId) {
-    errors.customerId = 'Please select a customer';
-  }
+  // If customerId is not provided, billingService automatically assigns default Cash Customer (CUST-CASH)
 
   if (!invoiceDate) {
     errors.invoiceDate = 'Invoice date is required';

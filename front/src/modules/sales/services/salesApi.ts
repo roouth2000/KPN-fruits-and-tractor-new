@@ -196,7 +196,7 @@ export const salesApi = {
     return res.data.data;
   },
 
-  updateInvoice: async (id: number | string, payload: { notes?: string; invoiceDiscount?: number; paymentTerms?: string }) => {
+  updateInvoice: async (id: number | string, payload: { notes?: string; invoiceDiscount?: number; paymentTerms?: string; invoiceDate?: string }) => {
     const res = await apiClient.put(`/sales/invoices/${id}`, payload);
     return res.data.data;
   },

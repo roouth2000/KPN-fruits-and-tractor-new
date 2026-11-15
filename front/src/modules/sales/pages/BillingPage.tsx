@@ -189,11 +189,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
   // Save Invoice (Common Billing Transaction)
   const handleSaveInvoice = async (printAfterSave = false, isDraft = false) => {
-    if (!selectedCustomer) {
-      alert('Please select a customer or Cash Customer (F2).');
-      return;
-    }
-
     if (items.length === 0 && !isDraft) {
       alert('Please add at least one fruit item to the invoice (F3).');
       return;
@@ -201,10 +196,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
     try {
       const payload = {
-        customerId: selectedCustomer.id,
+        customerId: selectedCustomer?.id || null,
         invoiceDate,
         dueDate,
-        saleType,
+        saleType: selectedCustomer ? saleType : (saleType === 'WHOLESALE' ? 'CASH' : saleType),
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -284,10 +279,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
     const currentFormData: BillingFormData = {
       customerId: selectedCustomer?.id || null,
-      customerName: selectedCustomer?.name || 'Walk-in Customer',
+      customerName: selectedCustomer?.name || 'Cash Customer',
       customerPhone: selectedCustomer?.phone,
       customerAddress: selectedCustomer?.address || undefined,
-      saleType,
+      saleType: selectedCustomer ? saleType : (saleType === 'WHOLESALE' ? 'CASH' : saleType),
       invoiceDate,
       dueDate,
       items,
