@@ -36,3 +36,21 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.55);
 }
+
+/* Print Media Styles for Thermal Bill & POS Printers */
+@media print {
+  @page {
+    size: 80mm;
+    margin: 0mm;
+  }
+  html, body, #root {
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+

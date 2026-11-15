@@ -315,7 +315,7 @@ class PrinterService {
       };
 
       if (settings.transport === 'BROWSER_DIALOG') {
-        const html = receiptRenderer.renderInvoiceToHtml(invoiceData, settings);
+        const html = await receiptRenderer.renderInvoiceToHtml(invoiceData, settings);
         await receiptRenderer.printHtml(html);
         this.setStatus('CONNECTED');
         return {
@@ -392,7 +392,7 @@ class PrinterService {
       };
 
       if (settings.transport === 'BROWSER_DIALOG') {
-        const html = receiptRenderer.renderTestToHtml(settings);
+        const html = await receiptRenderer.renderTestToHtml(settings);
         await receiptRenderer.printHtml(html);
         this.setStatus('CONNECTED');
         return {

@@ -359,9 +359,9 @@ export const receiptRenderer = {
 
   /**
    * Builds clean HTML formatted for 80mm / 58mm thermal receipts for standard browser printing.
-   * Works on any USB thermal printer via Windows print spooler without special drivers.
+   * Matches the exact thermal receipt bill layout and visual styling seen on-screen.
    */
-  renderInvoiceToHtml(invoiceData: any, settings: PrinterSettings): string {
+  async renderInvoiceToHtml(invoiceData: any, settings: PrinterSettings): Promise<string> {
     const inv = invoiceData.invoice || invoiceData;
     const items = inv.items || [];
     const payments = inv.payments || [];
@@ -371,10 +371,16 @@ export const receiptRenderer = {
 
     const rawShopName = (settings.shopName || '').trim().toUpperCase();
     const shopName =
-      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+      !rawShopName || rawShopName.includes('SR FRUITS') || rawShopName === 'SR'
         ? 'KBN FRUITS'
         : rawShopName;
-    const addressLines = (settings.shopAddress || '')
+    const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
+    const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
+
+    const addressLines = (
+      settings.shopAddress ||
+      'T/A-18,T/E-25,ANNA FRUITS MARKET\nKOYAMBEDU, CHENNAI-600092'
+    )
       .split('\n')
       .map((l: string) => l.trim().toUpperCase())
       .filter(Boolean);
@@ -404,7 +410,7 @@ export const receiptRenderer = {
       inv.createdBy?.username ||
       inv.creator?.name ||
       inv.cashier ||
-      'admin';
+      'Admin';
     const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
     const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
 
@@ -417,13 +423,23 @@ export const receiptRenderer = {
     if (Array.isArray(payments) && payments.length > 0) {
       paymentRows = payments.map((p: any) => {
         const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
-        const lbl = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : 'Cash Received';
+        const lbl = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : `${p.paymentMode || 'Payment'} Paid`;
         return { label: lbl, amount: Number(p.amount || 0) };
       });
     } else if (paidAmount > 0) {
-      paymentRows = [{ label: 'Cash Received', amount: paidAmount }];
-    } else {
-      paymentRows = [{ label: 'Cash Received', amount: 0 }];
+      paymentRows = [{ label: 'Paid Amount', amount: paidAmount }];
+    }
+
+    let logoHtml = '';
+    if (settings.printLogo !== false) {
+      try {
+        const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+        if (logoDataUrl) {
+          logoHtml = `<div class="logo-container"><img src="${logoDataUrl}" class="logo-img" alt="${shopName}" /></div>`;
+        }
+      } catch {
+        logoHtml = '';
+      }
     }
 
     return `<!DOCTYPE html>
@@ -432,9 +448,31 @@ export const receiptRenderer = {
   <meta charset="utf-8">
   <title>Receipt #${invNumber}</title>
   <style>
-    @page { size: ${paperWidthMm} auto; margin: 0; }
+    @page {
+      size: ${paperWidthMm} 297mm;
+      margin: 0mm;
+    }
     @media print {
-      html, body { width: ${contentWidthMm}; margin: 0 auto; padding: 0; }
+      html, body {
+        width: ${contentWidthMm} !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .receipt-container {
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 4px 2px 20px 2px !important;
+      }
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     body {
       width: ${contentWidthMm};
@@ -443,65 +481,263 @@ export const receiptRenderer = {
       font-size: 11px;
       line-height: 1.25;
       color: #000;
-      padding: 4px 0;
+      background: #fff;
+      padding: 4px 2px 20px 2px;
+    }
+    .receipt-container {
+      width: 100%;
+      margin: 0 auto;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .bold { font-weight: bold; }
-    .dashed-line { border-top: 1px dashed #000; margin: 4px 0; }
-    .double-line { border-top: 2px double #000; margin: 4px 0; }
-    .row { display: flex; justify-content: space-between; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th, td { padding: 1.5px 0; vertical-align: top; }
+    .logo-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 3px;
+    }
+    .logo-img {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+    .monogram {
+      text-align: center;
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-bottom: 2px;
+      color: #222;
+    }
+    .shop-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .shop-info {
+      font-size: 10px;
+      text-align: center;
+      line-height: 1.25;
+      margin-top: 2px;
+      color: #333;
+    }
+    .dashed-divider {
+      border-top: 1px dashed #444;
+      margin: 5px 0;
+    }
+    .bill-type {
+      text-align: center;
+      font-weight: bold;
+      font-size: 11.5px;
+      letter-spacing: 1px;
+    }
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 10.5px;
+      padding: 0.5px 0;
+    }
+    .truncate {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .items-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      border-bottom: 1px dashed #444;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
+    }
+    .col-desc { flex: 1; text-align: left; }
+    .col-qty { width: 32px; text-align: right; }
+    .col-rate { width: 50px; text-align: right; }
+    .col-amt { width: 62px; text-align: right; }
+    .item-block {
+      padding: 2.5px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .item-block:last-child {
+      border-bottom: none;
+    }
+    .item-name {
+      font-weight: bold;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .item-subrow {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #333;
+      margin-top: 1px;
+    }
+    .item-unit {
+      color: #666;
+      font-size: 9.5px;
+    }
+    .financial-totals {
+      font-size: 11px;
+    }
+    .financial-totals .flex-row {
+      padding: 1px 0;
+    }
+    .text-rose { color: #b91c1c; }
+    .text-green { color: #047857; }
+    .closing-balance {
+      border-top: 1px dashed #444;
+      padding-top: 3px;
+      margin-top: 2px;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .footer-block {
+      text-align: center;
+      font-size: 10px;
+      color: #444;
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+    .footer-brand {
+      font-size: 9px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .tear-border {
+      border-bottom: 2px dashed #888;
+      margin-top: 8px;
+    }
   </style>
 </head>
-<body>
-  <div class="text-center bold" style="font-size: 14px;">${shopName}</div>
-  ${addressLines.map((l: string) => `<div class="text-center">${l}</div>`).join('')}
-  ${settings.shopPhone ? `<div class="text-center">Ph: ${settings.shopPhone}</div>` : ''}
-  ${settings.shopGst ? `<div class="text-center">GSTIN: ${settings.shopGst}</div>` : ''}
-  <div class="text-right bold" style="margin-top: 4px;">${billType}</div>
-  <div class="bold">${customerName}</div>
-  ${customerPhone ? `<div>${customerPhone}</div>` : ''}
-  <div class="dashed-line"></div>
-  <div class="row"><span>Bill No : ${invNumber}</span><span>Date : ${invDate}</span></div>
-  <div class="row"><span>Cashier : ${cashierName}</span><span>Time : ${invTime}</span></div>
-  <div class="dashed-line"></div>
-  <table>
-    <thead>
-      <tr>
-        <th align="left">Description</th>
-        <th align="right">Qty</th>
-        <th align="right">Rate</th>
-        <th align="right">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${items
-        .map((it: any) => {
-          const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
-          const qty = Number(it.quantity || 0);
-          const rate = Number(it.rate || 0).toFixed(2);
-          const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
-          return `<tr><td>${pName}</td><td align="right">${qty}</td><td align="right">${rate}</td><td align="right">${amt}</td></tr>`;
-        })
-        .join('')}
-    </tbody>
-  </table>
-  <div class="dashed-line"></div>
-  <div class="row"><span>Gross Amount :</span><span>${subtotal.toFixed(2)}</span></div>
-  <div class="row"><span>Net Amount :</span><span>${grandTotal.toFixed(2)}</span></div>
-  ${previousDue > 0 ? `<div class="row"><span>Opening Balance :</span><span>${previousDue.toFixed(2)}</span></div>` : ''}
-  ${previousDue > 0 ? `<div class="row"><span>Total Amt :</span><span>${totalPayable.toFixed(2)}</span></div>` : ''}
-  ${paymentRows.map((p) => `<div class="row"><span>${p.label} :</span><span>${p.amount.toFixed(2)}</span></div>`).join('')}
-  <div class="row bold"><span>Closing Balance :</span><span>${balanceDue.toFixed(2)}</span></div>
-  <div class="dashed-line"></div>
-  <div class="row"><span>No.Of.Items : ${items.length}</span><span>Total Qty : ${totalQty}</span></div>
-  <div class="dashed-line"></div>
-  <div class="text-center" style="margin-top: 6px;">*** THANK YOU VISIT AGAIN ***</div>
-  ${settings.footerTerms ? `<div class="text-center">${settings.footerTerms}</div>` : ''}
-  ${settings.footerTagline ? `<div class="text-center">${settings.footerTagline}</div>` : ''}
-  <div class="text-center" style="font-size: 9px; margin-top: 4px; color: #444;">TVS RP-3200 · Direct ESC/POS</div>
+<body data-paper="${paperWidthMm}">
+  <div class="receipt-container">
+    ${logoHtml}
+    ${initials ? `<div class="monogram">[${initials}]</div>` : ''}
+    <div class="shop-title">${shopName}</div>
+    <div class="shop-info">
+      ${addressLines.join('<br>')}
+      <div>Phone: ${settings.shopPhone || '8778219770'}${settings.shopGst ? ` · GSTIN: ${settings.shopGst}` : ''}</div>
+    </div>
+
+    <div class="dashed-divider"></div>
+    <div class="bill-type">*** ${billType} ***</div>
+    <div class="dashed-divider"></div>
+
+    <div class="customer-section">
+      <div class="flex-row">
+        <span style="color: #555;">Customer:</span>
+        <span class="bold truncate">${customerName}</span>
+      </div>
+      ${customerPhone ? `
+      <div class="flex-row">
+        <span style="color: #555;">Mobile:</span>
+        <span>${customerPhone}</span>
+      </div>` : ''}
+    </div>
+
+    <div class="dashed-divider"></div>
+
+    <div class="metadata-section">
+      <div class="flex-row">
+        <span>Bill No: <strong class="bold">${invNumber}</strong></span>
+        <span>Date: ${invDate}</span>
+      </div>
+      <div class="flex-row">
+        <span>Cashier: ${cashierName}</span>
+        <span>Time: ${invTime}</span>
+      </div>
+    </div>
+
+    <div class="dashed-divider"></div>
+
+    <div class="items-header">
+      <span class="col-desc">Description</span>
+      <span class="col-qty">Qty</span>
+      <span class="col-rate">Rate</span>
+      <span class="col-amt">Amount</span>
+    </div>
+
+    <div class="items-list">
+      ${items.map((it: any) => {
+        const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
+        const variety = (it.variety || it.unit || 'BOX').toUpperCase();
+        const qty = Number(it.quantity || 0);
+        const rate = Number(it.rate || 0).toFixed(2);
+        const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
+        return `
+        <div class="item-block">
+          <div class="item-name">${pName}</div>
+          <div class="item-subrow">
+            <span class="item-unit">${variety}</span>
+            <span class="col-qty">${qty}</span>
+            <span class="col-rate">${rate}</span>
+            <span class="col-amt bold">${amt}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="dashed-divider"></div>
+
+    <div class="financial-totals">
+      <div class="flex-row">
+        <span>Gross Amount :</span>
+        <span>₹${subtotal.toFixed(2)}</span>
+      </div>
+      <div class="flex-row bold">
+        <span>Net Amount :</span>
+        <span>₹${grandTotal.toFixed(2)}</span>
+      </div>
+      ${previousDue > 0 ? `
+      <div class="flex-row text-rose">
+        <span>Opening Balance :</span>
+        <span>+ ₹${previousDue.toFixed(2)}</span>
+      </div>
+      <div class="flex-row bold">
+        <span>Total Amt :</span>
+        <span>₹${totalPayable.toFixed(2)}</span>
+      </div>
+      ` : ''}
+      ${paymentRows.map((p) => `
+      <div class="flex-row text-green">
+        <span>${p.label} :</span>
+        <span>- ₹${p.amount.toFixed(2)}</span>
+      </div>
+      `).join('')}
+      <div class="flex-row closing-balance">
+        <span>Closing Balance :</span>
+        <span>₹${balanceDue.toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="dashed-divider"></div>
+
+    <div class="flex-row" style="color: #444;">
+      <span>No.Of.Items : <strong>${items.length}</strong></span>
+      <span>Total Qty : <strong>${totalQty}</strong></span>
+    </div>
+
+    <div class="dashed-divider"></div>
+
+    <div class="footer-block">
+      <div class="bold">*** THANK YOU VISIT AGAIN ***</div>
+      <div>${settings.footerTerms || 'Goods once sold cannot be taken back'}</div>
+      ${settings.footerTagline ? `<div>${settings.footerTagline}</div>` : ''}
+      <div class="footer-brand">TVS RP-3200 · Direct ESC/POS</div>
+    </div>
+
+    <div class="tear-border"></div>
+  </div>
 </body>
 </html>`;
   },
@@ -509,16 +745,30 @@ export const receiptRenderer = {
   /**
    * Builds clean HTML for test print receipt.
    */
-  renderTestToHtml(settings: PrinterSettings): string {
+  async renderTestToHtml(settings: PrinterSettings): Promise<string> {
     const is58mm = settings.paperSize === '58mm';
     const paperWidthMm = is58mm ? '58mm' : '80mm';
     const contentWidthMm = is58mm ? '48mm' : '72mm';
     const now = new Date();
     const rawShopName = (settings.shopName || '').trim().toUpperCase();
     const shopName =
-      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+      !rawShopName || rawShopName.includes('SR FRUITS') || rawShopName === 'SR'
         ? 'KBN FRUITS'
         : rawShopName;
+    const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
+    const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
+
+    let logoHtml = '';
+    if (settings.printLogo !== false) {
+      try {
+        const logoDataUrl = await getScaledThermalLogo(kbnLogo, is58mm ? 120 : 160);
+        if (logoDataUrl) {
+          logoHtml = `<div class="logo-container"><img src="${logoDataUrl}" class="logo-img" alt="${shopName}" /></div>`;
+        }
+      } catch {
+        logoHtml = '';
+      }
+    }
 
     return `<!DOCTYPE html>
 <html>
@@ -526,9 +776,31 @@ export const receiptRenderer = {
   <meta charset="utf-8">
   <title>TVS RP-3200 Test Print</title>
   <style>
-    @page { size: ${paperWidthMm} auto; margin: 0; }
+    @page {
+      size: ${paperWidthMm} 200mm;
+      margin: 0mm;
+    }
     @media print {
-      html, body { width: ${contentWidthMm}; margin: 0 auto; padding: 0; }
+      html, body {
+        width: ${contentWidthMm} !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .receipt-container {
+        width: ${contentWidthMm} !important;
+        max-width: ${contentWidthMm} !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 4px 2px 20px 2px !important;
+      }
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     body {
       width: ${contentWidthMm};
@@ -537,37 +809,47 @@ export const receiptRenderer = {
       font-size: 11px;
       line-height: 1.3;
       color: #000;
-      padding: 6px 0;
+      background: #fff;
+      padding: 6px 2px 20px 2px;
     }
+    .receipt-container { width: 100%; margin: 0 auto; }
     .text-center { text-align: center; }
     .bold { font-weight: bold; }
-    .dashed-line { border-top: 1px dashed #000; margin: 4px 0; }
-    .double-line { border-top: 2px double #000; margin: 4px 0; }
-    .row { display: flex; justify-content: space-between; }
+    .logo-container { display: flex; justify-content: center; margin-bottom: 3px; }
+    .logo-img { width: 54px; height: 54px; object-fit: contain; display: block; margin: 0 auto; }
+    .monogram { text-align: center; font-weight: 900; font-size: 11px; letter-spacing: 2px; margin-bottom: 2px; color: #222; }
+    .dashed-divider { border-top: 1px dashed #444; margin: 5px 0; }
+    .double-divider { border-top: 2px double #000; margin: 5px 0; }
+    .flex-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 1px 0; }
   </style>
 </head>
-<body>
-  <div class="text-center bold" style="font-size: 14px;">${shopName}</div>
-  <div class="text-center">TVS RP-3200 HARDWARE TEST</div>
-  <div class="double-line"></div>
-  <div class="row"><span>Target Hardware:</span><span>TVS RP-3200</span></div>
-  <div class="row"><span>Width Mode:</span><span>${is58mm ? '58mm' : '80mm'}</span></div>
-  <div class="row"><span>Transport:</span><span>System / Browser Print</span></div>
-  <div class="row"><span>Date / Time:</span><span>${formatReceiptDate(now)} ${formatReceiptTime(now)}</span></div>
-  <div class="dashed-line"></div>
-  <div class="row"><span>TVS TEST ITEM 1</span><span>1.00  100.00</span></div>
-  <div class="row"><span>TVS TEST ITEM 2</span><span>2.00  250.00</span></div>
-  <div class="dashed-line"></div>
-  <div class="row bold"><span>TOTAL :</span><span>600.00</span></div>
-  <div class="double-line"></div>
-  <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
-  <div class="text-center" style="font-size: 9px; color: #555;">TVS RP-3200 · Browser Print Engine</div>
+<body data-paper="${paperWidthMm}">
+  <div class="receipt-container">
+    ${logoHtml}
+    ${initials ? `<div class="monogram">[${initials}]</div>` : ''}
+    <div class="text-center bold" style="font-size: 13.5px;">${shopName}</div>
+    <div class="text-center" style="font-size: 11px; font-weight: bold; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
+    <div class="double-divider"></div>
+    <div class="flex-row"><span>Target Hardware:</span><span>TVS RP-3200</span></div>
+    <div class="flex-row"><span>Width Mode:</span><span>${paperWidthMm}</span></div>
+    <div class="flex-row"><span>Transport:</span><span>System / Browser Print</span></div>
+    <div class="flex-row"><span>Date / Time:</span><span>${formatReceiptDate(now)} ${formatReceiptTime(now)}</span></div>
+    <div class="dashed-divider"></div>
+    <div class="flex-row"><span>TVS TEST ITEM 1</span><span>1.00  100.00</span></div>
+    <div class="flex-row"><span>TVS TEST ITEM 2</span><span>2.00  250.00</span></div>
+    <div class="dashed-divider"></div>
+    <div class="flex-row bold"><span>TOTAL :</span><span>600.00</span></div>
+    <div class="double-divider"></div>
+    <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
+    <div class="text-center" style="font-size: 9px; color: #555; margin-top: 3px;">TVS RP-3200 · Browser Print Engine</div>
+  </div>
 </body>
 </html>`;
   },
 
   /**
-   * Prints HTML formatted thermal receipt silently via an invisible iframe.
+   * Prints HTML formatted thermal receipt silently via an invisible iframe,
+   * dynamically calculating exact receipt height so browser preview matches thermal roll size.
    */
   printHtml(htmlContent: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -579,7 +861,7 @@ export const receiptRenderer = {
         iframe.style.top = '-10000px';
         iframe.style.left = '-10000px';
         iframe.style.width = '80mm';
-        iframe.style.height = '100mm';
+        iframe.style.height = '1200px';
         iframe.style.border = 'none';
         document.body.appendChild(iframe);
       }
@@ -596,13 +878,31 @@ export const receiptRenderer = {
 
       setTimeout(() => {
         try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
+          const win = iframe.contentWindow;
+          if (win && win.document) {
+            const body = win.document.body;
+            const scrollHeight = body.scrollHeight || 500;
+            const contentHeightMm = Math.max(100, Math.ceil((scrollHeight * 25.4) / 96) + 12);
+
+            const is58mm = body.getAttribute('data-paper') === '58mm';
+            const widthMm = is58mm ? '58mm' : '80mm';
+
+            const styleEl = win.document.createElement('style');
+            styleEl.id = 'dynamic-page-size';
+            styleEl.innerHTML = `@page { size: ${widthMm} ${contentHeightMm}mm !important; margin: 0mm !important; }`;
+            win.document.head.appendChild(styleEl);
+
+            win.focus();
+            win.print();
+          } else {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          }
         } catch {
           window.print();
         }
         resolve(true);
-      }, 250);
+      }, 350);
     });
   },
 };
