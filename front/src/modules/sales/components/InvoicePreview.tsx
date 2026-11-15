@@ -382,7 +382,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             )}
             {effectiveInitials && (
               <div className="text-center font-black text-xs tracking-widest uppercase mb-0.5 text-slate-700">
-                [{effectiveInitials}]
+                {effectiveInitials}
               </div>
             )}
             <div className="text-center font-extrabold text-sm uppercase tracking-wide">

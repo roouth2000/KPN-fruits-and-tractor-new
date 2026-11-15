@@ -533,7 +533,7 @@ export const receiptRenderer = {
     // Header block
     const headerLines: string[] = [];
     if (initials) {
-      headerLines.push(`<b>${padCenter('[' + initials + ']', width)}</b>`);
+      headerLines.push(`<b>${padCenter(initials, width)}</b>`);
     }
     headerLines.push(`<b>${padCenter(shopName, width)}</b>`);
     for (const addr of addressLines) {
@@ -761,7 +761,7 @@ export const receiptRenderer = {
     }
 
     const testLines: string[] = [
-      initials ? `<b>${padCenter('[' + initials + ']', width)}</b>` : '',
+      initials ? `<b>${padCenter(initials, width)}</b>` : '',
       `<b>${padCenter(shopName, width)}</b>`,
       `<b>${padCenter('TVS RP-3200 HARDWARE TEST', width)}</b>`,
       doubleDivider,
