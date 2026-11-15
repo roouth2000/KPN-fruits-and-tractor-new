@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 const { sequelize, Role, Permission, RolePermission, User } = require('../../models');
 
 const permissionsList = [
@@ -225,13 +226,21 @@ async function seedRolesAndPermissions() {
     ];
 
     for (const u of usersToSeed) {
-      const existing = await User.findOne({ where: { email: u.email }, transaction });
+      const existing = await User.findOne({
+        where: {
+          [Op.or]: [
+            { username: u.username },
+            { email: u.email },
+          ],
+        },
+        transaction,
+      });
       if (existing) {
         await existing.update(u, { transaction });
-        console.log(`- Updated staff account: ${u.name} [${u.role}] (${u.email})`);
+        console.log(`- Updated staff account: ${u.name} [${u.role}] (${u.username})`);
       } else {
         await User.create(u, { transaction });
-        console.log(`- Created staff account: ${u.name} [${u.role}] (${u.email})`);
+        console.log(`- Created staff account: ${u.name} [${u.role}] (${u.username})`);
       }
     }
 
