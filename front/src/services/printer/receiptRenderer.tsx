@@ -97,21 +97,6 @@ function formatReceiptTime(d?: string | Date | null): string {
   return `${strHours}: ${minutes} ${ampm}`;
 }
 
-function getAbsoluteUrl(url?: string): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url;
-  }
-  if (typeof window !== 'undefined' && window.location) {
-    try {
-      return new URL(url, window.location.origin).href;
-    } catch {
-      return url;
-    }
-  }
-  return url;
-}
-
 // Monospace ASCII formatting helpers for thermal printers
 function toAscii(str: string): string {
   if (!str) return '';
@@ -520,13 +505,21 @@ export const receiptRenderer = {
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
     const logoWidth = is58mm ? 120 : 150;
-    const rawLogoSrc = settings.logoUrl || kbnLogo;
-    const logoSrc = getAbsoluteUrl(rawLogoSrc);
+
+    let processedLogoSrc = '';
+    if (settings.printLogo !== false) {
+      try {
+        const rawLogoSrc = settings.logoUrl || kbnLogo;
+        processedLogoSrc = await getScaledThermalLogo(rawLogoSrc, is58mm ? 120 : 150);
+      } catch (err) {
+        console.warn('Failed preparing logo for HTML print:', err);
+      }
+    }
 
     let logoHtml = '';
-    if (settings.printLogo !== false && logoSrc) {
-      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
-        <img src="${logoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
+    if (processedLogoSrc) {
+      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto; padding: 0;">
+        <img src="${processedLogoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
       </div>`;
     }
 
@@ -623,9 +616,6 @@ export const receiptRenderer = {
       '',
       '',
       '',
-      '',
-      '',
-      '\x1D\x56\x00',
     ].filter((line) => line !== null && line !== undefined);
 
     const allLines = [
@@ -640,8 +630,8 @@ export const receiptRenderer = {
 
     const renderedReceiptText = allLines.join('\n');
     const estimatedHeightMm = Math.max(
-      160,
-      110 + (items.length * 10) + (paymentRows.length * 6) + (settings.printLogo !== false ? 40 : 0) + 35
+      150,
+      110 + (items.length * 10) + (paymentRows.length * 6) + (settings.printLogo !== false ? 40 : 0) + 25
     );
 
     return `<!DOCTYPE html>
@@ -672,7 +662,7 @@ export const receiptRenderer = {
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 0 0 !important;
+        padding: 0 !important;
       }
       img {
         display: block !important;
@@ -680,11 +670,6 @@ export const receiptRenderer = {
         print-color-adjust: exact !important;
         image-rendering: -webkit-optimize-contrast !important;
         image-rendering: pixelated !important;
-      }
-      .receipt-cutter-feed {
-        display: block !important;
-        height: 35mm !important;
-        width: 100% !important;
       }
     }
     * {
@@ -708,7 +693,7 @@ export const receiptRenderer = {
       line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 2px 0 0 0;
+      padding: 0;
     }
     .receipt-container {
       width: ${contentWidthMm};
@@ -731,18 +716,12 @@ export const receiptRenderer = {
     pre.receipt-mono b {
       font-weight: bold;
     }
-    .receipt-cutter-feed {
-      display: block;
-      height: 35mm;
-      width: 100%;
-    }
   </style>
 </head>
 <body data-paper="${paperWidthMm}" data-est-height="${estimatedHeightMm}">
   <div class="receipt-container">
     ${logoHtml}
     <pre class="receipt-mono">${renderedReceiptText}</pre>
-    <div class="receipt-cutter-feed"></div>
   </div>
 </body>
 </html>`;
@@ -768,13 +747,21 @@ export const receiptRenderer = {
     const lineDivider = '-'.repeat(width);
     const doubleDivider = '='.repeat(width);
     const logoWidth = is58mm ? 120 : 150;
-    const rawLogoSrc = settings.logoUrl || kbnLogo;
-    const logoSrc = getAbsoluteUrl(rawLogoSrc);
+
+    let processedLogoSrc = '';
+    if (settings.printLogo !== false) {
+      try {
+        const rawLogoSrc = settings.logoUrl || kbnLogo;
+        processedLogoSrc = await getScaledThermalLogo(rawLogoSrc, is58mm ? 120 : 150);
+      } catch (err) {
+        console.warn('Failed preparing logo for test print:', err);
+      }
+    }
 
     let logoHtml = '';
-    if (settings.printLogo !== false && logoSrc) {
-      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto;">
-        <img src="${logoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-filter: grayscale(100%) contrast(300%) brightness(95%); -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
+    if (processedLogoSrc) {
+      logoHtml = `<div style="text-align: center; margin: 0 auto 6px auto; padding: 0;">
+        <img src="${processedLogoSrc}" width="${logoWidth}" height="${logoWidth}" class="thermal-logo" alt="${shopName}" style="display: block; margin: 0 auto; width: ${logoWidth}px; max-width: ${logoWidth}px; height: auto; object-fit: contain; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;" />
       </div>`;
     }
 
@@ -801,9 +788,6 @@ export const receiptRenderer = {
       '',
       '',
       '',
-      '',
-      '',
-      '\x1D\x56\x00',
     ].filter((line) => line !== null && line !== undefined);
 
     const renderedTestText = testLines.join('\n');
@@ -837,7 +821,7 @@ export const receiptRenderer = {
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
-        padding: 2px 0 0 0 !important;
+        padding: 0 !important;
       }
       img {
         display: block !important;
@@ -845,11 +829,6 @@ export const receiptRenderer = {
         print-color-adjust: exact !important;
         image-rendering: -webkit-optimize-contrast !important;
         image-rendering: pixelated !important;
-      }
-      .receipt-cutter-feed {
-        display: block !important;
-        height: 35mm !important;
-        width: 100% !important;
       }
     }
     * { box-sizing: border-box; }
@@ -869,7 +848,7 @@ export const receiptRenderer = {
       line-height: 1.25;
       color: #000;
       background: #fff;
-      padding: 2px 0 0 0;
+      padding: 0;
     }
     .receipt-container {
       width: ${contentWidthMm};
@@ -892,18 +871,12 @@ export const receiptRenderer = {
     pre.receipt-mono b {
       font-weight: bold;
     }
-    .receipt-cutter-feed {
-      display: block;
-      height: 35mm;
-      width: 100%;
-    }
   </style>
 </head>
 <body data-paper="${paperWidthMm}" data-est-height="${estimatedHeightMm}">
   <div class="receipt-container">
     ${logoHtml}
     <pre class="receipt-mono">${renderedTestText}</pre>
-    <div class="receipt-cutter-feed"></div>
   </div>
 </body>
 </html>`;
@@ -912,7 +885,7 @@ export const receiptRenderer = {
   /**
    * Prints HTML formatted thermal receipt silently via an invisible iframe,
    * waiting for images to complete and dynamically calculating exact receipt height
-   * so receipts with 10+ products scale dynamically without page-splitting or truncation.
+   * so receipts scale dynamically without page-splitting, headers, or truncation.
    */
   printHtml(htmlContent: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -930,7 +903,7 @@ export const receiptRenderer = {
       iframe.style.bottom = '0';
       iframe.style.right = '0';
       iframe.style.width = widthMm;
-      iframe.style.height = '8000px';
+      iframe.style.height = '6000px';
       iframe.style.border = 'none';
       iframe.style.opacity = '0.01';
       iframe.style.pointerEvents = 'none';
@@ -954,7 +927,7 @@ export const receiptRenderer = {
             const body = win.document.body;
             const container = win.document.querySelector('.receipt-container') as HTMLElement | null;
             const pre = win.document.querySelector('.receipt-mono') as HTMLElement | null;
-            const estHeightAttr = Number(body?.getAttribute('data-est-height')) || 160;
+            const estHeightAttr = Number(body?.getAttribute('data-est-height')) || 150;
 
             // Measure actual unconstrained DOM height in pixels
             const measuredPx = Math.max(
@@ -966,9 +939,13 @@ export const receiptRenderer = {
             );
 
             // Convert px to mm at 96 DPI: 1 px = 25.4 / 96 mm
-            // Add +32mm feed margin to clear thermal printhead and cutter blade
-            const measuredMm = Math.ceil((measuredPx * 25.4) / 96) + 32;
-            const contentHeightMm = Math.max(estHeightAttr, measuredMm, 140);
+            // Add +15mm feed margin so the blade cuts cleanly after the trailing blank lines
+            const measuredMm = Math.ceil((measuredPx * 25.4) / 96) + 15;
+            const contentHeightMm = Math.max(estHeightAttr, measuredMm, 120);
+
+            // Shrink iframe to exact receipt height so Chrome treats the print job as exactly 1 page
+            iframe.style.height = `${contentHeightMm}mm`;
+            iframe.style.maxHeight = `${contentHeightMm}mm`;
 
             const styleEl = win.document.createElement('style');
             styleEl.id = 'dynamic-page-size';
@@ -981,6 +958,7 @@ export const receiptRenderer = {
                 html, body {
                   width: ${widthMm} !important;
                   height: ${contentHeightMm}mm !important;
+                  max-height: ${contentHeightMm}mm !important;
                   margin: 0mm !important;
                   padding: 0mm !important;
                   overflow: hidden !important;
@@ -990,12 +968,7 @@ export const receiptRenderer = {
                 .receipt-container {
                   width: ${widthMm} !important;
                   margin: 0mm !important;
-                  padding: 2mm 0mm 0mm 0mm !important;
-                }
-                .receipt-cutter-feed {
-                  display: block !important;
-                  height: 35mm !important;
-                  width: 100% !important;
+                  padding: 0mm !important;
                 }
               }
             `;
