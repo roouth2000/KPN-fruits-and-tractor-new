@@ -10,8 +10,8 @@ import {
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
-  const [identifier, setIdentifier] = useState('salesperson@finovore.com');
-  const [password, setPassword] = useState('Sales@123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,9 +83,10 @@ export const LoginPage: React.FC = () => {
                   type="text"
                   required
                   autoFocus
+                  autoComplete="username"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. salesperson@finovore.com or admin"
+                  placeholder="Enter staff username or email"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:border-emerald-500 transition-all font-medium"
                 />
               </div>
@@ -109,6 +110,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
@@ -140,7 +142,7 @@ export const LoginPage: React.FC = () => {
         {/* Security Footer Notice */}
         <div className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
           <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Role-Based Access Control Active · APMC Vashi Terminal</span>
+          <span>Role-Based Access Control Active · Terminal Login</span>
         </div>
       </div>
     </div>
