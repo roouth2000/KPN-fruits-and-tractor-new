@@ -121,7 +121,7 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
           <div className="flex items-center gap-2">
             <span
               className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                status === 'CONNECTED'
+                transport === 'BROWSER_DIALOG' || status === 'CONNECTED'
                   ? 'bg-emerald-500 shadow-xs shadow-emerald-500/50'
                   : status === 'CONNECTING' || status === 'PRINTING'
                   ? 'bg-blue-500 animate-ping'
@@ -129,7 +129,9 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
               }`}
             />
             <h3 className="font-bold text-slate-900 text-sm">
-              {status === 'CONNECTED'
+              {transport === 'BROWSER_DIALOG'
+                ? 'TVS RP-3200 System Printer (Ready)'
+                : status === 'CONNECTED'
                 ? 'TVS RP-3200 Printer Connected'
                 : status === 'CONNECTING'
                 ? 'Connecting to Hardware...'
@@ -139,7 +141,9 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
             </h3>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            {device
+            {transport === 'BROWSER_DIALOG'
+              ? 'Prints directly to TVS RP-3200 via Windows USB Print Spooler (Zero setup / No COM port required).'
+              : device
               ? device.name
               : 'Direct browser-to-printer ESC/POS communication via Web Serial (Zero background apps required).'}
           </p>
@@ -147,7 +151,12 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {status !== 'CONNECTED' ? (
+          {transport === 'BROWSER_DIALOG' ? (
+            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Windows USB Driver Active</span>
+            </span>
+          ) : status !== 'CONNECTED' ? (
             <>
               <button
                 type="button"
@@ -203,17 +212,19 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
             </label>
             <select
               value={transport}
-              disabled={status === 'CONNECTED'}
               onChange={(e) => onTransportChange(e.target.value as PrinterTransport)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="WEB_SERIAL">Web Serial API (Recommended / COM Port)</option>
-              <option value="WEB_USB">WebUSB API (Direct USB Endpoint)</option>
+              <option value="BROWSER_DIALOG">System / Browser Print (Recommended for USB - Zero Driver Setup)</option>
+              <option value="WEB_SERIAL">Web Serial API (Virtual COM / RS-232)</option>
+              <option value="WEB_USB">WebUSB API (Direct USB Endpoint - Requires WinUSB)</option>
             </select>
             <span className="text-[10.5px] text-slate-500 mt-1 block">
-              {transport === 'WEB_SERIAL'
+              {transport === 'BROWSER_DIALOG'
+                ? 'Prints directly to TVS RP-3200 via Windows Print Spooler (Works immediately with standard USB cable).'
+                : transport === 'WEB_SERIAL'
                 ? 'Communicates with TVS RP-3200 via USB Virtual COM or RS-232 serial cable.'
-                : 'Direct USB endpoint communication (for USB Class 7 interfaces).'}
+                : 'Direct USB endpoint communication (for USB Class 7 interfaces with WinUSB).'}
             </span>
           </div>
 
@@ -375,20 +386,20 @@ export const PrinterConnection: React.FC<PrinterConnectionProps> = ({
             <span className="font-semibold block mb-0.5">Connection Error:</span>
             {errorMessage}
           </div>
-          {transport === 'WEB_USB' && errorMessage.toLowerCase().includes('access denied') && (
-            <div className="pt-1.5 border-t border-rose-200 flex items-center justify-between flex-wrap gap-2">
-              <span className="text-[11px] text-rose-700">
-                💡 Tip: On Windows, TVS RP-3200 connects reliably via Virtual COM Port.
+          {transport !== 'BROWSER_DIALOG' && (
+            <div className="pt-2 border-t border-rose-200 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] text-rose-800 font-medium">
+                💡 Instant Fix: Switch to "System / Browser Print" to print directly to your USB printer without any COM port setup.
               </span>
               <button
                 type="button"
                 onClick={() => {
-                  onTransportChange('WEB_SERIAL');
+                  onTransportChange('BROWSER_DIALOG');
                   setErrorMessage(null);
                 }}
-                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium text-[11px] cursor-pointer transition-colors"
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs cursor-pointer transition-colors shadow-xs"
               >
-                Switch to Web Serial API
+                Switch to System / Browser Print
               </button>
             </div>
           )}

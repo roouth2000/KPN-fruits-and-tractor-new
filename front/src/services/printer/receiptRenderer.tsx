@@ -356,4 +356,253 @@ export const receiptRenderer = {
 
     return await render(testElement);
   },
+
+  /**
+   * Builds clean HTML formatted for 80mm / 58mm thermal receipts for standard browser printing.
+   * Works on any USB thermal printer via Windows print spooler without special drivers.
+   */
+  renderInvoiceToHtml(invoiceData: any, settings: PrinterSettings): string {
+    const inv = invoiceData.invoice || invoiceData;
+    const items = inv.items || [];
+    const payments = inv.payments || [];
+    const is58mm = settings.paperSize === '58mm';
+    const paperWidthMm = is58mm ? '58mm' : '80mm';
+    const contentWidthMm = is58mm ? '48mm' : '72mm';
+
+    const rawShopName = (settings.shopName || '').trim().toUpperCase();
+    const shopName =
+      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+        ? 'KBN FRUITS'
+        : rawShopName;
+    const addressLines = (settings.shopAddress || '')
+      .split('\n')
+      .map((l: string) => l.trim().toUpperCase())
+      .filter(Boolean);
+
+    let billType = 'CREDITBILL';
+    const rawSaleType = String(inv.saleType || '').toUpperCase();
+    const balanceDue = Number(inv.balanceDue || 0);
+    const paidAmount = Number(inv.paidAmount || 0);
+    const grandTotal = Number(inv.grandTotal || 0);
+
+    if (rawSaleType === 'CASH') {
+      billType = 'CASHBILL';
+    } else if (rawSaleType === 'CREDIT') {
+      billType = 'CREDITBILL';
+    } else if (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0) {
+      billType = 'CASHBILL';
+    }
+
+    const customerName = (
+      inv.customerName ||
+      (inv.customer ? inv.customer.name : 'Walk-in Customer')
+    ).toUpperCase();
+    const customerPhone = inv.customerPhone || (inv.customer ? inv.customer.phone : '');
+    const invNumber = inv.invoiceNumber || '1453';
+    const cashierName =
+      inv.createdBy?.name ||
+      inv.createdBy?.username ||
+      inv.creator?.name ||
+      inv.cashier ||
+      'admin';
+    const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
+    const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
+
+    const subtotal = Number(inv.subtotal || grandTotal || 0);
+    const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
+    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+
+    let paymentRows: { label: string; amount: number }[] = [];
+    if (Array.isArray(payments) && payments.length > 0) {
+      paymentRows = payments.map((p: any) => {
+        const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
+        const lbl = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : 'Cash Received';
+        return { label: lbl, amount: Number(p.amount || 0) };
+      });
+    } else if (paidAmount > 0) {
+      paymentRows = [{ label: 'Cash Received', amount: paidAmount }];
+    } else {
+      paymentRows = [{ label: 'Cash Received', amount: 0 }];
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt #${invNumber}</title>
+  <style>
+    @page { size: ${paperWidthMm} auto; margin: 0; }
+    @media print {
+      html, body { width: ${contentWidthMm}; margin: 0 auto; padding: 0; }
+    }
+    body {
+      width: ${contentWidthMm};
+      margin: 0 auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.25;
+      color: #000;
+      padding: 4px 0;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .bold { font-weight: bold; }
+    .dashed-line { border-top: 1px dashed #000; margin: 4px 0; }
+    .double-line { border-top: 2px double #000; margin: 4px 0; }
+    .row { display: flex; justify-content: space-between; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 1.5px 0; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <div class="text-center bold" style="font-size: 14px;">${shopName}</div>
+  ${addressLines.map((l: string) => `<div class="text-center">${l}</div>`).join('')}
+  ${settings.shopPhone ? `<div class="text-center">Ph: ${settings.shopPhone}</div>` : ''}
+  ${settings.shopGst ? `<div class="text-center">GSTIN: ${settings.shopGst}</div>` : ''}
+  <div class="text-right bold" style="margin-top: 4px;">${billType}</div>
+  <div class="bold">${customerName}</div>
+  ${customerPhone ? `<div>${customerPhone}</div>` : ''}
+  <div class="dashed-line"></div>
+  <div class="row"><span>Bill No : ${invNumber}</span><span>Date : ${invDate}</span></div>
+  <div class="row"><span>Cashier : ${cashierName}</span><span>Time : ${invTime}</span></div>
+  <div class="dashed-line"></div>
+  <table>
+    <thead>
+      <tr>
+        <th align="left">Description</th>
+        <th align="right">Qty</th>
+        <th align="right">Rate</th>
+        <th align="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items
+        .map((it: any) => {
+          const pName = (it.productName || it.product?.name || 'Produce').toUpperCase();
+          const qty = Number(it.quantity || 0);
+          const rate = Number(it.rate || 0).toFixed(2);
+          const amt = Number(it.totalAmount || qty * Number(it.rate || 0)).toFixed(2);
+          return `<tr><td>${pName}</td><td align="right">${qty}</td><td align="right">${rate}</td><td align="right">${amt}</td></tr>`;
+        })
+        .join('')}
+    </tbody>
+  </table>
+  <div class="dashed-line"></div>
+  <div class="row"><span>Gross Amount :</span><span>${subtotal.toFixed(2)}</span></div>
+  <div class="row"><span>Net Amount :</span><span>${grandTotal.toFixed(2)}</span></div>
+  ${previousDue > 0 ? `<div class="row"><span>Opening Balance :</span><span>${previousDue.toFixed(2)}</span></div>` : ''}
+  ${previousDue > 0 ? `<div class="row"><span>Total Amt :</span><span>${totalPayable.toFixed(2)}</span></div>` : ''}
+  ${paymentRows.map((p) => `<div class="row"><span>${p.label} :</span><span>${p.amount.toFixed(2)}</span></div>`).join('')}
+  <div class="row bold"><span>Closing Balance :</span><span>${balanceDue.toFixed(2)}</span></div>
+  <div class="dashed-line"></div>
+  <div class="row"><span>No.Of.Items : ${items.length}</span><span>Total Qty : ${totalQty}</span></div>
+  <div class="dashed-line"></div>
+  <div class="text-center" style="margin-top: 6px;">*** THANK YOU VISIT AGAIN ***</div>
+  ${settings.footerTerms ? `<div class="text-center">${settings.footerTerms}</div>` : ''}
+  ${settings.footerTagline ? `<div class="text-center">${settings.footerTagline}</div>` : ''}
+  <div class="text-center" style="font-size: 9px; margin-top: 4px; color: #444;">TVS RP-3200 · Direct ESC/POS</div>
+</body>
+</html>`;
+  },
+
+  /**
+   * Builds clean HTML for test print receipt.
+   */
+  renderTestToHtml(settings: PrinterSettings): string {
+    const is58mm = settings.paperSize === '58mm';
+    const paperWidthMm = is58mm ? '58mm' : '80mm';
+    const contentWidthMm = is58mm ? '48mm' : '72mm';
+    const now = new Date();
+    const rawShopName = (settings.shopName || '').trim().toUpperCase();
+    const shopName =
+      !rawShopName || rawShopName === 'SR FRUITS' || rawShopName === 'SR'
+        ? 'KBN FRUITS'
+        : rawShopName;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TVS RP-3200 Test Print</title>
+  <style>
+    @page { size: ${paperWidthMm} auto; margin: 0; }
+    @media print {
+      html, body { width: ${contentWidthMm}; margin: 0 auto; padding: 0; }
+    }
+    body {
+      width: ${contentWidthMm};
+      margin: 0 auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+      color: #000;
+      padding: 6px 0;
+    }
+    .text-center { text-align: center; }
+    .bold { font-weight: bold; }
+    .dashed-line { border-top: 1px dashed #000; margin: 4px 0; }
+    .double-line { border-top: 2px double #000; margin: 4px 0; }
+    .row { display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="text-center bold" style="font-size: 14px;">${shopName}</div>
+  <div class="text-center">TVS RP-3200 HARDWARE TEST</div>
+  <div class="double-line"></div>
+  <div class="row"><span>Target Hardware:</span><span>TVS RP-3200</span></div>
+  <div class="row"><span>Width Mode:</span><span>${is58mm ? '58mm' : '80mm'}</span></div>
+  <div class="row"><span>Transport:</span><span>System / Browser Print</span></div>
+  <div class="row"><span>Date / Time:</span><span>${formatReceiptDate(now)} ${formatReceiptTime(now)}</span></div>
+  <div class="dashed-line"></div>
+  <div class="row"><span>TVS TEST ITEM 1</span><span>1.00  100.00</span></div>
+  <div class="row"><span>TVS TEST ITEM 2</span><span>2.00  250.00</span></div>
+  <div class="dashed-line"></div>
+  <div class="row bold"><span>TOTAL :</span><span>600.00</span></div>
+  <div class="double-line"></div>
+  <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
+  <div class="text-center" style="font-size: 9px; color: #555;">TVS RP-3200 · Browser Print Engine</div>
+</body>
+</html>`;
+  },
+
+  /**
+   * Prints HTML formatted thermal receipt silently via an invisible iframe.
+   */
+  printHtml(htmlContent: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      let iframe = document.getElementById('thermal-print-iframe') as HTMLIFrameElement;
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'thermal-print-iframe';
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-10000px';
+        iframe.style.left = '-10000px';
+        iframe.style.width = '80mm';
+        iframe.style.height = '100mm';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+      }
+
+      const doc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (!doc) {
+        window.print();
+        return resolve(true);
+      }
+
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          window.print();
+        }
+        resolve(true);
+      }, 250);
+    });
+  },
 };

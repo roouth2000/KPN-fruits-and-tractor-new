@@ -87,7 +87,9 @@ class WebSerialService {
       return details;
     } catch (err: any) {
       if (err.name === 'NotFoundError' || err.name === 'AbortError') {
-        throw new Error('Printer selection was cancelled.');
+        throw new Error(
+          'No serial port found or selected. On Windows with standard USB cables, please switch Communication Protocol to "System / Browser Print" for instant zero-setup printing.'
+        );
       }
       if (err.name === 'SecurityError') {
         throw new Error(

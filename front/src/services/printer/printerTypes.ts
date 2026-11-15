@@ -71,7 +71,7 @@ export interface PrintResult {
 }
 
 export const DEFAULT_PRINTER_SETTINGS: PrinterSettings = {
-  transport: 'WEB_SERIAL',
+  transport: 'BROWSER_DIALOG',
   paperSize: '80mm',
   baudRate: 9600,
   dataBits: 8,

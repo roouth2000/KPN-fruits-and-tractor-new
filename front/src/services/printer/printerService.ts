@@ -66,10 +66,18 @@ class PrinterService {
   }
 
   public getStatus(): PrinterConnectionStatus {
+    const settings = this.getSettings();
+    if (settings.transport === 'BROWSER_DIALOG') {
+      return 'CONNECTED';
+    }
     return this.status;
   }
 
   public isConnected(): boolean {
+    const settings = this.getSettings();
+    if (settings.transport === 'BROWSER_DIALOG') {
+      return true;
+    }
     return (
       this.status === 'CONNECTED' &&
       (webSerialService.isConnected() || webUsbService.isConnected())
@@ -77,6 +85,13 @@ class PrinterService {
   }
 
   public getConnectedDevice(): PrinterDeviceDetails | null {
+    const settings = this.getSettings();
+    if (settings.transport === 'BROWSER_DIALOG') {
+      return {
+        name: 'Windows System Printer (TVS RP-3200)',
+        transport: 'BROWSER_DIALOG',
+      };
+    }
     return this.activeDevice;
   }
 
@@ -119,6 +134,20 @@ class PrinterService {
   public async connectPrinter(transport?: PrinterTransport): Promise<PrinterDeviceDetails> {
     const settings = this.getSettings();
     const mode = transport || settings.transport || 'WEB_SERIAL';
+
+    if (mode === 'BROWSER_DIALOG') {
+      const details: PrinterDeviceDetails = {
+        name: 'Windows System Printer (TVS RP-3200)',
+        transport: 'BROWSER_DIALOG',
+      };
+      this.activeDevice = details;
+      this.setStatus('CONNECTED');
+      this.saveSettings({
+        ...settings,
+        transport: 'BROWSER_DIALOG',
+      });
+      return details;
+    }
 
     this.setStatus('CONNECTING');
 
@@ -285,6 +314,18 @@ class PrinterService {
         ...overrideSettings,
       };
 
+      if (settings.transport === 'BROWSER_DIALOG') {
+        const html = receiptRenderer.renderInvoiceToHtml(invoiceData, settings);
+        await receiptRenderer.printHtml(html);
+        this.setStatus('CONNECTED');
+        return {
+          success: true,
+          transport: 'BROWSER_DIALOG',
+          printerName: 'Windows System Printer (TVS RP-3200)',
+          message: 'Invoice sent to Windows System Printer.',
+        };
+      }
+
       // Ensure printer is connected
       if (!this.isConnected()) {
         const reconnected = await this.attemptSilentReconnect();
@@ -349,6 +390,18 @@ class PrinterService {
         ...this.getSettings(),
         ...overrideSettings,
       };
+
+      if (settings.transport === 'BROWSER_DIALOG') {
+        const html = receiptRenderer.renderTestToHtml(settings);
+        await receiptRenderer.printHtml(html);
+        this.setStatus('CONNECTED');
+        return {
+          success: true,
+          transport: 'BROWSER_DIALOG',
+          printerName: 'Windows System Printer (TVS RP-3200)',
+          message: 'Test receipt sent to Windows System Printer.',
+        };
+      }
 
       if (!this.isConnected()) {
         const reconnected = await this.attemptSilentReconnect();
