@@ -13,8 +13,8 @@ import type { PrinterSettings } from './printerTypes';
 import kbnLogo from '../../assets/kbn-logo.jpeg';
 
 /**
- * Scales an image to target dot width on an offscreen canvas and converts to PNG data URL
- * so thermal rasterization is fast, crisp, and within printer head width (576/384 dots).
+ * Scales an image to target dot width on an offscreen canvas, applies a pure 1-bit high-contrast
+ * monochrome threshold filter so thermal printheads burn crisp solid black dots, and returns a PNG data URL.
  */
 function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<string> {
   return new Promise((resolve) => {
@@ -22,7 +22,10 @@ function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<s
       return resolve(src);
     }
     const img = new window.Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin if loading from external origin to prevent CORS canvas tainting
+    if (src.startsWith('http') && !src.includes(window.location.host)) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
@@ -37,6 +40,29 @@ function getScaledThermalLogo(src: string, targetWidth: number = 140): Promise<s
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, targetWidth, targetHeight);
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        // Apply pure 1-bit monochrome thresholding for thermal printers
+        try {
+          const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i];
+            const g = d[i + 1];
+            const b = d[i + 2];
+            const a = d[i + 3];
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            // High contrast threshold: dark pixels become pure black (0), light pixels become pure white (255)
+            const val = a < 128 || lum > 175 ? 255 : 0;
+            d[i] = val;
+            d[i + 1] = val;
+            d[i + 2] = val;
+            d[i + 3] = 255;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        } catch {
+          // If tainted or security blocks, proceed with raw canvas
+        }
+
         resolve(canvas.toDataURL('image/png'));
       } catch {
         resolve(src);
@@ -430,6 +456,8 @@ export const receiptRenderer = {
       paymentRows = [{ label: 'Paid Amount', amount: paidAmount }];
     }
 
+    const lineDivider = is58mm ? '--------------------------------' : '------------------------------------------------';
+
     let logoHtml = '';
     if (settings.printLogo !== false) {
       try {
@@ -507,10 +535,17 @@ export const receiptRenderer = {
       margin-top: 2px;
       color: #000;
     }
-    .dashed-divider {
-      border-top: 1.5px dashed #000000 !important;
-      margin: 5px 0;
-      height: 1px;
+    .char-divider {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+      text-align: center;
+      margin: 3px 0;
+      line-height: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      color: #000000 !important;
     }
     .bill-type {
       text-align: center;
@@ -555,10 +590,6 @@ export const receiptRenderer = {
       color: #555;
       margin-top: 4px;
     }
-    .tear-border {
-      border-bottom: 2px dashed #000000;
-      margin-top: 10px;
-    }
   </style>
 </head>
 <body data-paper="${paperWidthMm}">
@@ -571,9 +602,9 @@ export const receiptRenderer = {
       <div>Phone: ${settings.shopPhone || '8778219770'}${settings.shopGst ? ` · GSTIN: ${settings.shopGst}` : ''}</div>
     </div>
 
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
     <div class="bill-type">*** ${billType} ***</div>
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
 
     <table class="table-layout">
       <tr>
@@ -590,7 +621,7 @@ export const receiptRenderer = {
       </tr>
     </table>
 
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
 
     <table class="data-table">
       <thead>
@@ -622,7 +653,7 @@ export const receiptRenderer = {
       </tbody>
     </table>
 
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
 
     <table class="table-layout">
       <tr>
@@ -655,7 +686,7 @@ export const receiptRenderer = {
       </tr>
     </table>
 
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
 
     <table class="table-layout" style="font-size: 10px; color: #333;">
       <tr>
@@ -664,7 +695,7 @@ export const receiptRenderer = {
       </tr>
     </table>
 
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
 
     <div class="footer-block">
       <div class="bold">*** THANK YOU VISIT AGAIN ***</div>
@@ -673,7 +704,7 @@ export const receiptRenderer = {
       <div class="footer-brand">TVS RP-3200 · Direct ESC/POS</div>
     </div>
 
-    <div class="tear-border"></div>
+    <div class="char-divider">${lineDivider}</div>
   </div>
 </body>
 </html>`;
@@ -694,6 +725,9 @@ export const receiptRenderer = {
         : rawShopName;
     const rawInitials = (settings.shopInitials || '').trim().toUpperCase();
     const initials = !rawInitials || rawInitials === 'SR' ? 'KBN' : rawInitials;
+
+    const lineDivider = is58mm ? '--------------------------------' : '------------------------------------------------';
+    const doubleDivider = is58mm ? '================================' : '================================================';
 
     let logoHtml = '';
     if (settings.printLogo !== false) {
@@ -750,8 +784,18 @@ export const receiptRenderer = {
     .receipt-container { width: 100%; margin: 0 auto; }
     .text-center { text-align: center; }
     .bold { font-weight: bold; }
-    .dashed-divider { border-top: 1.5px dashed #000000 !important; margin: 5px 0; height: 1px; }
-    .double-divider { border-top: 2px double #000000 !important; margin: 5px 0; height: 2px; }
+    .char-divider {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+      text-align: center;
+      margin: 3px 0;
+      line-height: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      color: #000000 !important;
+    }
     table.table-layout { width: 100%; border-collapse: collapse; font-size: 10.5px; }
     table.table-layout td { padding: 1.5px 0; }
   </style>
@@ -762,25 +806,29 @@ export const receiptRenderer = {
     ${initials ? `<div class="text-center bold" style="font-size: 12px; letter-spacing: 2px; margin-bottom: 2px;">[${initials}]</div>` : ''}
     <div class="text-center bold" style="font-size: 14px; text-transform: uppercase;">${shopName}</div>
     <div class="text-center bold" style="font-size: 11px; margin-top: 2px;">TVS RP-3200 HARDWARE TEST</div>
-    <div class="double-divider"></div>
+    <div class="char-divider">${doubleDivider}</div>
     <table class="table-layout">
       <tr><td>Target Hardware:</td><td align="right">TVS RP-3200</td></tr>
       <tr><td>Width Mode:</td><td align="right">${paperWidthMm}</td></tr>
       <tr><td>Transport:</td><td align="right">System / Browser Print</td></tr>
       <tr><td>Date / Time:</td><td align="right">${formatReceiptDate(now)} ${formatReceiptTime(now)}</td></tr>
     </table>
-    <div class="dashed-divider"></div>
+    <div class="char-divider">${lineDivider}</div>
     <table class="table-layout">
       <tr><td>TVS TEST ITEM 1</td><td align="right">1.00  100.00</td></tr>
       <tr><td>TVS TEST ITEM 2</td><td align="right">2.00  250.00</td></tr>
-      <tr class="bold" style="border-top: 1.5px dashed #000;">
-        <td style="padding-top: 3px;">TOTAL :</td>
-        <td align="right" style="padding-top: 3px;">600.00</td>
+    </table>
+    <div class="char-divider">${lineDivider}</div>
+    <table class="table-layout">
+      <tr class="bold">
+        <td>TOTAL :</td>
+        <td align="right">600.00</td>
       </tr>
     </table>
-    <div class="double-divider"></div>
+    <div class="char-divider">${doubleDivider}</div>
     <div class="text-center bold" style="margin-top: 6px;">PRINTER TEST SUCCESSFUL</div>
     <div class="text-center" style="font-size: 9px; color: #555; margin-top: 3px;">TVS RP-3200 · Browser Print Engine</div>
+    <div class="char-divider">${lineDivider}</div>
   </div>
 </body>
 </html>`;
@@ -788,7 +836,7 @@ export const receiptRenderer = {
 
   /**
    * Prints HTML formatted thermal receipt silently via an invisible iframe,
-   * dynamically calculating exact receipt height so browser preview matches thermal roll size.
+   * waiting for images to complete and dynamically calculating exact receipt height.
    */
   printHtml(htmlContent: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -815,7 +863,7 @@ export const receiptRenderer = {
       doc.write(htmlContent);
       doc.close();
 
-      setTimeout(() => {
+      const triggerPrint = () => {
         try {
           const win = iframe.contentWindow;
           if (win && win.document) {
@@ -841,7 +889,41 @@ export const receiptRenderer = {
           window.print();
         }
         resolve(true);
-      }, 350);
+      };
+
+      const win = iframe.contentWindow;
+      if (win && win.document) {
+        const imgs = Array.from(win.document.images || []);
+        if (imgs.length > 0) {
+          let loadedCount = 0;
+          let done = false;
+          const onImgDone = () => {
+            loadedCount++;
+            if (!done && loadedCount >= imgs.length) {
+              done = true;
+              setTimeout(triggerPrint, 150);
+            }
+          };
+          imgs.forEach((img) => {
+            if (img.complete) {
+              onImgDone();
+            } else {
+              img.onload = onImgDone;
+              img.onerror = onImgDone;
+            }
+          });
+          // Fallback timer in case image load event hangs
+          setTimeout(() => {
+            if (!done) {
+              done = true;
+              triggerPrint();
+            }
+          }, 600);
+          return;
+        }
+      }
+
+      setTimeout(triggerPrint, 300);
     });
   },
 };
