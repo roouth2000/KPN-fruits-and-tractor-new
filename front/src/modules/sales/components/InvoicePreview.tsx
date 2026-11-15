@@ -35,6 +35,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isPrintingDirect, setIsPrintingDirect] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showAutoCutGuide, setShowAutoCutGuide] = useState(false);
   const [printerStatus, setPrinterStatus] = useState<PrinterConnectionStatus>(printerService.getStatus());
   const [settings, setSettings] = useState<PrinterSettings>(printerService.getSettings());
 
@@ -221,6 +222,16 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               />
               <span>{printerStatus === 'CONNECTED' ? 'Online' : 'Offline'}</span>
             </div>
+
+            {/* Auto-Cut Setup Button */}
+            <button
+              type="button"
+              onClick={() => setShowAutoCutGuide(true)}
+              className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+              title="How to enable automatic paper cut on TVS RP-3200"
+            >
+              <span>✂ Auto-Cut Setup</span>
+            </button>
 
             {/* Print Button (Thermal ESC/POS) */}
             <button
@@ -529,14 +540,98 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             <div className="border-b border-dashed border-slate-400 my-2" />
             <div className="text-center text-[10px] text-slate-500 space-y-0.5 pt-1">
               <p className="font-bold tracking-wider">*** THANK YOU VISIT AGAIN ***</p>
-              <p>{settings.footerTerms || 'Goods once sold cannot be taken back'}</p>
-              <p className="text-[9px] text-slate-400 font-mono">TVS RP-3200 · Direct ESC/POS</p>
+              <p>{settings.footerTerms || 'No Return,No Exchange'}</p>
             </div>
 
             {/* Serrated paper tear effect at bottom */}
             <div className="mt-4 pt-1 border-b-4 border-dashed border-slate-300" />
           </div>
         </div>
+
+        {/* Auto-Cut Setup Modal */}
+        {showAutoCutGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm">✂</span>
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                    How to Enable Auto-Cut on TVS RP-3200
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAutoCutGuide(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900">
+                  <span className="font-bold block mb-1">Why doesn't the printer cut automatically?</span>
+                  By default, Windows installs thermal POS printer drivers with <strong>Cutter: "No Cut"</strong>. You must enable it once in Windows Printer Properties so Windows activates the physical cutter blade at the end of every receipt.
+                </div>
+
+                <div className="space-y-2">
+                  <span className="font-bold text-slate-900 block text-xs">
+                    Step 1: Enable Auto-Cut in Windows Printer Properties
+                  </span>
+                  <ol className="list-decimal list-inside space-y-1.5 pl-1 text-slate-700">
+                    <li>
+                      Press <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[11px] font-mono">Win + R</kbd>, type <code className="bg-slate-100 px-1 py-0.5 rounded font-mono font-bold text-slate-900">control printers</code> and press Enter.
+                    </li>
+                    <li>
+                      Right-click your <strong>TVS RP-3200</strong> (or POS-80) printer and select <strong>"Printer properties"</strong>.
+                    </li>
+                    <li>
+                      Click the <strong>"Device Settings"</strong> tab (or "Printing Preferences" &gt; "Advanced").
+                    </li>
+                    <li>
+                      Look for <strong>"Cutter"</strong> (or "Paper Cut" / "Feed and Cut") and change it from <em>"No Cut"</em> to <strong className="text-emerald-700">"Feed and Cut"</strong> (or "Full Cut").
+                    </li>
+                    <li>Click <strong>Apply</strong> and <strong>OK</strong>.</li>
+                  </ol>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 space-y-1.5">
+                  <span className="font-bold text-slate-900 block text-xs">
+                    Step 2: Check Physical DIP Switch (Under Printer)
+                  </span>
+                  <p className="text-slate-700 pl-1">
+                    Turn off the printer, open the small DIP switch cover under the TVS RP-3200, and ensure <strong>Switch 8 is ON</strong> (Auto-Cutter enabled). Turn printer back on.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await printerService.printTestReceipt();
+                    if (res.success) {
+                      setToastMsg('Test receipt sent. Check if the printer cuts the paper!');
+                    } else {
+                      setToastMsg(res.error || 'Test print failed.');
+                    }
+                    setShowAutoCutGuide(false);
+                  }}
+                  className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Test Cut &amp; Print Now</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAutoCutGuide(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
