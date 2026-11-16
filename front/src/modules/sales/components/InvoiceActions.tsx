@@ -15,6 +15,8 @@ interface InvoiceActionsProps {
   onSaveAndPrint: () => void;
   onResetInvoice: () => void;
   isSaving: boolean;
+  isEditing?: boolean;
+  onCancelEdit?: () => void;
 }
 
 export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
@@ -31,6 +33,8 @@ export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
   onSaveAndPrint,
   onResetInvoice,
   isSaving,
+  isEditing = false,
+  onCancelEdit,
 }) => {
   // Global hotkeys: F5 (Hold), F6 (Retrieve), F8 (Save), F9 (Save & Print)
   useEffect(() => {
@@ -64,6 +68,11 @@ export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
           <span className="font-mono font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-xs">
             {invoiceNumber}
           </span>
+          {isEditing && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs animate-pulse">
+              Editing
+            </span>
+          )}
         </div>
 
         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
@@ -134,22 +143,36 @@ export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
         </button>
 
         {/* Save Draft */}
-        <button
-          type="button"
-          disabled={isSaving}
-          onClick={onSaveDraft}
-          className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors shadow-2xs disabled:opacity-50"
-        >
-          Save Draft
-        </button>
+        {!isEditing && (
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={onSaveDraft}
+            className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+          >
+            Save Draft
+          </button>
+        )}
+
+        {/* Cancel Edit Mode */}
+        {isEditing && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            title="Cancel editing and create new bill"
+            className="px-2.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <span>Cancel Edit</span>
+          </button>
+        )}
 
         {/* Cancel / Clear */}
         <button
           type="button"
           onClick={onResetInvoice}
-          className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+          className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
         >
-          Reset
+          {isEditing ? 'Discard Changes' : 'Reset'}
         </button>
 
         {/* Save (F8) */}
@@ -157,9 +180,9 @@ export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
           type="button"
           disabled={isSaving}
           onClick={onSaveInvoice}
-          className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
+          className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95 cursor-pointer"
         >
-          <span>Save Invoice</span>
+          <span>{isEditing ? (isSaving ? 'Updating...' : 'Update Invoice') : (isSaving ? 'Saving...' : 'Save Invoice')}</span>
           <kbd className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-1 rounded font-mono">
             F8
           </kbd>
@@ -170,9 +193,9 @@ export const InvoiceActions: React.FC<InvoiceActionsProps> = ({
           type="button"
           disabled={isSaving}
           onClick={onSaveAndPrint}
-          className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
+          className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 active:scale-95 cursor-pointer"
         >
-          <span>Save & Print</span>
+          <span>{isEditing ? (isSaving ? 'Updating...' : 'Update & Print') : (isSaving ? 'Printing...' : 'Save & Print')}</span>
           <kbd className="text-[10px] bg-emerald-700 border border-emerald-600 text-emerald-100 px-1 rounded font-mono">
             F9
           </kbd>

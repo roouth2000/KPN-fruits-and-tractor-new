@@ -312,6 +312,51 @@ async function runTests() {
   assert.strictEqual(parseFloat(restoredApple.currentStock), appleStockBefore, 'Apple stock restored after cancellation');
   console.log('✓ Invoice cancellation & reversal PASSED!\n');
 
+  // =======================================================
+  // Test 6: Full Invoice Edit with Items (Same Page POS Edit)
+  // =======================================================
+  console.log('[Test 6] Full Invoice Edit with Items (Same Page POS Billing/Edit)');
+  const createdInv = await billingService.createInvoice({
+    customerId: ramesh.id,
+    invoiceDate: '2026-11-09',
+    saleType: 'WHOLESALE',
+    items: [
+      { productId: apple.id, quantity: 5, rate: 2000, unit: 'BOX' },
+    ],
+    payments: [
+      { method: 'CASH', amount: 5000 },
+    ],
+    status: 'CONFIRMED',
+  }, adminUser);
+
+  assert.strictEqual(createdInv.grandTotal, 10000);
+  assert.strictEqual(createdInv.paid, 5000);
+
+  // Now perform full edit: change items from 5 boxes to 8 boxes, update payment to 16,000 (fully paid)
+  const updatedInv = await billingService.updateInvoice(createdInv.invoiceId, {
+    customerId: ramesh.id,
+    invoiceDate: '2026-11-09',
+    saleType: 'WHOLESALE',
+    items: [
+      { productId: apple.id, quantity: 8, rate: 2000, unit: 'BOX' },
+    ],
+    payments: [
+      { method: 'CASH', amount: 16000 },
+    ],
+    status: 'CONFIRMED',
+    notes: 'Updated invoice item count and payment',
+  }, adminUser);
+
+  assert.strictEqual(parseFloat(updatedInv.grandTotal), 16000, 'Grand total updated to 16,000');
+  assert.strictEqual(parseFloat(updatedInv.paidAmount), 16000, 'Paid amount updated to 16,000');
+  assert.strictEqual(updatedInv.status, 'PAID', 'Invoice status is PAID');
+  assert.strictEqual(updatedInv.items.length, 1, '1 item present');
+  assert.strictEqual(parseFloat(updatedInv.items[0].quantity), 8, 'Quantity updated to 8');
+
+  // Cancel createdInv to clean up test stock
+  await billingService.cancelInvoice(createdInv.invoiceId, 'Test 6 cleanup', adminUser);
+  console.log('✓ Full Invoice Edit with Items PASSED perfectly!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

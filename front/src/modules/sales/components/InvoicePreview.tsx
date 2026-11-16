@@ -3,8 +3,6 @@ import {
   DownloadIcon,
   XIcon,
   FileTextIcon,
-  ShieldCheckIcon,
-  SaveIcon,
   PrinterIcon,
 } from '../../../components/icons';
 import { salesApi } from '../services/salesApi';
@@ -18,7 +16,6 @@ interface InvoicePreviewProps {
   onClose: () => void;
   invoiceData: any;
   onInvoiceUpdated?: () => void;
-  initialEditMode?: boolean;
 }
 
 export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
@@ -26,15 +23,8 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   onClose,
   invoiceData,
   onInvoiceUpdated,
-  initialEditMode = false,
 }) => {
   const { hasPermission } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editNotes, setEditNotes] = useState('');
-  const [editDiscount, setEditDiscount] = useState<number>(0);
-  const [editTerms, setEditTerms] = useState('');
-  const [editDate, setEditDate] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isPrintingDirect, setIsPrintingDirect] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -51,16 +41,8 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSettings(printerService.getSettings());
-      if (invoiceData) {
-        const invData = invoiceData.invoice || invoiceData;
-        setEditNotes(invData.notes || '');
-        setEditDiscount(Number(invData.discount) || 0);
-        setEditTerms(invData.paymentTerms || 'Standard APMC 15 days');
-        setEditDate(invData.invoiceDate ? String(invData.invoiceDate).slice(0, 10) : new Date().toISOString().slice(0, 10));
-      }
-      setIsEditing(!!initialEditMode);
     }
-  }, [isOpen, invoiceData, initialEditMode]);
+  }, [isOpen]);
 
   if (!isOpen || !invoiceData) return null;
 
@@ -102,7 +84,6 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const effectiveInitials =
     !settings.shopInitials || settings.shopInitials === 'SR' ? 'KBN' : settings.shopInitials;
 
-  const canEditInvoice = hasPermission('sales.edit');
   const canCancelInvoice = hasPermission('sales.cancel');
 
   // Direct browser-native thermal printing
@@ -150,36 +131,6 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
       } finally {
         setIsDownloadingPdf(false);
       }
-    }
-  };
-
-  const handleStartEdit = () => {
-    const currentInv = invoiceData?.invoice || invoiceData || {};
-    setEditNotes(currentInv.notes || '');
-    setEditDiscount(Number(currentInv.discount) || 0);
-    setEditTerms(currentInv.paymentTerms || 'Standard APMC 15 days');
-    setEditDate(currentInv.invoiceDate ? String(currentInv.invoiceDate).slice(0, 10) : new Date().toISOString().slice(0, 10));
-    setIsEditing(true);
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setIsSubmitting(true);
-      await salesApi.updateInvoice(inv.id, {
-        notes: editNotes,
-        invoiceDiscount: editDiscount,
-        paymentTerms: editTerms,
-        invoiceDate: editDate,
-      });
-      setToastMsg('Invoice updated successfully');
-      setTimeout(() => setToastMsg(null), 3000);
-      setIsEditing(false);
-      onInvoiceUpdated?.();
-    } catch (err: any) {
-      alert(err.message || 'Failed to edit invoice');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -271,29 +222,6 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               <span>{isDownloadingPdf ? 'Downloading...' : 'PDF'}</span>
             </button>
 
-            {/* Admin-only Invoice Edit Button */}
-            {canEditInvoice && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (isEditing) {
-                    setIsEditing(false);
-                  } else {
-                    handleStartEdit();
-                  }
-                }}
-                className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ${
-                  isEditing
-                    ? 'border-blue-400 bg-blue-100 text-blue-900 ring-2 ring-blue-300'
-                    : 'border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800'
-                }`}
-                title="Edit invoice notes, discounts, terms, and date"
-              >
-                <ShieldCheckIcon className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isEditing ? 'Editing...' : 'Edit'}</span>
-              </button>
-            )}
-
             {/* Admin-only Invoice Void / Cancel Button */}
             {canCancelInvoice && inv.status !== 'CANCELLED' && (
               <button
@@ -330,95 +258,6 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         {toastMsg && (
           <div className="bg-emerald-50 text-emerald-800 px-4 py-2 text-xs font-semibold border-b border-emerald-200 flex items-center justify-between">
             <span>{toastMsg}</span>
-          </div>
-        )}
-
-        {/* Admin Edit Panel (if toggled) */}
-        {isEditing && (
-          <div className="p-4 bg-blue-50/80 border-b border-blue-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                <ShieldCheckIcon className="w-4 h-4 text-blue-600" />
-                <span>Admin Invoice Modification Gate</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer font-medium"
-              >
-                ✕ Close Edit
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Bill Discount (₹)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={editDiscount}
-                  onChange={(e) => setEditDiscount(Number(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Invoice Date
-                </label>
-                <input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Payment Terms
-                </label>
-                <input
-                  type="text"
-                  value={editTerms}
-                  onChange={(e) => setEditTerms(e.target.value)}
-                  className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Internal Notes
-                </label>
-                <input
-                  type="text"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="e.g. APMC special concession"
-                  className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="sm:col-span-4 flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-md cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-3.5 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <SaveIcon className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Saving...' : 'Apply Admin Revision'}</span>
-                </button>
-              </div>
-            </form>
           </div>
         )}
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerSearch, useCustomerBalance, useCreateCustomer } from '../hooks/useCustomers';
 import type { Customer } from '../types/billing';
@@ -65,15 +66,6 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     setSearchTerm('');
   };
 
-  const handleSelectCashCustomer = () => {
-    // If Cash Customer button is clicked, don't do anything;
-    // If an account customer was previously chosen, clear it back to default cash customer
-    if (selectedCustomerId) {
-      onSelectCustomer(null);
-    }
-    setIsOpen(false);
-  };
-
   const handleCreateCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustName.trim() || !newCustPhone.trim()) return;
@@ -118,13 +110,6 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
         </label>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSelectCashCustomer}
-            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 px-2 py-0.5 rounded transition-colors"
-          >
-            Cash Customer
-          </button>
           <button
             type="button"
             onClick={() => setIsAddCustomerOpen(true)}
@@ -244,9 +229,6 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
                       <div className={`text-xs font-bold ${Number(cust.currentDue) > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                         Due: ₹{Number(cust.currentDue).toLocaleString('en-IN')}
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        Trays: {cust.outstandingTrays}
-                      </div>
                     </div>
                   </button>
                 ))
@@ -281,12 +263,6 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
               <span className="text-slate-400">Address: </span>
               <span className="font-medium text-slate-800 truncate block">
                 {selectedCustomer.address || 'APMC Market'}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">Trays Due: </span>
-              <span className="font-bold text-amber-700">
-                {customerBalance ? customerBalance.outstandingTrays : selectedCustomer.outstandingTrays}
               </span>
             </div>
           </div>

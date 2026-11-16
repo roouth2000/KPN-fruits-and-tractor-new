@@ -3,13 +3,15 @@ import { CustomerSelector } from '../components/CustomerSelector';
 import { BillingItemsTable } from '../components/BillingItemsTable';
 import { PreviousDuePanel } from '../components/PreviousDuePanel';
 import { PaymentPanel } from '../components/PaymentPanel';
-import { TrayPanel } from '../components/TrayPanel';
 import { BillingTotals } from '../components/BillingTotals';
 import { InvoiceActions } from '../components/InvoiceActions';
 import { InvoicePreview } from '../components/InvoicePreview';
 import { HoldInvoiceModal } from '../components/HoldInvoiceModal';
+import { ProductSelectModal } from '../components/ProductSelectModal';
+import { salesApi } from '../services/salesApi';
 import { printerService } from '../../../services/printer/printerService';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
+import { PackageIcon, SearchIcon } from '../../../components/icons';
 import type { PrinterConnectionStatus } from '../../../services/printer/printerTypes';
 
 import { useBilling } from '../hooks/useBilling';
@@ -27,11 +29,18 @@ import type {
 } from '../types/billing';
 
 interface BillingPageProps {
+  editingInvoice?: any | null;
+  onClearEditingInvoice?: () => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
   onNavigateInvoices?: () => void;
 }
 
-export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
+export const BillingPage: React.FC<BillingPageProps> = ({
+  editingInvoice,
+  onClearEditingInvoice,
+  onShowToast,
+  onNavigateInvoices,
+}) => {
 
   // Billing Engine Hook
   const {
@@ -58,9 +67,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { method: 'CASH', amount: 0, transactionRef: '' },
   ]);
-  const [trayIssued, setTrayIssued] = useState<number>(0);
-  const [trayReturned, setTrayReturned] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // UI Modal States
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false);
@@ -70,10 +78,111 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
   const [, setPrinterStatus] = useState<PrinterConnectionStatus>(printerService.getStatus());
   const lastPrintedInvoiceIdRef = useRef<number | string | null>(null);
 
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     const unsub = printerService.onStatusChange(setPrinterStatus);
     return unsub;
   }, []);
+
+  // Global F3 shortcut to open product search modal outside table
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F3') {
+        e.preventDefault();
+        setIsProductModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Preload editing invoice data when passed
+  useEffect(() => {
+    if (!editingInvoice) return;
+
+    const rawItems = editingInvoice.items || [];
+    const mapped: BillingItem[] = rawItems.map((it: any, idx: number) => {
+      const conversion = parseFloat(String(it.conversionFactor || it.product?.conversionFactor || 1.0));
+      const qty = parseFloat(String(it.quantity || 1));
+      const rate = parseFloat(String(it.rate || 0));
+      const disc = parseFloat(String(it.discount || 0));
+      const taxR = parseFloat(String(it.taxRate || 0));
+      const taxAmt = parseFloat(String(it.taxAmount || 0));
+      const total = parseFloat(String(it.totalAmount || (qty * rate - disc + taxAmt)));
+
+      return {
+        id: `edit-${it.id || idx}-${Date.now()}`,
+        productId: it.productId,
+        productName: it.productName || it.product?.name || `Product #${it.productId}`,
+        variety: it.variety || it.product?.variety || '',
+        grade: it.grade || it.product?.grade || 'A',
+        batchNumber: it.batchNumber || undefined,
+        unit: it.unit || it.product?.defaultUnit || 'BOX',
+        baseUnit: it.baseUnit || it.product?.baseUnit || 'KG',
+        conversionFactor: conversion,
+        quantity: qty,
+        baseQuantity: parseFloat(String(it.baseQuantity || qty * conversion)),
+        rate,
+        discount: disc,
+        taxRate: taxR,
+        taxAmount: taxAmt,
+        totalAmount: total,
+        trayQuantity: parseInt(String(it.trayQuantity || 0), 10),
+        currentStock: parseFloat(String(it.product?.currentStock || it.currentStock || 0)),
+      };
+    });
+    setItems(mapped);
+
+    if (editingInvoice.customer) {
+      setSelectedCustomer(editingInvoice.customer);
+    } else if (editingInvoice.customerId) {
+      setSelectedCustomer({
+        id: editingInvoice.customerId,
+        customerCode: editingInvoice.customer?.customerCode || '',
+        name: editingInvoice.customerName || editingInvoice.customer?.name || 'Customer',
+        phone: editingInvoice.customerPhone || editingInvoice.customer?.phone || '',
+        customerType: editingInvoice.saleType === 'CASH' ? 'WALK_IN' : 'WHOLESALE',
+        creditLimit: 50000,
+        openingBalance: 0,
+        currentDue: 0,
+        outstandingTrays: 0,
+        isActive: true,
+      });
+    } else {
+      setSelectedCustomer(null);
+    }
+
+    setSaleType(editingInvoice.saleType || 'WHOLESALE');
+    setInvoiceDate(
+      editingInvoice.invoiceDate
+        ? String(editingInvoice.invoiceDate).slice(0, 10)
+        : new Date().toISOString().slice(0, 10)
+    );
+    setInvoiceDiscount(parseFloat(String(editingInvoice.discount || 0)));
+    setInvoiceTax(parseFloat(String(editingInvoice.tax || 0)));
+    setNotes(editingInvoice.notes || '');
+
+    if (Array.isArray(editingInvoice.payments) && editingInvoice.payments.length > 0) {
+      setPayments(
+        editingInvoice.payments.map((p: any) => ({
+          method: (p.paymentMode || p.method || 'CASH').toUpperCase(),
+          amount: parseFloat(String(p.amount || 0)),
+          transactionRef: p.transactionRef || '',
+        }))
+      );
+    } else if (parseFloat(String(editingInvoice.paidAmount || 0)) > 0) {
+      setPayments([
+        {
+          method: 'CASH',
+          amount: parseFloat(String(editingInvoice.paidAmount)),
+          transactionRef: '',
+        },
+      ]);
+    } else {
+      setPayments([{ method: 'CASH', amount: 0, transactionRef: '' }]);
+    }
+  }, [editingInvoice]);
 
   // Real-time Ledger balance for selected customer
   const { data: customerBalance, refetch: refetchCustomerBalance } = useCustomerBalance(
@@ -181,11 +290,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
     setInvoiceDiscount(0);
     setInvoiceTax(0);
     setPayments([{ method: 'CASH', amount: 0, transactionRef: '' }]);
-    setTrayIssued(0);
-    setTrayReturned(0);
     setNotes('');
+    if (editingInvoice) {
+      onClearEditingInvoice?.();
+    }
     refetchNextNumber();
-  }, [refetchNextNumber]);
+  }, [editingInvoice, onClearEditingInvoice, refetchNextNumber]);
 
   // Save Invoice (Common Billing Transaction)
   const handleSaveInvoice = async (printAfterSave = false, isDraft = false) => {
@@ -207,27 +317,45 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
           unit: i.unit,
           discount: i.discount,
           taxRate: i.taxRate,
-          trayQuantity: i.trayQuantity,
+          trayQuantity: 0,
           grade: i.grade,
           batchNumber: i.batchNumber,
         })),
         invoiceDiscount,
         invoiceTax,
         payments: payments.filter((p) => p.amount > 0),
-        trayIssued: trayIssued > 0 ? trayIssued : items.reduce((s, i) => s + (i.trayQuantity || 0), 0),
-        trayReturned,
+        trayIssued: 0,
+        trayReturned: 0,
         notes,
         status: isDraft ? 'DRAFT' : 'CONFIRMED',
       };
 
-      const result = await createInvoice(payload);
+      let result: any;
+      if (editingInvoice) {
+        setIsUpdating(true);
+        result = await salesApi.updateInvoice(editingInvoice.id, payload);
+        setIsUpdating(false);
 
-      if (onShowToast) {
-        onShowToast(
-          isDraft ? 'Draft Saved' : 'Invoice Saved Successfully',
-          `${result.invoiceNumber} · ₹${result.grandTotal.toLocaleString('en-IN')} (Paid: ₹${result.paid.toLocaleString('en-IN')}, Due: ₹${result.due.toLocaleString('en-IN')})`,
-          'success'
-        );
+        if (onShowToast) {
+          onShowToast(
+            'Invoice Updated Successfully',
+            `${editingInvoice.invoiceNumber} · ₹${(Number(result.grandTotal) || 0).toLocaleString('en-IN')} updated on Billing Desk`,
+            'success'
+          );
+        }
+        if (onNavigateInvoices && !printAfterSave) {
+          onNavigateInvoices();
+        }
+      } else {
+        result = await createInvoice(payload);
+
+        if (onShowToast) {
+          onShowToast(
+            isDraft ? 'Draft Saved' : 'Invoice Saved Successfully',
+            `${result.invoiceNumber} · ₹${result.grandTotal.toLocaleString('en-IN')} (Paid: ₹${result.paid.toLocaleString('en-IN')}, Due: ₹${result.due.toLocaleString('en-IN')})`,
+            'success'
+          );
+        }
       }
 
       setPreviewInvoice(result);
@@ -289,8 +417,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
       invoiceDiscount,
       invoiceTax,
       payments,
-      trayIssued,
-      trayReturned,
+      trayIssued: 0,
+      trayReturned: 0,
       notes,
       status: 'CONFIRMED',
     };
@@ -325,8 +453,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
     setInvoiceDiscount(d.invoiceDiscount);
     setInvoiceTax(d.invoiceTax);
     setPayments(d.payments);
-    setTrayIssued(d.trayIssued);
-    setTrayReturned(d.trayReturned);
     setNotes(d.notes);
     removeHeldInvoice(held.id);
 
@@ -338,7 +464,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
   return (
     <div className="space-y-2 pb-6">
       <InvoiceActions
-        invoiceNumber={nextInvoiceNumber}
+        invoiceNumber={editingInvoice ? editingInvoice.invoiceNumber : nextInvoiceNumber}
         invoiceDate={invoiceDate}
         saleType={saleType}
         onChangeSaleType={setSaleType}
@@ -350,24 +476,53 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
         onSaveInvoice={() => handleSaveInvoice(false, false)}
         onSaveAndPrint={() => handleSaveInvoice(true, false)}
         onResetInvoice={handleReset}
-        isSaving={isCreating}
+        isSaving={isCreating || isUpdating}
+        isEditing={!!editingInvoice}
+        onCancelEdit={() => {
+          handleReset();
+        }}
       />
 
       {/* Main 2-Column Responsive Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT COLUMN: Items Table with Inline Product Search (7 cols on lg) */}
+        {/* LEFT COLUMN: Fast Product Entry Bar + Items Table (7 cols on lg) */}
         <div className="lg:col-span-7 space-y-4">
+          {/* Fast Product Entry Bar (F3) - OUTSIDE the table */}
+          <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <PackageIcon className="w-3.5 h-3.5 text-amber-500" />
+                <span>Fast Fruit Entry (Barcode / SKU / Name)</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                Press <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">F3</kbd> to search, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">↑↓</kbd> to select, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">Enter</kbd> to add
+              </span>
+            </div>
+            <div
+              onClick={() => setIsProductModalOpen(true)}
+              className="relative flex items-center bg-slate-50 hover:bg-white border border-slate-200/90 hover:border-amber-400 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-pointer shadow-2xs transition-all group"
+            >
+              <SearchIcon className="w-4 h-4 text-slate-400 group-hover:text-amber-500 mr-2 flex-shrink-0" />
+              <span className="flex-1 font-medium select-none text-slate-500">
+                Scan barcode or search fruit (e.g. Apple, Kiwi, Pomegranate, SKU, Variety)...
+              </span>
+              <kbd className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded font-mono font-bold shadow-2xs">
+                F3
+              </kbd>
+            </div>
+          </div>
+
           <BillingItemsTable
             items={items}
             availableUnits={units}
             onUpdateItem={handleUpdateItem}
             onRemoveItem={handleRemoveItem}
-            onSelectProduct={handleSelectProduct}
+            onOpenProductModal={() => setIsProductModalOpen(true)}
             saleType={saleType}
           />
         </div>
 
-        {/* RIGHT COLUMN: Customer + Previous Due + Payments + Totals + Trays (5 cols on lg) */}
+        {/* RIGHT COLUMN: Customer + Previous Due + Payments + Totals (5 cols on lg) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Customer Selection (F2) */}
           <CustomerSelector
@@ -410,15 +565,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
             onChangePayments={setPayments}
           />
 
-          {/* Tray Accounting Panel */}
-          <TrayPanel
-            trayIssued={trayIssued}
-            trayReturned={trayReturned}
-            onChangeIssued={setTrayIssued}
-            onChangeReturned={setTrayReturned}
-            customerOutstandingTrays={customerBalance?.outstandingTrays || selectedCustomer?.outstandingTrays || 0}
-          />
-
           {/* Financial Totals */}
           <BillingTotals
             subtotal={subtotal}
@@ -436,11 +582,19 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
           <div className="flex gap-2 pt-1">
             <button
               type="button"
-              disabled={isCreating}
+              disabled={isCreating || isUpdating}
               onClick={() => handleSaveInvoice(false, false)}
-              className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-sm rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-sm rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{isCreating ? 'Processing...' : 'Confirm & Save Invoice'}</span>
+              <span>
+                {editingInvoice
+                  ? isUpdating
+                    ? 'Updating Invoice...'
+                    : 'Update Invoice'
+                  : isCreating
+                  ? 'Processing...'
+                  : 'Confirm & Save Invoice'}
+              </span>
               <kbd className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                 F8
               </kbd>
@@ -448,11 +602,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
 
             <button
               type="button"
-              disabled={isCreating}
+              disabled={isCreating || isUpdating}
               onClick={() => handleSaveInvoice(true, false)}
-              className="py-3 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="py-3 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Save & Print</span>
+              <span>
+                {editingInvoice
+                  ? isUpdating
+                    ? 'Updating...'
+                    : 'Update & Print'
+                  : 'Save & Print'}
+              </span>
               <kbd className="text-[10px] bg-emerald-700 text-emerald-100 px-1.5 py-0.5 rounded font-mono">
                 F9
               </kbd>
@@ -478,6 +638,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onShowToast }) => {
         onInvoiceUpdated={() => {
           refetchNextNumber();
           if (onShowToast) onShowToast('Invoice Updated', 'Admin revisions were successfully saved to database.', 'success');
+        }}
+      />
+
+      {/* Product Selection Modal (Shown Outside Table) */}
+      <ProductSelectModal
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
+        onSelectProduct={(product) => {
+          handleSelectProduct(product);
         }}
       />
 

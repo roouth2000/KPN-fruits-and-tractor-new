@@ -769,6 +769,373 @@ class BillingService {
         throw new Error('Cancelled invoices cannot be edited');
       }
 
+      // If full invoice edit with items is requested from Billing/POS page
+      if (updateData.items && Array.isArray(updateData.items)) {
+        const oldItems = invoice.items || [];
+        const oldProductIds = [...new Set(oldItems.map((i) => i.productId))];
+        const oldCustomer = invoice.customer;
+
+        // 1. Remove previous associations for this invoice
+        const oldPayments = await Payment.findAll({ where: { invoiceId: invoice.id }, transaction });
+        const oldPaymentNumbers = oldPayments.map((p) => p.paymentNumber);
+
+        await PaymentAllocation.destroy({ where: { invoiceId: invoice.id }, transaction });
+        await Payment.destroy({ where: { invoiceId: invoice.id }, transaction });
+
+        await TrayMovement.destroy({
+          where: { referenceType: 'INVOICE', referenceId: invoice.invoiceNumber },
+          transaction,
+        });
+
+        await CustomerLedger.destroy({
+          where: { reference: invoice.invoiceNumber },
+          transaction,
+        });
+
+        if (oldPaymentNumbers.length > 0) {
+          await CustomerLedger.destroy({
+            where: { reference: { [Op.in]: oldPaymentNumbers } },
+            transaction,
+          });
+        }
+
+        await InvoiceItemBatch.destroy({ where: { invoiceId: invoice.id }, transaction });
+        await StockMovement.destroy({
+          where: { referenceType: 'INVOICE', referenceId: invoice.invoiceNumber },
+          transaction,
+        });
+        await InvoiceItem.destroy({ where: { invoiceId: invoice.id }, transaction });
+
+        // Temporarily recalculate FIFO for previous products to restore available batch stock
+        for (const pid of oldProductIds) {
+          await fifoService.recalculateFIFO(pid, transaction);
+        }
+
+        // 2. Fetch new customer (or default to Cash Customer)
+        let customer;
+        if (updateData.customerId) {
+          customer = await Customer.findByPk(updateData.customerId, { transaction });
+          if (!customer) throw new Error('Customer not found');
+        } else {
+          customer = await Customer.findOne({
+            where: { customerCode: 'CUST-CASH' },
+            transaction,
+          });
+          if (!customer) {
+            customer = await Customer.findOne({
+              where: { customerType: 'WALK_IN' },
+              transaction,
+            });
+          }
+          if (!customer) {
+            customer = await Customer.create({
+              customerCode: 'CUST-CASH',
+              name: 'Cash Customer',
+              phone: '9999999999',
+              city: 'Mumbai',
+              address: 'APMC Counter Sale',
+              creditLimit: 0.00,
+              currentDue: 0.00,
+              outstandingTrays: 0,
+              customerType: 'WALK_IN',
+            }, { transaction });
+          }
+        }
+
+        const isWalkInCash = customer.customerType === 'WALK_IN' || customer.customerCode === 'CUST-CASH';
+        const saleType = updateData.saleType || invoice.saleType || 'WHOLESALE';
+        const invoiceDate = updateData.invoiceDate || invoice.invoiceDate;
+        const dueDate = updateData.dueDate || updateData.invoiceDate || invoice.dueDate;
+        const status = updateData.status || 'CONFIRMED';
+
+        // 3. Calculate previous due from CustomerLedger
+        let previousDue = 0;
+        if (!isWalkInCash) {
+          previousDue = await customerService.calculateCustomerDue(customer.id, transaction);
+        }
+
+        // 4. Validate & compute items
+        let calculatedSubtotal = 0;
+        let totalItemDiscounts = 0;
+        let totalItemTaxes = 0;
+        let totalTrayQuantity = 0;
+        const processedItems = [];
+
+        for (let i = 0; i < updateData.items.length; i++) {
+          const item = updateData.items[i];
+          const product = await Product.findByPk(item.productId, { transaction });
+          if (!product || !product.isActive) {
+            throw new Error(`Product ID ${item.productId} not found or inactive`);
+          }
+
+          const qty = parseFloat(item.quantity) || 0;
+          if (qty <= 0 && status !== 'DRAFT') {
+            throw new Error(`Quantity for product "${product.name}" must be greater than zero`);
+          }
+
+          const unit = item.unit || product.defaultUnit || 'BOX';
+          const conversionFactor = parseFloat(product.conversionFactor) || 1.0;
+          const baseQuantity = Math.round(qty * conversionFactor * 1000) / 1000;
+
+          // Stock check
+          const currentStock = parseFloat(product.currentStock) || 0;
+          if (status === 'CONFIRMED' && currentStock < qty) {
+            const userPermissions = user?.permissions || [];
+            const hasStockOverride = user?.role === 'ADMIN' || userPermissions.includes('stock.override') || userPermissions.includes('stock_negative_override');
+            if (!hasStockOverride) {
+              throw new Error(
+                `Insufficient stock for "${product.name} (${product.variety})". Available: ${currentStock} ${unit}, Requested: ${qty} ${unit}`
+              );
+            }
+          }
+
+          let rate = parseFloat(item.rate);
+          if (isNaN(rate) || rate < 0) {
+            rate = saleType === 'RETAIL' ? parseFloat(product.retailRate) : parseFloat(product.wholesaleRate);
+          }
+
+          const lineRawAmount = Math.round(qty * rate * 100) / 100;
+          const itemDiscount = parseFloat(item.discount) || 0;
+          const taxRate = parseFloat(item.taxRate) || 0;
+          const taxAmount = Math.round(((lineRawAmount - itemDiscount) * (taxRate / 100)) * 100) / 100;
+          const lineTotal = Math.round((lineRawAmount - itemDiscount + taxAmount) * 100) / 100;
+
+          calculatedSubtotal += lineRawAmount;
+          totalItemDiscounts += itemDiscount;
+          totalItemTaxes += taxAmount;
+
+          const itemTrayQty = parseInt(item.trayQuantity, 10) || (product.isTrayRequired ? Math.ceil(qty) : 0);
+          totalTrayQuantity += itemTrayQty;
+
+          const costPrice = parseFloat(product.purchaseRate) || 0;
+          const cogsAmount = Math.round(qty * costPrice * 100) / 100;
+
+          processedItems.push({
+            invoiceId: invoice.id,
+            productId: product.id,
+            productName: product.name,
+            variety: product.variety,
+            grade: item.grade || product.grade || 'A',
+            batchNumber: item.batchNumber || product.batchNumber || null,
+            unit,
+            quantity: qty,
+            baseQuantity,
+            rate,
+            discount: itemDiscount,
+            taxRate,
+            taxAmount,
+            totalAmount: lineTotal,
+            trayQuantity: itemTrayQty,
+            costPrice,
+            cogsAmount,
+          });
+        }
+
+        // 5. Calculate Invoice Totals
+        const finalDiscount = Math.round((totalItemDiscounts + (parseFloat(updateData.invoiceDiscount ?? updateData.discount) || 0)) * 100) / 100;
+        const finalTax = Math.round((totalItemTaxes + (parseFloat(updateData.invoiceTax ?? updateData.tax) || 0)) * 100) / 100;
+        const grandTotal = Math.round((calculatedSubtotal - finalDiscount + finalTax) * 100) / 100;
+        const totalPayable = Math.round((previousDue + grandTotal) * 100) / 100;
+
+        let totalPaid = 0;
+        const payments = updateData.payments || [];
+        if (Array.isArray(payments) && payments.length > 0) {
+          for (const p of payments) {
+            totalPaid += parseFloat(p.amount) || 0;
+          }
+        }
+        totalPaid = Math.round(totalPaid * 100) / 100;
+
+        let balanceDue = 0;
+        if (isWalkInCash) {
+          balanceDue = Math.max(0, Math.round((grandTotal - totalPaid) * 100) / 100);
+        } else {
+          balanceDue = Math.round((totalPayable - totalPaid) * 100) / 100;
+        }
+
+        let invoiceStatus = status;
+        if (status === 'CONFIRMED') {
+          if (totalPaid >= grandTotal) {
+            invoiceStatus = 'PAID';
+          } else if (totalPaid > 0) {
+            invoiceStatus = 'PARTIALLY_PAID';
+          } else {
+            invoiceStatus = 'CONFIRMED';
+          }
+        }
+
+        const trayIssued = (updateData.trayIssued !== undefined && parseInt(updateData.trayIssued, 10) >= 0)
+          ? parseInt(updateData.trayIssued, 10)
+          : totalTrayQuantity;
+        const trayReturned = parseInt(updateData.trayReturned || 0, 10);
+
+        // 6. Update the Invoice row
+        await invoice.update({
+          customerId: customer.id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          saleType,
+          invoiceDate,
+          dueDate,
+          status: invoiceStatus,
+          subtotal: calculatedSubtotal,
+          discount: finalDiscount,
+          tax: finalTax,
+          grandTotal,
+          paidAmount: totalPaid,
+          balanceDue,
+          previousDueSnapshot: previousDue,
+          totalPayableSnapshot: totalPayable,
+          trayIssued,
+          trayReturned,
+          notes: updateData.notes !== undefined ? updateData.notes : invoice.notes,
+        }, { transaction });
+
+        // 7. Insert new items
+        await InvoiceItem.bulkCreate(processedItems, { transaction });
+
+        // 8. If status !== 'DRAFT', process FIFO, Ledger, Payments, Trays
+        if (status !== 'DRAFT') {
+          // Re-evaluate FIFO for all involved products
+          const allProductIds = [...new Set([...oldProductIds, ...processedItems.map((p) => p.productId)])];
+          for (const pid of allProductIds) {
+            await fifoService.recalculateFIFO(pid, transaction);
+          }
+
+          // Customer Ledger Entry for Sale
+          let currentRunningBalance = previousDue;
+          if (!isWalkInCash) {
+            currentRunningBalance = Math.round((previousDue + grandTotal) * 100) / 100;
+            await CustomerLedger.create({
+              customerId: customer.id,
+              date: invoiceDate,
+              type: 'SALE',
+              reference: invoice.invoiceNumber,
+              description: `Produce Sale #${invoice.invoiceNumber}`,
+              debit: grandTotal,
+              credit: 0.00,
+              runningBalance: currentRunningBalance,
+              createdById: user ? user.id : null,
+            }, { transaction });
+          }
+
+          // Process Payments
+          if (Array.isArray(payments) && payments.length > 0) {
+            for (const p of payments) {
+              const pAmt = parseFloat(p.amount) || 0;
+              if (pAmt <= 0) continue;
+
+              const paymentNumber = await generatePaymentNumber(transaction);
+              const mode = (p.method || p.paymentMode || 'CASH').toUpperCase();
+
+              const paymentRecord = await Payment.create({
+                paymentNumber,
+                customerId: customer.id,
+                customerName: customer.name,
+                invoiceId: invoice.id,
+                paymentType: 'SALE_PAYMENT',
+                amount: pAmt,
+                paymentMode: mode,
+                transactionRef: p.transactionRef || null,
+                paymentDate: invoiceDate,
+                notes: `Payment for ${invoice.invoiceNumber}`,
+                status: 'CONFIRMED',
+                createdById: user ? user.id : null,
+              }, { transaction });
+
+              await PaymentAllocation.create({
+                paymentId: paymentRecord.id,
+                invoiceId: invoice.id,
+                amount: pAmt,
+              }, { transaction });
+
+              if (!isWalkInCash) {
+                currentRunningBalance = Math.round((currentRunningBalance - pAmt) * 100) / 100;
+                await CustomerLedger.create({
+                  customerId: customer.id,
+                  date: invoiceDate,
+                  type: 'PAYMENT',
+                  reference: paymentNumber,
+                  description: `Payment received (${mode}) for Invoice #${invoice.invoiceNumber}`,
+                  debit: 0.00,
+                  credit: pAmt,
+                  runningBalance: currentRunningBalance,
+                  createdById: user ? user.id : null,
+                }, { transaction });
+              }
+            }
+          }
+
+          // Tray movements
+          if (trayIssued > 0) {
+            await TrayMovement.create({
+              customerId: customer.id,
+              movementType: 'ISSUE',
+              trayType: 'PLASTIC',
+              quantity: trayIssued,
+              depositAmount: 0.00,
+              referenceType: 'INVOICE',
+              referenceId: invoice.invoiceNumber,
+              notes: `Issued on ${invoice.invoiceNumber}`,
+            }, { transaction });
+          }
+
+          if (trayReturned > 0) {
+            await TrayMovement.create({
+              customerId: customer.id,
+              movementType: 'RETURN',
+              trayType: 'PLASTIC',
+              quantity: trayReturned,
+              depositAmount: 0.00,
+              referenceType: 'INVOICE',
+              referenceId: invoice.invoiceNumber,
+              notes: `Returned on ${invoice.invoiceNumber}`,
+            }, { transaction });
+          }
+
+          // Update Customer cache balances
+          if (!isWalkInCash) {
+            const finalRealDue = await customerService.calculateCustomerDue(customer.id, transaction);
+            const finalRealTrays = await customerService.calculateOutstandingTrays(customer.id, transaction);
+            await Customer.update(
+              { currentDue: finalRealDue, outstandingTrays: finalRealTrays },
+              { where: { id: customer.id }, transaction }
+            );
+          }
+
+          if (oldCustomer && oldCustomer.id !== customer.id) {
+            const oldRealDue = await customerService.calculateCustomerDue(oldCustomer.id, transaction);
+            const oldRealTrays = await customerService.calculateOutstandingTrays(oldCustomer.id, transaction);
+            await Customer.update(
+              { currentDue: oldRealDue, outstandingTrays: oldRealTrays },
+              { where: { id: oldCustomer.id }, transaction }
+            );
+          }
+        }
+
+        // Audit Log
+        await AuditLog.create({
+          userId: user ? user.id : null,
+          userName: user ? user.name : 'Administrator',
+          action: 'INVOICE_UPDATED',
+          entity: 'INVOICE',
+          entityId: String(invoice.id),
+          oldValue: JSON.stringify({
+            grandTotal: invoice.grandTotal,
+            itemCount: oldItems.length,
+            status: invoice.status,
+          }),
+          newValue: JSON.stringify({
+            grandTotal,
+            itemCount: processedItems.length,
+            status: invoiceStatus,
+          }),
+        }, { transaction });
+
+        await transaction.commit();
+        return await this.getInvoiceById(invoiceId);
+      }
+
       const oldValues = {
         notes: invoice.notes,
         discount: invoice.discount,

@@ -43,6 +43,7 @@ const queryClient = new QueryClient({
 export const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, isSalesperson, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('billing'); // Default to Common Billing Screen!
+  const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -174,8 +175,13 @@ export const AppContent: React.FC = () => {
       case 'sales-billing':
         return (
           <BillingPage
+            editingInvoice={editingInvoice}
+            onClearEditingInvoice={() => setEditingInvoice(null)}
             onShowToast={addToast}
-            onNavigateInvoices={() => setActiveTab('invoices-list')}
+            onNavigateInvoices={() => {
+              setEditingInvoice(null);
+              setActiveTab('invoices-list');
+            }}
           />
         );
       case 'invoices-list':
@@ -183,7 +189,14 @@ export const AppContent: React.FC = () => {
       case 'invoices':
         return (
           <InvoiceListPage
-            onNavigateNewBill={() => setActiveTab('billing')}
+            onNavigateNewBill={() => {
+              setEditingInvoice(null);
+              setActiveTab('billing');
+            }}
+            onEditInvoice={(inv) => {
+              setEditingInvoice(inv);
+              setActiveTab('billing');
+            }}
             onShowToast={addToast}
           />
         );
@@ -343,8 +356,13 @@ export const AppContent: React.FC = () => {
         if (isSalesperson) {
           return (
             <BillingPage
+              editingInvoice={editingInvoice}
+              onClearEditingInvoice={() => setEditingInvoice(null)}
               onShowToast={addToast}
-              onNavigateInvoices={() => handleSelectTab('invoices-list')}
+              onNavigateInvoices={() => {
+                setEditingInvoice(null);
+                handleSelectTab('invoices-list');
+              }}
             />
           );
         }
@@ -352,7 +370,10 @@ export const AppContent: React.FC = () => {
           <DashboardPage
             customActivities={customActivities}
             onNavigateReport={(repId) => handleSelectTab(repId)}
-            onOpenNewOrder={() => handleSelectTab('billing')}
+            onOpenNewOrder={() => {
+              setEditingInvoice(null);
+              handleSelectTab('billing');
+            }}
             onSendReminder={(cust, amt) =>
               addToast(
                 'Reminder Dispatched',
@@ -386,7 +407,10 @@ export const AppContent: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-full overflow-hidden">
         {/* Top Bar Header */}
         <Header
-          onOpenNewOrder={() => handleSelectTab('billing')}
+          onOpenNewOrder={() => {
+            setEditingInvoice(null);
+            handleSelectTab('billing');
+          }}
           onOpenSearch={() => setIsSearchOpen(true)}
         />
 

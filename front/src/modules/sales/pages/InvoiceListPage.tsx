@@ -21,11 +21,13 @@ import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
 
 interface InvoiceListPageProps {
   onNavigateNewBill: () => void;
+  onEditInvoice?: (invoice: any) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
 }
 
 export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   onNavigateNewBill,
+  onEditInvoice,
   onShowToast,
 }) => {
   const { hasPermission } = useAuth();
@@ -43,7 +45,6 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   // Selected invoice for preview modal
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState<boolean>(false);
   const [printingId, setPrintingId] = useState<number | null>(null);
 
@@ -138,8 +139,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const totalDue = invoices.reduce((acc, curr) => acc + (Number(curr.balanceDue) || 0), 0);
   const pendingInvoicesCount = invoices.filter((inv) => Number(inv.balanceDue) > 0 && inv.status !== 'CANCELLED').length;
 
-  const handleOpenPreview = async (inv: any, editMode = false) => {
-    setIsEditMode(editMode);
+  const handleOpenPreview = async (inv: any) => {
     try {
       // Fetch full details if needed
       const full = await salesApi.getInvoiceById(inv.id);
@@ -148,6 +148,19 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
       setSelectedInvoice(inv);
     }
     setIsPreviewOpen(true);
+  };
+
+  const handleEditInvoiceClick = async (inv: any) => {
+    try {
+      const full = await salesApi.getInvoiceById(inv.id);
+      if (onEditInvoice) {
+        onEditInvoice(full || inv);
+      }
+    } catch {
+      if (onEditInvoice) {
+        onEditInvoice(inv);
+      }
+    }
   };
 
   const handleConfirmCancel = async () => {
@@ -481,7 +494,6 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                   <th className="py-3 px-4 text-right">Grand Total</th>
                   <th className="py-3 px-4 text-right">Paid</th>
                   <th className="py-3 px-4 text-right">Balance Due</th>
-                  <th className="py-3 px-4 text-center">Trays</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
@@ -496,7 +508,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                     <tr
                       key={inv.id}
                       className="hover:bg-slate-50/90 transition-colors group cursor-pointer"
-                      onClick={() => handleOpenPreview(inv, false)}
+                      onClick={() => handleOpenPreview(inv)}
                     >
                       {/* Invoice Number */}
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900 group-hover:text-emerald-700">
@@ -550,17 +562,6 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                         )}
                       </td>
 
-                      {/* Trays */}
-                      <td className="py-3.5 px-4 text-center font-mono">
-                        {inv.trayIssued > 0 || inv.trayReturned > 0 ? (
-                          <span className="text-[11px] text-slate-700 font-semibold">
-                            +{inv.trayIssued} / -{inv.trayReturned}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-
                       {/* Status Badge */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         {getStatusBadge(inv.status, due)}
@@ -571,7 +572,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                         <div className="flex items-center justify-center gap-1.5">
                           {/* View details / Print */}
                           <button
-                            onClick={() => handleOpenPreview(inv, false)}
+                            onClick={() => handleOpenPreview(inv)}
                             title="View Full Bill & Print Receipt"
                             className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
                           >
@@ -601,12 +602,12 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                             <DownloadIcon className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Admin Edit */}
+                          {/* Admin Edit: Opens in Billing / POS Desk directly without modal */}
                           {canEdit && inv.status !== 'CANCELLED' && (
                             <button
-                              onClick={() => handleOpenPreview(inv, true)}
-                              title="Edit Invoice Terms / Notes / Discount"
-                              className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors"
+                              onClick={() => handleEditInvoiceClick(inv)}
+                              title="Edit Invoice on Billing / POS Desk"
+                              className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
                             >
                               <EditIcon className="w-3.5 h-3.5" />
                             </button>
@@ -673,10 +674,8 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
           onClose={() => {
             setIsPreviewOpen(false);
             setSelectedInvoice(null);
-            setIsEditMode(false);
           }}
           invoiceData={selectedInvoice}
-          initialEditMode={isEditMode}
           onInvoiceUpdated={() => {
             fetchInvoices();
           }}
