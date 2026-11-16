@@ -7,11 +7,9 @@ import { BillingTotals } from '../components/BillingTotals';
 import { InvoiceActions } from '../components/InvoiceActions';
 import { InvoicePreview } from '../components/InvoicePreview';
 import { HoldInvoiceModal } from '../components/HoldInvoiceModal';
-import { ProductSelectModal } from '../components/ProductSelectModal';
 import { salesApi } from '../services/salesApi';
 import { printerService } from '../../../services/printer/printerService';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
-import { PackageIcon, SearchIcon } from '../../../components/icons';
 import type { PrinterConnectionStatus } from '../../../services/printer/printerTypes';
 
 import { useBilling } from '../hooks/useBilling';
@@ -68,7 +66,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     { method: 'CASH', amount: 0, transactionRef: '' },
   ]);
   const [notes, setNotes] = useState<string>('');
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // UI Modal States
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false);
@@ -83,18 +80,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   useEffect(() => {
     const unsub = printerService.onStatusChange(setPrinterStatus);
     return unsub;
-  }, []);
-
-  // Global F3 shortcut to open product search modal outside table
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F3') {
-        e.preventDefault();
-        setIsProductModalOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Preload editing invoice data when passed
@@ -114,6 +99,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       return {
         id: `edit-${it.id || idx}-${Date.now()}`,
         productId: it.productId,
+        productCode: it.product?.productCode || it.productCode || '',
         productName: it.productName || it.product?.name || `Product #${it.productId}`,
         variety: it.variety || it.product?.variety || '',
         grade: it.grade || it.product?.grade || 'A',
@@ -246,6 +232,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const newItem: BillingItem = {
         id: targetId,
         productId: product.id,
+        productCode: product.productCode,
         productName: product.name,
         variety: product.variety,
         grade: product.grade || 'A',
@@ -485,39 +472,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       {/* Main 2-Column Responsive Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT COLUMN: Fast Product Entry Bar + Items Table (7 cols on lg) */}
+        {/* LEFT COLUMN: Items Table with In-Table Fast Product Entry (7 cols on lg) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Fast Product Entry Bar (F3) - OUTSIDE the table */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <PackageIcon className="w-3.5 h-3.5 text-amber-500" />
-                <span>Fast Fruit Entry (Barcode / SKU / Name)</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                Press <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">F3</kbd> to search, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">↑↓</kbd> to select, <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 rounded font-bold">Enter</kbd> to add
-              </span>
-            </div>
-            <div
-              onClick={() => setIsProductModalOpen(true)}
-              className="relative flex items-center bg-slate-50 hover:bg-white border border-slate-200/90 hover:border-amber-400 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-pointer shadow-2xs transition-all group"
-            >
-              <SearchIcon className="w-4 h-4 text-slate-400 group-hover:text-amber-500 mr-2 flex-shrink-0" />
-              <span className="flex-1 font-medium select-none text-slate-500">
-                Scan barcode or search fruit (e.g. Apple, Kiwi, Pomegranate, SKU, Variety)...
-              </span>
-              <kbd className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded font-mono font-bold shadow-2xs">
-                F3
-              </kbd>
-            </div>
-          </div>
-
           <BillingItemsTable
             items={items}
             availableUnits={units}
             onUpdateItem={handleUpdateItem}
             onRemoveItem={handleRemoveItem}
-            onOpenProductModal={() => setIsProductModalOpen(true)}
+            onSelectProduct={handleSelectProduct}
             saleType={saleType}
           />
         </div>
@@ -638,15 +600,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         onInvoiceUpdated={() => {
           refetchNextNumber();
           if (onShowToast) onShowToast('Invoice Updated', 'Admin revisions were successfully saved to database.', 'success');
-        }}
-      />
-
-      {/* Product Selection Modal (Shown Outside Table) */}
-      <ProductSelectModal
-        isOpen={isProductModalOpen}
-        onClose={() => setIsProductModalOpen(false)}
-        onSelectProduct={(product) => {
-          handleSelectProduct(product);
         }}
       />
 

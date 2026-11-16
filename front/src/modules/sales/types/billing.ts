@@ -140,6 +140,7 @@ export interface InvoiceItemBatch {
 export interface BillingItem {
   id: string; // client temporary row id
   productId: number;
+  productCode?: string;
   productName: string;
   variety: string;
   grade: string;
