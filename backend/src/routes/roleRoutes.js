@@ -4,7 +4,7 @@ const roleController = require('../controllers/roleController');
 const { authenticate, requirePermission } = require('../middleware/auth');
 
 router.use(authenticate);
-router.use(requirePermission('roles.manage'));
+router.use(requirePermission(['roles.manage', 'users.view', 'users.manage']));
 
 // List all roles with permission breakdown
 router.get('/', roleController.getAllRoles);
@@ -16,7 +16,7 @@ router.get('/permissions/all', roleController.getAllPermissions);
 router.get('/:id', roleController.getRoleById);
 
 // Update permissions assigned to a role (Superadmin / Admin with roles.manage)
-router.put('/:id/permissions', roleController.updateRolePermissions);
+router.put('/:id/permissions', requirePermission('roles.manage'), roleController.updateRolePermissions);
 
 module.exports = router;
 

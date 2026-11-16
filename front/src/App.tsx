@@ -10,6 +10,7 @@ import { InvoiceListPage } from './modules/sales/pages/InvoiceListPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { RolesAndPermissionsPage } from './pages/RolesAndPermissionsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ExpenseManagementPage } from './pages/ExpenseManagementPage';
 import type { ActivityItem } from './components/OperationsActivity';
 import { NewOrderModal } from './components/NewOrderModal';
 import { SearchModal } from './components/SearchModal';
@@ -300,7 +301,6 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Loss Report')}
           />
         );
-      case 'inventory-audit':
       case 'report-damage':
         if (isSalesperson || !hasPermission('reports.view')) {
           return renderRestrictedNotice('Produce Damage Reports');
@@ -356,6 +356,17 @@ export const AppContent: React.FC = () => {
             onLogReturn={(b) => addToast('Asset scanned', `Tray batch ${b} logged at receiving dock`, 'success')}
           />
         );
+      case 'expenses':
+      case 'expense-management':
+        if (isSalesperson || !hasPermission('reports.view')) {
+          return renderRestrictedNotice('APMC Expense Management');
+        }
+        return (
+          <ExpenseManagementPage
+            onBackToDashboard={() => setActiveTab('command-center')}
+            onShowToast={addToast}
+          />
+        );
       case 'settings':
         if (isSalesperson) {
           return renderRestrictedNotice('System Settings');
@@ -369,7 +380,7 @@ export const AppContent: React.FC = () => {
       case 'users-roles':
       case 'team':
       case 'roles':
-        if (isSalesperson || !hasPermission('roles.manage')) {
+        if (isSalesperson || (!hasPermission('roles.manage') && !hasPermission('users.view') && !hasPermission('users.manage'))) {
           return renderRestrictedNotice('Staff Roles & Permissions');
         }
         return <RolesAndPermissionsPage onShowToast={addToast} />;

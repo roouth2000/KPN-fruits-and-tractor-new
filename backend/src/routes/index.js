@@ -14,6 +14,7 @@ const supplierRoutes = require('./supplierRoutes');
 const stockRoutes = require('./stockRoutes');
 const trayRoutes = require('./trayRoutes');
 const settingRoutes = require('./settingRoutes');
+const expenseRoutes = require('./expenseRoutes');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -29,6 +30,7 @@ router.use('/suppliers', supplierRoutes);
 router.use('/stock', stockRoutes);
 router.use('/trays', trayRoutes);
 router.use('/settings', settingRoutes);
+router.use('/expenses', expenseRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

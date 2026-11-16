@@ -4,8 +4,8 @@ import kbnLogo from '../assets/kbn-logo.jpeg';
 import {
   LayoutGridIcon,
   PackageIcon,
-  ClipboardCheckIcon,
   ReceiptTextIcon,
+  RupeeIcon,
   BuildingIcon,
   TrendingUpIcon,
   TrendingDownIcon,
@@ -81,7 +81,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'Produce Inventory',
       items: [
         { id: 'products', label: 'Product Stack', icon: PackageIcon, permission: 'stock.view' },
-        { id: 'inventory-audit', label: 'Stock Audit & Quality', icon: ClipboardCheckIcon, permission: 'stock.adjust' },
       ],
     },
     {
@@ -90,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'customers', label: 'Customers', icon: UsersIcon, permission: 'customer.view' },
         { id: 'suppliers', label: 'Suppliers', icon: BuildingIcon, permission: 'supplier.view' },
         { id: 'purchase-orders', label: 'Purchase', icon: ReceiptTextIcon, permission: 'supplier.view' },
+        { id: 'expenses', label: 'Expenses', icon: RupeeIcon, permission: 'reports.view' },
       ],
     },
   ];

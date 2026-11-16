@@ -8,6 +8,7 @@ const {
   InvoiceItem,
   Payment,
   StockMovement,
+  Expense,
 } = require('../models');
 
 class DashboardService {
@@ -99,7 +100,21 @@ class DashboardService {
   async getFinancialMetrics() {
     const summary = await this.getSummary();
 
-    const expensesAmount = 0;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const expensesAmount = parseFloat((await Expense.sum('amount', {
+      where: {
+        status: 'ACTIVE',
+        date: todayStr,
+      },
+    })) || 0);
+
+    const expensesCount = await Expense.count({
+      where: {
+        status: 'ACTIVE',
+        date: todayStr,
+      },
+    });
+
     const profitAmount = Math.max(0, summary.todaySummary.sales - summary.todaySummary.purchase - expensesAmount);
 
     return [
@@ -131,9 +146,9 @@ class DashboardService {
         id: 'expenses',
         label: "Today's Expenses",
         amount: expensesAmount,
-        sub: 'Freight & terminal fee',
-        change: '0 items',
-        type: 'neutral',
+        sub: 'Operating & Mandi costs',
+        change: `${expensesCount} recorded`,
+        type: expensesAmount > 0 ? 'warning' : 'neutral',
       },
       {
         id: 'report-profit',

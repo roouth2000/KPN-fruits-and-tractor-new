@@ -120,11 +120,14 @@ const requirePermission = (permission) => {
     }
 
     const permissions = req.user.permissions || [];
-    if (!permissions.includes(permission)) {
+    const required = Array.isArray(permission) ? permission : [permission];
+    const hasPerm = required.some((p) => permissions.includes(p));
+
+    if (!hasPerm) {
       return apiError(
         res,
-        `Forbidden: Role "${req.user.role}" does not have required permission "${permission}"`,
-        { role: req.user.role, requiredPermission: permission },
+        `Forbidden: Role "${req.user.role}" does not have required permission "${required.join(' or ')}"`,
+        { role: req.user.role, requiredPermission: required },
         403
       );
     }

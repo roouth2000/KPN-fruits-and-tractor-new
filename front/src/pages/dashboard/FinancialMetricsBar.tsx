@@ -112,7 +112,11 @@ export const FinancialMetricsBar: React.FC<FinancialMetricsBarProps> = ({ onNavi
               key={idx}
               onClick={() => {
                 if (m.id === 'expenses') {
-                  setShowExpenseBreakdown((prev) => !prev);
+                  if (onNavigateReport) {
+                    onNavigateReport('expenses');
+                  } else {
+                    setShowExpenseBreakdown((prev) => !prev);
+                  }
                 } else if (onNavigateReport) {
                   onNavigateReport(m.id);
                 }

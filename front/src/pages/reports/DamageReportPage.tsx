@@ -113,7 +113,7 @@ export const DamageReportPage: React.FC<DamageReportPageProps> = ({
   return (
     <div className="space-y-6">
       <ReportHeader
-        title="Fruit Damage & Quality Audit Report"
+        title="Fruit Damage Report"
         description="Physical grading defects, transport damage, and unloading inspections at APMC dock bays."
         selectedRange={selectedRange}
         onRangeChange={setSelectedRange}
@@ -127,7 +127,7 @@ export const DamageReportPage: React.FC<DamageReportPageProps> = ({
         title="Dock Inspection & Damage Log"
         subtitle={
           isLoading
-            ? 'Fetching live quality logs...'
+            ? 'Fetching live damage logs...'
             : `${filtered.length} damage inspections recorded`
         }
         columns={columns}

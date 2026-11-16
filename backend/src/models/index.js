@@ -21,6 +21,7 @@ const AuditLog = require('./AuditLog');
 const Batch = require('./Batch');
 const InvoiceItemBatch = require('./InvoiceItemBatch');
 const Setting = require('./Setting');
+const Expense = require('./Expense');
 
 // Role & Permission Associations
 Role.belongsToMany(Permission, {
@@ -115,6 +116,9 @@ Payment.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
 AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(Expense, { foreignKey: 'createdById', as: 'expenses' });
+Expense.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
+
 Setting.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 
 module.exports = {
@@ -140,4 +144,5 @@ module.exports = {
   Batch,
   InvoiceItemBatch,
   Setting,
+  Expense,
 };

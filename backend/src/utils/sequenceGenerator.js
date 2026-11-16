@@ -1,4 +1,4 @@
-const { Invoice, Payment } = require('../models');
+const { Invoice, Payment, Expense } = require('../models');
 const { Op } = require('sequelize');
 
 const generateInvoiceNumber = async (transaction = null) => {
@@ -84,9 +84,38 @@ const generateReturnNumber = async (transaction = null) => {
   return `${prefix}${String(nextSequence).padStart(6, '0')}`;
 };
 
+const generateExpenseNumber = async (transaction = null) => {
+  const currentYear = new Date().getFullYear();
+  const prefix = `EXP-${currentYear}-`;
+
+  const lastExpense = await Expense.findOne({
+    where: {
+      expenseNumber: {
+        [Op.like]: `${prefix}%`,
+      },
+    },
+    order: [['id', 'DESC']],
+    attributes: ['expenseNumber'],
+    transaction,
+    lock: transaction ? transaction.LOCK.UPDATE : undefined,
+  });
+
+  let nextSequence = 1;
+  if (lastExpense && lastExpense.expenseNumber) {
+    const parts = lastExpense.expenseNumber.split('-');
+    const lastNum = parseInt(parts[2], 10);
+    if (!isNaN(lastNum)) {
+      nextSequence = lastNum + 1;
+    }
+  }
+
+  return `${prefix}${String(nextSequence).padStart(6, '0')}`;
+};
+
 module.exports = {
   generateInvoiceNumber,
   generatePaymentNumber,
   generateReturnNumber,
+  generateExpenseNumber,
 };
 
