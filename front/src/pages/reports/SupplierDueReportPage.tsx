@@ -63,7 +63,6 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
   const [addCity, setAddCity] = useState('');
   const [addAddress, setAddAddress] = useState('');
   const [addOpeningBalance, setAddOpeningBalance] = useState<number>(0);
-  const [addTrays, setAddTrays] = useState<number>(0);
   const [addNotes, setAddNotes] = useState('');
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
 
@@ -114,7 +113,6 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
     setAddCity('Shimla');
     setAddAddress('');
     setAddOpeningBalance(0);
-    setAddTrays(0);
     setAddNotes('Mandi Consignment Vendor');
     setIsAddModalOpen(true);
   };
@@ -136,7 +134,7 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
         city: addCity.trim(),
         address: addAddress.trim(),
         openingBalance: Number(addOpeningBalance) || 0,
-        outstandingTrays: Number(addTrays) || 0,
+        outstandingTrays: 0,
         notes: addNotes.trim(),
         isActive: true,
       } as any);
@@ -298,16 +296,6 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
       key: 'paymentTerms',
       header: 'Settlement Terms',
       render: (row) => <span className="text-xs text-slate-600">{row.paymentTerms}</span>,
-    },
-    {
-      key: 'outstandingTrays',
-      header: 'Grower Crates in Mandi',
-      align: 'center',
-      render: (row) => (
-        <span className="font-mono text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-          {row.outstandingTrays} Trays
-        </span>
-      ),
     },
     {
       key: 'dueAmount',
@@ -487,7 +475,7 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    APMC Yard / City
+                    City
                   </label>
                   <input
                     type="text"
@@ -514,7 +502,7 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Farm / Orchard / Mandi Stall Address
+                   Address
                   </label>
                   <input
                     type="text"
@@ -527,20 +515,7 @@ export const SupplierDueReportPage: React.FC<SupplierDueReportPageProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Initial Outstanding Crates (Trays)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={addTrays}
-                    onChange={(e) => setAddTrays(parseInt(e.target.value, 10) || 0)}
-                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Consignment Notes
+                    Notes
                   </label>
                   <input
                     type="text"

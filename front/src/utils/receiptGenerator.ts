@@ -46,18 +46,24 @@ export const receiptGenerator = {
       .map((l) => l.trim().toUpperCase())
       .filter(Boolean);
 
+    // Canonical 7-field billing calculation
+    const grossAmount = Number(inv.subtotal || inv.grandTotal || 0);
+    const discount = Number(inv.discount || 0);
+    const netAmount = Number(inv.grandTotal != null ? inv.grandTotal : (grossAmount - discount));
+    const openingBalance = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+    const totalOutstanding = Math.round((openingBalance + netAmount) * 100) / 100;
+    const amountPaid = Number(inv.paidAmount || 0);
+    const closingBalance = Math.round((totalOutstanding - amountPaid) * 100) / 100;
+
     // Bill Type: CREDITBILL / CASHBILL
     let billType = 'CREDITBILL';
     const rawSaleType = String(inv.saleType || '').toUpperCase();
-    const balanceDue = Number(inv.balanceDue || 0);
-    const paidAmount = Number(inv.paidAmount || 0);
-    const grandTotal = Number(inv.grandTotal || 0);
 
     if (rawSaleType === 'CASH') {
       billType = 'CASHBILL';
     } else if (rawSaleType === 'CREDIT') {
       billType = 'CREDITBILL';
-    } else if (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0) {
+    } else if (closingBalance <= 0 && amountPaid >= netAmount && netAmount > 0) {
       billType = 'CASHBILL';
     } else {
       billType = 'CREDITBILL';
@@ -81,13 +87,6 @@ export const receiptGenerator = {
       'admin';
     const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
     const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
-
-    // Math & Totals
-    const subtotal = Number(inv.subtotal || grandTotal || 0);
-    const discount = Number(inv.discount || 0);
-    const tax = Number(inv.tax || 0);
-    const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
-    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
 
     const trayIssued = Number(inv.trayIssued || 0);
     const trayReturned = Number(inv.trayReturned || 0);
@@ -115,8 +114,8 @@ export const receiptGenerator = {
     }
 
     if (paymentRows.length === 0) {
-      if (paidAmount > 0) {
-        paymentRows.push({ label: 'Cash Received', amount: paidAmount });
+      if (amountPaid > 0) {
+        paymentRows.push({ label: 'Cash Received', amount: amountPaid });
       } else {
         paymentRows.push({ label: 'Cash Received', amount: 0 });
       }
@@ -419,71 +418,43 @@ export const receiptGenerator = {
       </tbody>
     </table>
 
-    <!-- Totals Section -->
+    <!-- Totals Section (All 7 Canonical Fields Clearly Displayed) -->
     <div class="totals-container">
       <div class="totals-table">
         <div class="total-line">
           <span class="t-label">Gross Amount :</span>
-          <span class="t-val">${subtotal.toFixed(2)}</span>
+          <span class="t-val">${grossAmount.toFixed(2)}</span>
         </div>
 
-        ${
-          discount > 0
-            ? `
         <div class="total-line">
           <span class="t-label">Discount :</span>
-          <span class="t-val">-${discount.toFixed(2)}</span>
+          <span class="t-val">${discount > 0 ? `-${discount.toFixed(2)}` : '0.00'}</span>
         </div>
-        `
-            : ''
-        }
-
-        ${
-          tax > 0
-            ? `
-        <div class="total-line">
-          <span class="t-label">Tax / GST :</span>
-          <span class="t-val">${tax.toFixed(2)}</span>
-        </div>
-        `
-            : ''
-        }
 
         <div class="total-line font-bold">
           <span class="t-label">Net Amount :</span>
-          <span class="t-val">${grandTotal.toFixed(2)}</span>
+          <span class="t-val">${netAmount.toFixed(2)}</span>
         </div>
 
-        ${
-          previousDue > 0
-            ? `
         <div class="total-line">
-          <span class="t-label">Opening Balance :</span>
-          <span class="t-val">${previousDue.toFixed(2)}</span>
+          <span class="t-label">Previous / Opening Balance :</span>
+          <span class="t-val">${openingBalance.toFixed(2)}</span>
         </div>
+
         <div class="totals-subline"></div>
         <div class="total-line font-bold">
-          <span class="t-label">Total Amt:</span>
-          <span class="t-val">${totalPayable.toFixed(2)}</span>
+          <span class="t-label">Total Outstanding :</span>
+          <span class="t-val">${totalOutstanding.toFixed(2)}</span>
         </div>
-        `
-            : ''
-        }
 
-        ${paymentRows
-          .map(
-            (p) => `
         <div class="total-line">
-          <span class="t-label">${p.label} :</span>
-          <span class="t-val">${p.amount.toFixed(2)}</span>
+          <span class="t-label">Amount Paid :</span>
+          <span class="t-val">${amountPaid > 0 ? `-${amountPaid.toFixed(2)}` : '0.00'}</span>
         </div>
-        `
-          )
-          .join('')}
 
         <div class="total-line font-bold closing-balance-row">
-          <span class="t-label">Closing Balance :</span>
-          <span class="t-val">${balanceDue.toFixed(2)}</span>
+          <span class="t-label">Closing / Remaining Balance :</span>
+          <span class="t-val">${closingBalance.toFixed(2)}</span>
         </div>
       </div>
     </div>

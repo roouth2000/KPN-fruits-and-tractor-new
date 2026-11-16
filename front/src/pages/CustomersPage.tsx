@@ -17,6 +17,7 @@ interface CustomersPageProps {
   onNavigateBilling?: (customer?: Customer) => void;
   onCollectDue?: (customer: Customer) => void;
   onViewPurchaseHistory?: (customer: Customer) => void;
+  onViewLedger?: (customer: Customer) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
 }
 
@@ -24,6 +25,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   onNavigateBilling,
   onCollectDue,
   onViewPurchaseHistory,
+  onViewLedger,
   onShowToast,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -43,6 +45,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [custOpeningBalance, setCustOpeningBalance] = useState<number>(0);
   const [custTrays, setCustTrays] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleOpenLedger = (cust: Customer) => {
+    if (onViewLedger) {
+      onViewLedger(cust);
+    }
+  };
 
   const fetchCustomers = useCallback(async () => {
     setIsLoading(true);
@@ -350,6 +358,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLedger(cust)}
+                            className="px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                            title="View Customer Credit Ledger & Balance Statement"
+                          >
+                            Ledger
+                          </button>
                           {onViewPurchaseHistory && (
                             <button
                               type="button"

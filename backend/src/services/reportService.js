@@ -39,34 +39,55 @@ class ReportService {
       order: [['id', 'DESC']],
     });
 
-    const totalGross = invoices.reduce((acc, inv) => acc + parseFloat(inv.grandTotal || 0), 0);
+    const totalGross = invoices.reduce((acc, inv) => acc + parseFloat(inv.subtotal || inv.grandTotal || 0), 0);
+    const totalDiscount = invoices.reduce((acc, inv) => acc + parseFloat(inv.discount || 0), 0);
+    const totalNet = invoices.reduce((acc, inv) => acc + parseFloat(inv.grandTotal || 0), 0);
     const totalCollected = invoices.reduce((acc, inv) => acc + parseFloat(inv.paidAmount || 0), 0);
     const totalDue = invoices.reduce((acc, inv) => acc + parseFloat(inv.balanceDue || 0), 0);
     const count = invoices.length;
-    const avgTicket = count > 0 ? totalGross / count : 0;
+    const avgTicket = count > 0 ? totalNet / count : 0;
 
     const kpis = [
-      { label: "Today's Gross Sales", value: `₹${totalGross.toLocaleString('en-IN')}`, change: '+12.4%', changeType: 'positive', subtext: 'Target: ₹1,60,000' },
+      { label: "Today's Gross Sales", value: `₹${Math.round(totalGross).toLocaleString('en-IN')}`, change: `Disc: ₹${Math.round(totalDiscount).toLocaleString('en-IN')}`, changeType: 'neutral', subtext: `Net: ₹${Math.round(totalNet).toLocaleString('en-IN')}` },
       { label: 'Total Invoices', value: String(count), change: '+8 orders', changeType: 'positive', subtext: 'Peak hour: 07:00 - 09:00' },
       { label: 'Average Ticket', value: `₹${Math.round(avgTicket).toLocaleString('en-IN')}`, change: '+4.1%', changeType: 'positive', subtext: 'Per bill average' },
-      { label: 'Collections / Dues', value: `₹${totalCollected.toLocaleString('en-IN')} / ₹${totalDue.toLocaleString('en-IN')}`, subtext: 'Cash & UPI vs Pending Dues' },
+      { label: 'Collections / Dues', value: `₹${Math.round(totalCollected).toLocaleString('en-IN')} / ₹${Math.round(totalDue).toLocaleString('en-IN')}`, subtext: 'Amount Paid vs Closing Balance' },
     ];
 
-    const rows = invoices.map((inv) => ({
-      id: String(inv.id),
-      invoiceNo: inv.invoiceNumber,
-      time: inv.createdAt ? inv.createdAt.toISOString().slice(11, 16) : '08:30',
-      date: inv.invoiceDate,
-      customer: inv.customerName,
-      itemsCount: inv.items ? inv.items.length : 1,
-      paymentMethod: inv.paidAmount >= inv.grandTotal ? 'Cash / UPI' : inv.paidAmount > 0 ? 'Partial' : 'Credit',
-      status: inv.balanceDue <= 0 ? 'Completed' : 'Pending',
-      total: parseFloat(inv.grandTotal),
-      paid: parseFloat(inv.paidAmount),
-      due: parseFloat(inv.balanceDue),
-    }));
+    const rows = invoices.map((inv) => {
+      const gross = parseFloat(inv.subtotal || inv.grandTotal || 0);
+      const discount = parseFloat(inv.discount || 0);
+      const net = parseFloat(inv.grandTotal || 0);
+      const openBal = parseFloat(inv.previousDueSnapshot || 0);
+      const totalOut = parseFloat(inv.totalPayableSnapshot || (openBal + net));
+      const paid = parseFloat(inv.paidAmount || 0);
+      const closing = parseFloat(inv.balanceDue != null ? inv.balanceDue : (totalOut - paid));
 
-    return { kpis, rows, totalGross, totalCollected, totalDue, count };
+      return {
+        id: String(inv.id),
+        invoiceNo: inv.invoiceNumber,
+        time: inv.createdAt ? inv.createdAt.toISOString().slice(11, 16) : '08:30',
+        date: inv.invoiceDate,
+        customer: inv.customerName,
+        itemsCount: inv.items ? inv.items.length : 1,
+        paymentMethod: paid >= net ? 'Cash / UPI' : paid > 0 ? 'Partial' : 'Credit',
+        status: closing <= 0 ? 'Completed' : 'Pending',
+        // 7 Canonical Billing Calculation Fields
+        grossAmount: gross,
+        discount: discount,
+        netAmount: net,
+        openingBalance: openBal,
+        totalOutstanding: totalOut,
+        amountPaid: paid,
+        closingBalance: closing,
+        // Legacy compatibility properties
+        total: net,
+        paid: paid,
+        due: closing,
+      };
+    });
+
+    return { kpis, rows, totalGross, totalDiscount, totalNet, totalCollected, totalDue, count };
   }
 
   /**

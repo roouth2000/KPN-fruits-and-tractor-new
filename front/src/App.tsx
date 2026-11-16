@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { BillingPage } from './modules/sales/pages/BillingPage';
 import { InvoiceListPage } from './modules/sales/pages/InvoiceListPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { CustomerLedgerPage } from './pages/CustomerLedgerPage';
 import { RolesAndPermissionsPage } from './pages/RolesAndPermissionsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ExpenseManagementPage } from './pages/ExpenseManagementPage';
@@ -41,6 +42,7 @@ export const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, isSalesperson, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('billing'); // Default to Common Billing Screen!
   const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
+  const [selectedLedgerCustomer, setSelectedLedgerCustomer] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -239,6 +241,23 @@ export const AppContent: React.FC = () => {
         return (
           <CustomersPage
             onBackToDashboard={() => setActiveTab('command-center')}
+            onNavigateBilling={() => setActiveTab('billing')}
+            onViewLedger={(cust) => {
+              setSelectedLedgerCustomer(cust);
+              setActiveTab('customer-ledger');
+            }}
+            onShowToast={addToast}
+          />
+        );
+      case 'customer-ledger':
+      case 'ledger':
+        if (isSalesperson || !hasPermission('customer.view')) {
+          return renderRestrictedNotice('Customer Ledger Statement');
+        }
+        return (
+          <CustomerLedgerPage
+            initialCustomer={selectedLedgerCustomer}
+            onBackToCustomers={() => setActiveTab('customers')}
             onNavigateBilling={() => setActiveTab('billing')}
             onShowToast={addToast}
           />

@@ -88,6 +88,42 @@ const Invoice = sequelize.define('Invoice', {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+  grossAmount: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('subtotal')) || 0;
+    },
+  },
+  netAmount: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('grandTotal')) || 0;
+    },
+  },
+  openingBalance: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('previousDueSnapshot')) || 0;
+    },
+  },
+  totalOutstanding: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('totalPayableSnapshot')) || 0;
+    },
+  },
+  amountPaid: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('paidAmount')) || 0;
+    },
+  },
+  closingBalance: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return parseFloat(this.getDataValue('balanceDue')) || 0;
+    },
+  },
 }, {
   tableName: 'invoices',
   timestamps: true,

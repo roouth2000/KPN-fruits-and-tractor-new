@@ -150,7 +150,6 @@ export const receiptRenderer = {
   async renderInvoiceToEscPos(invoiceData: any, settings: PrinterSettings): Promise<Uint8Array> {
     const inv = invoiceData.invoice || invoiceData;
     const items = inv.items || [];
-    const payments = inv.payments || [];
     const is58mm = settings.paperSize === '58mm';
     const printerWidth = is58mm ? 32 : 48;
 
@@ -179,12 +178,19 @@ export const receiptRenderer = {
       .map((l: string) => l.trim().toUpperCase())
       .filter(Boolean);
 
+    // Canonical 7-Field Billing Calculation Engine
+    const grossAmount = Number(inv.subtotal || inv.grandTotal || 0);
+    const discount = Number(inv.discount || 0);
+    const netAmount = Number(inv.grandTotal != null ? inv.grandTotal : (grossAmount - discount));
+    const openingBalance = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+    const totalOutstanding = Math.round((openingBalance + netAmount) * 100) / 100;
+    const amountPaid = Number(inv.paidAmount || 0);
+    const closingBalance = Math.round((totalOutstanding - amountPaid) * 100) / 100;
+    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+
     // Bill Type
     let billType = 'CREDITBILL';
     const rawSaleType = String(inv.saleType || '').toUpperCase();
-    const balanceDue = Number(inv.balanceDue || 0);
-    const paidAmount = Number(inv.paidAmount || 0);
-    const grandTotal = Number(inv.grandTotal || 0);
 
     const isCashCust = !inv.customerId ||
       inv.customerCode === 'CUST-CASH' ||
@@ -197,7 +203,7 @@ export const receiptRenderer = {
       billType = 'CASHBILL';
     } else if (rawSaleType === 'CREDIT') {
       billType = 'CREDITBILL';
-    } else if (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0) {
+    } else if (closingBalance <= 0 && amountPaid >= netAmount && netAmount > 0) {
       billType = 'CASHBILL';
     }
 
@@ -219,26 +225,6 @@ export const receiptRenderer = {
       'admin';
     const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
     const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
-
-    // Totals & Quantities
-    const subtotal = Number(inv.subtotal || grandTotal || 0);
-    const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
-    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
-    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
-
-    // Payment rows
-    let paymentRows: { label: string; amount: number }[] = [];
-    if (Array.isArray(payments) && payments.length > 0) {
-      paymentRows = payments.map((p: any) => {
-        const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
-        const lbl = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : 'Cash Received';
-        return { label: lbl, amount: Number(p.amount || 0) };
-      });
-    } else if (paidAmount > 0) {
-      paymentRows = [{ label: 'Cash Received', amount: paidAmount }];
-    } else {
-      paymentRows = [{ label: 'Cash Received', amount: 0 }];
-    }
 
     const receiptElement = (
       <Printer type="epson" width={printerWidth} initialize={true}>
@@ -313,21 +299,18 @@ export const receiptRenderer = {
         {/* 11. Divider */}
         <Line character="-" />
 
-        {/* 12. Mandi Financial Summary */}
-        <Row left="Gross Amount :" right={subtotal.toFixed(2)} />
-        <Row left="Net Amount :" right={grandTotal.toFixed(2)} />
-
-        {previousDue > 0 && <Row left="Opening Balance :" right={previousDue.toFixed(2)} />}
-        {previousDue > 0 && <Row left="Total Amt :" right={totalPayable.toFixed(2)} />}
-
-        {paymentRows.map((p, idx) => (
-          <Row key={`pay-${idx}`} left={`${p.label} :`} right={p.amount.toFixed(2)} />
-        ))}
+        {/* 12. Mandi Financial Summary (All 7 Canonical Fields Clearly Displayed) */}
+        <Row left="Gross Amount :" right={grossAmount.toFixed(2)} />
+        <Row left="Discount :" right={discount > 0 ? `-${discount.toFixed(2)}` : '0.00'} />
+        <Row left={<Text bold={true}>Net Amount :</Text>} right={<Text bold={true}>{netAmount.toFixed(2)}</Text>} />
+        <Row left={is58mm ? "Opening Balance :" : "Previous / Opening Balance :"} right={openingBalance.toFixed(2)} />
+        <Row left={<Text bold={true}>Total Outstanding :</Text>} right={<Text bold={true}>{totalOutstanding.toFixed(2)}</Text>} />
+        <Row left="Amount Paid :" right={amountPaid > 0 ? `-${amountPaid.toFixed(2)}` : '0.00'} />
 
         {/* Closing Balance bold */}
         <Row
-          left={<Text bold={true}>Closing Balance :</Text>}
-          right={<Text bold={true}>{balanceDue.toFixed(2)}</Text>}
+          left={<Text bold={true}>{is58mm ? "Closing Balance :" : "Closing / Remaining Balance :"}</Text>}
+          right={<Text bold={true}>{closingBalance.toFixed(2)}</Text>}
         />
 
         {/* 13. Summary count & quantity */}
@@ -338,7 +321,7 @@ export const receiptRenderer = {
         {/* 14. Optional UPI QR code */}
         {settings.printQrCode && (
           <QRCode
-            content={`upi://pay?pa=8778219770@upi&pn=SR%20FRUITS&am=${balanceDue > 0 ? balanceDue : grandTotal}&cu=INR`}
+            content={`upi://pay?pa=8778219770@upi&pn=SR%20FRUITS&am=${closingBalance > 0 ? closingBalance : netAmount}&cu=INR`}
             align="center"
           />
         )}
@@ -442,7 +425,6 @@ export const receiptRenderer = {
   async renderInvoiceToHtml(invoiceData: any, settings: PrinterSettings): Promise<string> {
     const inv = invoiceData.invoice || invoiceData;
     const items = inv.items || [];
-    const payments = inv.payments || [];
     const is58mm = settings.paperSize === '58mm';
     const paperWidthMm = is58mm ? '58mm' : '80mm';
     const contentWidthMm = is58mm ? '48mm' : '72mm';
@@ -463,11 +445,18 @@ export const receiptRenderer = {
       .map((l: string) => l.trim().toUpperCase())
       .filter(Boolean);
 
+    // Canonical 7-Field Billing Calculation Engine
+    const grossAmount = Number(inv.subtotal || inv.grandTotal || 0);
+    const discount = Number(inv.discount || 0);
+    const netAmount = Number(inv.grandTotal != null ? inv.grandTotal : (grossAmount - discount));
+    const openingBalance = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+    const totalOutstanding = Math.round((openingBalance + netAmount) * 100) / 100;
+    const amountPaid = Number(inv.paidAmount || 0);
+    const closingBalance = Math.round((totalOutstanding - amountPaid) * 100) / 100;
+    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+
     let billType = 'CREDITBILL';
     const rawSaleType = String(inv.saleType || '').toUpperCase();
-    const balanceDue = Number(inv.balanceDue || 0);
-    const paidAmount = Number(inv.paidAmount || 0);
-    const grandTotal = Number(inv.grandTotal || 0);
 
     const isCashCust = !inv.customerId ||
       inv.customerCode === 'CUST-CASH' ||
@@ -480,7 +469,7 @@ export const receiptRenderer = {
       billType = 'CASHBILL';
     } else if (rawSaleType === 'CREDIT') {
       billType = 'CREDITBILL';
-    } else if (balanceDue <= 0 && paidAmount >= grandTotal && grandTotal > 0) {
+    } else if (closingBalance <= 0 && amountPaid >= netAmount && netAmount > 0) {
       billType = 'CASHBILL';
     }
 
@@ -498,22 +487,6 @@ export const receiptRenderer = {
       'Admin';
     const invDate = formatReceiptDate(inv.invoiceDate || inv.createdAt);
     const invTime = formatReceiptTime(inv.createdAt || inv.invoiceDate);
-
-    const subtotal = Number(inv.subtotal || grandTotal || 0);
-    const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
-    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
-    const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
-
-    let paymentRows: { label: string; amount: number }[] = [];
-    if (Array.isArray(payments) && payments.length > 0) {
-      paymentRows = payments.map((p: any) => {
-        const mode = String(p.paymentMode || p.method || 'CASH').toUpperCase();
-        const lbl = mode === 'GPAY' || mode === 'UPI' ? 'Gpay Received' : `${p.paymentMode || 'Payment'} Paid`;
-        return { label: lbl, amount: Number(p.amount || 0) };
-      });
-    } else if (paidAmount > 0) {
-      paymentRows = [{ label: 'Paid Amount', amount: paidAmount }];
-    }
 
     const width = is58mm ? 32 : 48;
     const lineDivider = '-'.repeat(width);
@@ -598,20 +571,15 @@ export const receiptRenderer = {
     const sumValWidth = is58mm ? 12 : 14;
 
     const summaryLines: string[] = [];
-    summaryLines.push(padRight('Gross Amount :', sumLblWidth) + padLeft('Rs.' + subtotal.toFixed(2), sumValWidth));
-    summaryLines.push(`<b>${padRight('Net Amount :', sumLblWidth) + padLeft('Rs.' + grandTotal.toFixed(2), sumValWidth)}</b>`);
-
-    if (previousDue > 0) {
-      summaryLines.push(padRight('Opening Balance :', sumLblWidth) + padLeft('+ Rs.' + previousDue.toFixed(2), sumValWidth));
-      summaryLines.push(`<b>${padRight('Total Amt :', sumLblWidth) + padLeft('Rs.' + totalPayable.toFixed(2), sumValWidth)}</b>`);
-    }
-
-    for (const p of paymentRows) {
-      summaryLines.push(padRight(p.label + ' :', sumLblWidth) + padLeft('- Rs.' + p.amount.toFixed(2), sumValWidth));
-    }
+    summaryLines.push(padRight('Gross Amount :', sumLblWidth) + padLeft('Rs.' + grossAmount.toFixed(2), sumValWidth));
+    summaryLines.push(padRight('Discount :', sumLblWidth) + padLeft((discount > 0 ? '-Rs.' : 'Rs.') + discount.toFixed(2), sumValWidth));
+    summaryLines.push(`<b>${padRight('Net Amount :', sumLblWidth) + padLeft('Rs.' + netAmount.toFixed(2), sumValWidth)}</b>`);
+    summaryLines.push(padRight(is58mm ? 'Opening Balance :' : 'Previous / Opening Balance :', sumLblWidth) + padLeft('Rs.' + openingBalance.toFixed(2), sumValWidth));
+    summaryLines.push(`<b>${padRight('Total Outstanding :', sumLblWidth) + padLeft('Rs.' + totalOutstanding.toFixed(2), sumValWidth)}</b>`);
+    summaryLines.push(padRight('Amount Paid :', sumLblWidth) + padLeft((amountPaid > 0 ? '-Rs.' : 'Rs.') + amountPaid.toFixed(2), sumValWidth));
 
     summaryLines.push(doubleDivider);
-    summaryLines.push(`<b>${padRight('Closing Balance :', sumLblWidth) + padLeft('Rs.' + balanceDue.toFixed(2), sumValWidth)}</b>`);
+    summaryLines.push(`<b>${padRight(is58mm ? 'Closing Balance :' : 'Closing / Remaining Balance :', sumLblWidth) + padLeft('Rs.' + closingBalance.toFixed(2), sumValWidth)}</b>`);
     summaryLines.push(doubleDivider);
 
     // Item count & Total quantity
@@ -652,7 +620,7 @@ export const receiptRenderer = {
     const renderedReceiptText = allLines.join('\n');
     const estimatedHeightMm = Math.max(
       150,
-      110 + (items.length * 10) + (paymentRows.length * 6) + (settings.printLogo !== false ? 40 : 0) + 25
+      110 + (items.length * 10) + 30 + (settings.printLogo !== false ? 40 : 0) + 25
     );
 
     return `<!DOCTYPE html>

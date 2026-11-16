@@ -1,4 +1,11 @@
-const { Customer, CustomerLedger, TrayMovement } = require('../models');
+const {
+  Customer,
+  CustomerLedger,
+  TrayMovement,
+  Invoice,
+  InvoiceItem,
+  Payment,
+} = require('../models');
 const { Op } = require('sequelize');
 
 class CustomerService {
@@ -35,16 +42,27 @@ class CustomerService {
   async calculateCustomerDue(customerId, transaction = null) {
     const entries = await CustomerLedger.findAll({
       where: { customerId },
-      attributes: ['debit', 'credit'],
+      attributes: ['type', 'debit', 'credit'],
       transaction,
     });
 
+    const hasOpening = entries.some((e) => e.type === 'OPENING');
     let totalDebit = 0;
     let totalCredit = 0;
 
     for (const entry of entries) {
       totalDebit += parseFloat(entry.debit) || 0;
       totalCredit += parseFloat(entry.credit) || 0;
+    }
+
+    if (!hasOpening) {
+      const cust = await Customer.findByPk(customerId, {
+        attributes: ['openingBalance'],
+        transaction,
+      });
+      if (cust && parseFloat(cust.openingBalance) > 0) {
+        totalDebit += parseFloat(cust.openingBalance);
+      }
     }
 
     return Math.round((totalDebit - totalCredit) * 100) / 100;
@@ -95,28 +113,154 @@ class CustomerService {
     };
   }
 
-  async getCustomerLedger(id, limit = 50, offset = 0) {
+  async getCustomerLedger(id, limit = 100, offset = 0, filters = {}) {
     const customer = await this.findById(id);
     if (!customer) throw new Error('Customer not found');
 
+    const where = { customerId: id };
+    if (filters.startDate && filters.endDate) {
+      where.date = { [Op.between]: [filters.startDate, filters.endDate] };
+    } else if (filters.startDate) {
+      where.date = { [Op.gte]: filters.startDate };
+    } else if (filters.endDate) {
+      where.date = { [Op.lte]: filters.endDate };
+    }
+    if (filters.type && filters.type !== 'ALL') {
+      where.type = filters.type;
+    }
+
     const result = await CustomerLedger.findAndCountAll({
-      where: { customerId: id },
+      where,
       order: [['date', 'DESC'], ['id', 'DESC']],
-      limit: parseInt(limit, 10) || 50,
+      limit: parseInt(limit, 10) || 100,
       offset: parseInt(offset, 10) || 0,
     });
 
-    const currentDue = await this.calculateCustomerDue(id);
+    // Fetch full invoice details for SALE entries in this ledger page
+    const invoiceNumbers = result.rows
+      .filter((e) => e.type === 'SALE' || (e.reference && e.reference.startsWith('INV-')))
+      .map((e) => e.reference);
+
+    const invoiceMap = new Map();
+    if (invoiceNumbers.length > 0) {
+      const invoices = await Invoice.findAll({
+        where: { invoiceNumber: { [Op.in]: invoiceNumbers } },
+        include: [
+          {
+            model: InvoiceItem,
+            as: 'items',
+            attributes: [
+              'id',
+              'productId',
+              'productName',
+              'variety',
+              'grade',
+              'unit',
+              'quantity',
+              'rate',
+              'discount',
+              'taxRate',
+              'taxAmount',
+              'totalAmount',
+              'trayQuantity',
+            ],
+          },
+          {
+            model: Payment,
+            as: 'payments',
+            attributes: ['id', 'paymentNumber', 'paymentMode', 'amount', 'transactionRef', 'paymentDate'],
+          },
+        ],
+      });
+      invoices.forEach((inv) => invoiceMap.set(inv.invoiceNumber, inv));
+    }
+
+    // Fetch payment details for PAYMENT entries
+    const paymentNumbers = result.rows
+      .filter((e) => e.type === 'PAYMENT' || (e.reference && e.reference.startsWith('PAY-')))
+      .map((e) => e.reference);
+
+    const paymentMap = new Map();
+    if (paymentNumbers.length > 0) {
+      const payments = await Payment.findAll({
+        where: { paymentNumber: { [Op.in]: paymentNumbers } },
+        attributes: ['id', 'paymentNumber', 'paymentMode', 'amount', 'transactionRef', 'paymentDate', 'notes', 'invoiceId'],
+      });
+      payments.forEach((p) => paymentMap.set(p.paymentNumber, p));
+    }
+
+    const enhancedEntries = result.rows.map((row) => {
+      const plain = row.toJSON ? row.toJSON() : { ...row };
+      if (invoiceMap.has(plain.reference)) {
+        const inv = invoiceMap.get(plain.reference);
+        const sub = parseFloat(inv.subtotal) || parseFloat(inv.grandTotal) || 0;
+        const disc = parseFloat(inv.discount) || 0;
+        const net = parseFloat(inv.grandTotal) || (sub - disc);
+        const openBal = parseFloat(inv.previousDueSnapshot) || 0;
+        const totOut = parseFloat(inv.totalPayableSnapshot) || (openBal + net);
+        const paid = parseFloat(inv.paidAmount) || 0;
+        const closeBal = parseFloat(inv.balanceDue) || (totOut - paid);
+
+        plain.invoice = {
+          ...inv.toJSON(),
+          grossAmount: sub,
+          discount: disc,
+          netAmount: net,
+          openingBalance: openBal,
+          totalOutstanding: totOut,
+          amountPaid: paid,
+          closingBalance: closeBal,
+        };
+      }
+      if (paymentMap.has(plain.reference)) {
+        plain.payment = paymentMap.get(plain.reference);
+      }
+      return plain;
+    });
+
+    const allEntries = await CustomerLedger.findAll({
+      where: { customerId: id },
+      attributes: ['type', 'debit', 'credit'],
+    });
+
+    const hasOpening = allEntries.some((e) => e.type === 'OPENING');
+    let totalDebit = 0;
+    let totalCredit = 0;
+    let openingBal = 0;
+
+    for (const e of allEntries) {
+      if (e.type === 'OPENING') {
+        openingBal += parseFloat(e.debit) || 0;
+      }
+      totalDebit += parseFloat(e.debit) || 0;
+      totalCredit += parseFloat(e.credit) || 0;
+    }
+
+    if (!hasOpening && parseFloat(customer.openingBalance) > 0) {
+      openingBal = parseFloat(customer.openingBalance);
+      totalDebit += openingBal;
+    }
+
+    const currentDue = Math.round((totalDebit - totalCredit) * 100) / 100;
 
     return {
       customer: {
         id: customer.id,
+        customerCode: customer.customerCode,
         name: customer.name,
         phone: customer.phone,
+        city: customer.city,
+        address: customer.address,
+        customerType: customer.customerType,
+        creditLimit: parseFloat(customer.creditLimit) || 0,
+        openingBalance: openingBal,
+        totalDebit: Math.round(totalDebit * 100) / 100,
+        totalCredit: Math.round(totalCredit * 100) / 100,
         currentDue,
+        closingBalance: currentDue,
       },
       total: result.count,
-      entries: result.rows,
+      entries: enhancedEntries,
     };
   }
 

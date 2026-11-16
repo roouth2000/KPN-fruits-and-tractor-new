@@ -388,6 +388,118 @@ async function runTests() {
   console.log(`- Ramesh Purchase History Orders: ${custHistory.totalOrders}, Total Purchases: ₹${custHistory.totalPurchases}`);
   console.log('✓ Customer Purchase History Reporting PASSED perfectly!\n');
 
+  // =========================================================================
+  // Test 9: Exact Canonical 7-Field Billing Calculation Scenario
+  // Gross: 2,000, Disc: 200 => Net: 1,800, Open: 20,000 => Outstanding: 21,800, Paid: 15,000 => Closing: 6,800
+  // =========================================================================
+  console.log('[Test 9] Canonical 7-Field Billing Calculation & Consistency Verification');
+
+  // Create test customer Suresh with Opening Balance ₹20,000
+  let suresh = await Customer.findOne({ where: { customerCode: 'CUST-SURESH-01' } });
+  if (suresh) {
+    const { CustomerLedger, Payment, PaymentAllocation, InvoiceItem, Invoice: InvModel } = require('../src/models');
+    await CustomerLedger.destroy({ where: { customerId: suresh.id } });
+    await suresh.destroy();
+  }
+
+  suresh = await customerService.createCustomer({
+    customerCode: 'CUST-SURESH-01',
+    name: 'Suresh Kumar Traders',
+    phone: '9888877777',
+    city: 'Vashi Mandi',
+    openingBalance: 20000.00,
+    currentDue: 20000.00,
+    customerType: 'WHOLESALE',
+  });
+
+  const sureshInitialDue = await customerService.calculateCustomerDue(suresh.id);
+  assert.strictEqual(sureshInitialDue, 20000, 'Suresh opening due must be ₹20,000');
+
+  // Ensure Apple stock is sufficient
+  await apple.update({ currentStock: 50.0 });
+
+  // Bill 1 BOX Apple @ ₹2,000 with ₹200 discount, and payment of ₹15,000
+  const sevenFieldPayload = {
+    customerId: suresh.id,
+    invoiceDate: '2026-11-16',
+    saleType: 'WHOLESALE',
+    items: [
+      { productId: apple.id, quantity: 1, rate: 2000, discount: 0, taxRate: 0, unit: 'BOX' },
+    ],
+    invoiceDiscount: 200, // Total discount = 200
+    invoiceTax: 0,
+    payments: [
+      { method: 'CASH', amount: 15000 },
+    ],
+    status: 'CONFIRMED',
+  };
+
+  const invoiceRes = await billingService.createInvoice(sevenFieldPayload, adminUser);
+
+  console.log('- Checking Canonical 7 Fields on Created Invoice:');
+  console.log(`  1. Gross Amount:        ₹${invoiceRes.grossAmount} (Expected: ₹2,000)`);
+  console.log(`  2. Discount:            ₹${invoiceRes.discount} (Expected: ₹200)`);
+  console.log(`  3. Net Amount:          ₹${invoiceRes.netAmount} (Expected: ₹1,800)`);
+  console.log(`  4. Opening Balance:     ₹${invoiceRes.openingBalance} (Expected: ₹20,000)`);
+  console.log(`  5. Total Outstanding:   ₹${invoiceRes.totalOutstanding} (Expected: ₹21,800)`);
+  console.log(`  6. Amount Paid:         ₹${invoiceRes.amountPaid} (Expected: ₹15,000)`);
+  console.log(`  7. Closing Balance:     ₹${invoiceRes.closingBalance} (Expected: ₹6,800)`);
+
+  assert.strictEqual(invoiceRes.grossAmount, 2000, 'Gross Amount must be 2,000');
+  assert.strictEqual(invoiceRes.discount, 200, 'Discount must be 200');
+  assert.strictEqual(invoiceRes.netAmount, 1800, 'Net Amount must be 1,800 (2000 - 200)');
+  assert.strictEqual(invoiceRes.openingBalance, 20000, 'Opening Balance must be 20,000');
+  assert.strictEqual(invoiceRes.totalOutstanding, 21800, 'Total Outstanding must be 21,800 (20000 + 1800)');
+  assert.strictEqual(invoiceRes.amountPaid, 15000, 'Amount Paid must be 15,000');
+  assert.strictEqual(invoiceRes.closingBalance, 6800, 'Closing Balance must be 6,800 (21800 - 15000)');
+
+  // Verify Customer Ledger consistency
+  const { CustomerLedger } = require('../src/models');
+  const sureshLedgerEntries = await CustomerLedger.findAll({
+    where: { customerId: suresh.id },
+    order: [['id', 'ASC']],
+  });
+
+  console.log(`- Suresh Ledger Entries Count: ${sureshLedgerEntries.length}`);
+  // Entry 1: OPENING (debit: 20000, runningBalance: 20000)
+  assert.strictEqual(sureshLedgerEntries[0].type, 'OPENING');
+  assert.strictEqual(parseFloat(sureshLedgerEntries[0].debit), 20000);
+  assert.strictEqual(parseFloat(sureshLedgerEntries[0].runningBalance), 20000);
+
+  // Entry 2: SALE (debit: 1800, credit: 0, runningBalance: 21800 => Total Outstanding)
+  assert.strictEqual(sureshLedgerEntries[1].type, 'SALE');
+  assert.strictEqual(parseFloat(sureshLedgerEntries[1].debit), 1800);
+  assert.strictEqual(parseFloat(sureshLedgerEntries[1].credit), 0);
+  assert.strictEqual(parseFloat(sureshLedgerEntries[1].runningBalance), 21800, 'Running balance after sale must be Total Outstanding (21,800)');
+
+  // Entry 3: PAYMENT (debit: 0, credit: 15000, runningBalance: 6800 => Closing Balance)
+  assert.strictEqual(sureshLedgerEntries[2].type, 'PAYMENT');
+  assert.strictEqual(parseFloat(sureshLedgerEntries[2].debit), 0);
+  assert.strictEqual(parseFloat(sureshLedgerEntries[2].credit), 15000);
+  assert.strictEqual(parseFloat(sureshLedgerEntries[2].runningBalance), 6800, 'Running balance after payment must be Closing Balance (6,800)');
+
+  // Verify no duplicate entries exist
+  assert.strictEqual(sureshLedgerEntries.length, 3, 'Exactly 3 ledger entries: 1 OPENING + 1 SALE + 1 PAYMENT (no duplicates)');
+
+  // Verify real-time customer current due
+  const sureshFinalDue = await customerService.calculateCustomerDue(suresh.id);
+  console.log(`- Suresh Ledger Calculated Due: ₹${sureshFinalDue} (Expected: ₹6,800)`);
+  assert.strictEqual(sureshFinalDue, 6800, 'Customer balance in ledger must be exactly 6,800');
+
+  // Verify Daily Sales Report Consistency
+  const dailySales = await reportService.getDailySales({ date: '2026-11-16' });
+  const sureshSaleRow = dailySales.rows.find((r) => r.invoiceNo === invoiceRes.invoiceNumber);
+  assert(sureshSaleRow, 'Invoice must appear in daily sales report');
+  assert.strictEqual(sureshSaleRow.grossAmount, 2000, 'Daily sales row grossAmount must be 2,000');
+  assert.strictEqual(sureshSaleRow.discount, 200, 'Daily sales row discount must be 200');
+  assert.strictEqual(sureshSaleRow.netAmount, 1800, 'Daily sales row netAmount must be 1,800');
+  assert.strictEqual(sureshSaleRow.openingBalance, 20000, 'Daily sales row openingBalance must be 20,000');
+  assert.strictEqual(sureshSaleRow.totalOutstanding, 21800, 'Daily sales row totalOutstanding must be 21,800');
+  assert.strictEqual(sureshSaleRow.amountPaid, 15000, 'Daily sales row amountPaid must be 15,000');
+  assert.strictEqual(sureshSaleRow.closingBalance, 6800, 'Daily sales row closingBalance must be 6,800');
+
+  console.log('✓ Canonical 7-Field Billing Calculation & Multi-Module Consistency PASSED 100%!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

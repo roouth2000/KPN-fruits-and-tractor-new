@@ -10,11 +10,21 @@ interface DailySaleItem {
   id: string;
   invoiceNo: string;
   time: string;
+  date: string;
   customer: string;
   itemsCount: number;
   paymentMethod: string;
   status: string;
+  grossAmount: number;
+  discount: number;
+  netAmount: number;
+  openingBalance: number;
+  totalOutstanding: number;
+  amountPaid: number;
+  closingBalance: number;
   total: number;
+  paid: number;
+  due: number;
 }
 
 interface DailySalesPageProps {
@@ -63,51 +73,109 @@ export const DailySalesPage: React.FC<DailySalesPageProps> = ({
     {
       key: 'invoiceNo',
       header: 'Invoice #',
-      render: (row) => <span className="font-mono font-bold text-slate-900">{row.invoiceNo}</span>,
+      render: (row) => (
+        <div>
+          <span className="font-mono font-bold text-slate-900 block">{row.invoiceNo}</span>
+          <span className="text-[10px] text-slate-400 font-mono">{row.time}</span>
+        </div>
+      ),
     },
-    { key: 'time', header: 'Time' },
     {
       key: 'customer',
       header: 'Customer',
-      render: (row) => <span className="font-semibold text-slate-800">{row.customer}</span>,
-    },
-    {
-      key: 'itemsCount',
-      header: 'Line Items',
-      align: 'center',
-      render: (row) => <span className="font-mono">{row.itemsCount}</span>,
-    },
-    {
-      key: 'paymentMethod',
-      header: 'Payment Method',
       render: (row) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
-          {row.paymentMethod}
+        <div>
+          <span className="font-semibold text-slate-800 block">{row.customer}</span>
+          <span className="text-[10px] text-slate-400">{row.paymentMethod}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'grossAmount',
+      header: 'Gross Amount',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono text-slate-700">
+          {formatINR(row.grossAmount ?? row.total)}
         </span>
       ),
     },
     {
+      key: 'discount',
+      header: 'Discount',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono text-rose-600">
+          {row.discount > 0 ? `-${formatINR(row.discount)}` : '₹0.00'}
+        </span>
+      ),
+    },
+    {
+      key: 'netAmount',
+      header: 'Net Amount',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono font-bold text-slate-900">
+          {formatINR(row.netAmount ?? row.total)}
+        </span>
+      ),
+    },
+    {
+      key: 'openingBalance',
+      header: 'Opening Bal',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono text-amber-700">
+          {formatINR(row.openingBalance || 0)}
+        </span>
+      ),
+    },
+    {
+      key: 'totalOutstanding',
+      header: 'Total Outstanding',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono font-bold text-slate-900">
+          {formatINR(row.totalOutstanding ?? ((row.openingBalance || 0) + (row.netAmount ?? row.total)))}
+        </span>
+      ),
+    },
+    {
+      key: 'amountPaid',
+      header: 'Amount Paid',
+      align: 'right',
+      render: (row) => (
+        <span className="font-mono font-semibold text-emerald-700">
+          {(row.amountPaid ?? row.paid) > 0 ? `-${formatINR(row.amountPaid ?? row.paid)}` : '₹0.00'}
+        </span>
+      ),
+    },
+    {
+      key: 'closingBalance',
+      header: 'Closing Balance',
+      align: 'right',
+      render: (row) => {
+        const bal = row.closingBalance != null ? row.closingBalance : row.due;
+        return (
+          <span className={`font-mono font-bold ${bal > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+            {formatINR(bal)}
+          </span>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => (
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-            row.status === 'Completed'
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+            row.status === 'Completed' || (row.closingBalance != null ? row.closingBalance <= 0 : row.due <= 0)
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}
         >
           {row.status}
-        </span>
-      ),
-    },
-    {
-      key: 'total',
-      header: 'Invoice Total',
-      align: 'right',
-      render: (row) => (
-        <span className="font-mono font-bold text-slate-900">
-          {formatINR(row.total)}
         </span>
       ),
     },

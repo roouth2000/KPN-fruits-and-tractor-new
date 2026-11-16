@@ -7,7 +7,10 @@ import {
   CheckSquareIcon,
   RotateCcwIcon,
   XIcon,
+  EditIcon,
+  PrinterIcon,
 } from '../components/icons';
+import kbnLogo from '../assets/kbn-logo.jpeg';
 import { printerService } from '../services/printer/printerService';
 import { PrinterSettings as ThermalPrinterConfig } from '../components/printer/PrinterSettings';
 import { settingApi } from '../services/settingApi';
@@ -27,22 +30,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
   const [isResetting, setIsResetting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isEditBillingOpen, setIsEditBillingOpen] = useState(false);
 
   // Mandi & Business Details State
   const [mandiSettings, setMandiSettings] = useState({
-    businessName: 'KBN FRUITS',
+    businessName: 'SR FRUITS',
     logoMonogram: 'KBN',
     logoUrl: '',
     printLogo: true,
     licenseNo: 'APMC/KOY/2026/8941',
-    yardBay: 'T/A-18,T/E-25,ANNA FRUITS MARKET',
+    yardBay: 'T/B 43 ANNA FRUITS MARKET',
     city: 'KOYAMBEDU, CHENNAI',
     state: 'Tamil Nadu',
     pincode: '600092',
-    phone: '8778219770',
-    email: 'terminal.koyambedu@finovore.com',
-    gstin: '',
+    phone: '6383842405',
+    email: 'terminal.vashi@finovore.com',
+    gstin: '27AABCF1234F1Z5',
   });
+
+  // Working copy for edit modal
+  const [tempMandiSettings, setTempMandiSettings] = useState({ ...mandiSettings });
 
   // Billing & Printing Preferences
   const [billingSettings, setBillingSettings] = useState({
@@ -54,6 +62,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
     creditGraceDays: '15',
     notesFooter: 'Goods once sold cannot be returned after mandi gate dispatch.',
   });
+
+  // Working copy for edit bill settings modal
+  const [tempBillingSettings, setTempBillingSettings] = useState({ ...billingSettings });
 
   // APMC Market Fees & Taxes
   const [apmcSettings, setApmcSettings] = useState({
@@ -165,7 +176,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
   }, [onShowToast]);
 
   // Compress and resize logo image to optimized thermal-printer dimensions (< 25 KB)
-  const handleLogoFileUpload = (file: File) => {
+  const handleLogoFileUpload = (file: File, isTemp = false) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const rawDataUrl = e.target?.result;
@@ -193,7 +204,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
-            setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+            if (isTemp) {
+              setTempMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+            } else {
+              setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+            }
             return;
           }
 
@@ -203,13 +218,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
 
           // Compress to lightweight JPEG (~10KB - 20KB)
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setMandiSettings((prev) => ({ ...prev, logoUrl: compressedDataUrl }));
+          if (isTemp) {
+            setTempMandiSettings((prev) => ({ ...prev, logoUrl: compressedDataUrl }));
+          } else {
+            setMandiSettings((prev) => ({ ...prev, logoUrl: compressedDataUrl }));
+          }
         } catch {
-          setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+          if (isTemp) {
+            setTempMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+          } else {
+            setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+          }
         }
       };
       img.onerror = () => {
-        setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+        if (isTemp) {
+          setTempMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+        } else {
+          setMandiSettings((prev) => ({ ...prev, logoUrl: rawDataUrl }));
+        }
       };
       img.src = rawDataUrl;
     };
@@ -217,28 +244,40 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
   };
 
   // Save all settings to MySQL database
-  const handleSave = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSave = async (
+    e?: React.FormEvent,
+    customMandi?: typeof mandiSettings,
+    customBilling?: typeof billingSettings
+  ) => {
+    if (e && e.preventDefault) e.preventDefault();
     setIsSaving(true);
+    const mandiToSave = customMandi || mandiSettings;
+    const billingToSave = customBilling || billingSettings;
     try {
       const updatedPrinter: PrinterSettings = {
         ...printerSettings,
-        shopName: mandiSettings.businessName,
-        shopInitials: mandiSettings.logoMonogram || 'KBN',
-        logoUrl: mandiSettings.logoUrl || '',
-        printLogo: mandiSettings.printLogo !== false,
-        shopAddress: `${mandiSettings.yardBay},\n${mandiSettings.city}-${mandiSettings.pincode}`,
-        shopPhone: mandiSettings.phone,
+        shopName: mandiToSave.businessName,
+        shopInitials: mandiToSave.logoMonogram || 'KBN',
+        logoUrl: mandiToSave.logoUrl || '',
+        printLogo: mandiToSave.printLogo !== false,
+        shopAddress: `${mandiToSave.yardBay},\n${mandiToSave.city}-${mandiToSave.pincode}`,
+        shopPhone: mandiToSave.phone,
       };
 
       await settingApi.updateAllSettings({
-        mandi: mandiSettings,
-        billing: billingSettings,
+        mandi: mandiToSave,
+        billing: billingToSave,
         apmc: apmcSettings,
         inventory: inventorySettings,
         printer: updatedPrinter,
       });
 
+      if (customMandi) {
+        setMandiSettings(customMandi);
+      }
+      if (customBilling) {
+        setBillingSettings(customBilling);
+      }
       // Synchronize thermal printer preferences with local client storage
       setPrinterSettings(updatedPrinter);
       printerService.saveSettings(updatedPrinter);
@@ -433,233 +472,180 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
           {/* Tab 1: Mandi & Business Details */}
           {activeTab === 'mandi' && (
             <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              {/* Card Header */}
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">APMC Mandi Yard &amp; Business Profile</h2>
+                  <h2 className="text-sm font-bold text-slate-900">Business Profile</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     These details are printed on all tax invoices, delivery slips, and customer vouchers.
                   </p>
                 </div>
-                <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
-                  CATEGORY: MANDI
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempMandiSettings({ ...mandiSettings });
+                      setIsEditProfileOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    <EditIcon className="w-3.5 h-3.5 text-white" />
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Logo & Monogram Header (Non-Mandatory) */}
-                <div className="sm:col-span-2 p-4 rounded-xl border border-slate-200/90 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-900">Receipt Logo &amp; Monogram Header</h3>
-                      <p className="text-[11px] text-slate-500">
-                        Configured for thermal receipts &amp; invoices. <span className="text-emerald-700 font-semibold">(Non-mandatory: receipt prints cleanly if empty or disabled)</span>
-                      </p>
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                      <input
-                        type="checkbox"
-                        checked={mandiSettings.printLogo !== false}
-                        onChange={(e) => setMandiSettings({ ...mandiSettings, printLogo: e.target.checked })}
-                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
-                      />
-                      <span className="text-xs font-bold text-slate-800">Print Logo on Receipt</span>
-                    </label>
+              {/* Receipt Logo & Monogram Header sub-card */}
+              <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full border border-slate-200 bg-white p-1 flex items-center justify-center overflow-hidden shadow-2xs flex-shrink-0">
+                  <img
+                    src={mandiSettings.logoUrl || kbnLogo}
+                    alt={mandiSettings.businessName}
+                    className="w-full h-full object-contain rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = kbnLogo;
+                    }}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-slate-900">Receipt Logo</h3>
+                    <span className="text-emerald-700 font-semibold text-[11px]">
+                      (Non-mandatory: receipt prints cleanly if empty or disabled)
+                    </span>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Logo Monogram / Short Code
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={5}
-                        placeholder="e.g. SR"
-                        value={mandiSettings.logoMonogram || ''}
-                        onChange={(e) => setMandiSettings({ ...mandiSettings, logoMonogram: e.target.value.toUpperCase() })}
-                        className="w-full px-3 py-1.5 text-xs font-black uppercase rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <span className="text-[10px] text-slate-400">Large letters centered at top (e.g. "KBN")</span>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configured for thermal receipts &amp; invoices.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Logo:</span>
+                      <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                        {mandiSettings.logoMonogram || 'KBN'}
+                      </span>
                     </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Logo Image <span className="text-slate-400 font-normal">(Optional / Non-Mandatory)</span>
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Image URL or choose file (leave blank for text-only)"
-                          value={mandiSettings.logoUrl || ''}
-                          onChange={(e) => setMandiSettings({ ...mandiSettings, logoUrl: e.target.value })}
-                          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-[11px]"
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Logo Image:</span>
+                      <span className="text-slate-700 text-[11px] font-medium">
+                        {mandiSettings.logoUrl ? 'Uploaded (custom_logo.png)' : 'Uploaded (KBN_logo.jpg)'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Print Logo on Receipt:</span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                          mandiSettings.printLogo !== false
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            mandiSettings.printLogo !== false ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
                         />
-                        <label className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-700 cursor-pointer shadow-2xs flex-shrink-0">
-                          Upload File
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                handleLogoFileUpload(file);
-                              }
-                            }}
-                          />
-                        </label>
-                        {mandiSettings.logoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setMandiSettings({ ...mandiSettings, logoUrl: '' })}
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                            title="Remove logo image"
-                          >
-                            <XIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      {mandiSettings.logoUrl && (
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
-                          <span className="font-semibold">Logo Preview:</span>
-                          <img
-                            src={mandiSettings.logoUrl}
-                            alt="Logo preview"
-                            className="h-8 max-w-[80px] object-contain border border-slate-200 bg-white p-0.5 rounded"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
+                        <span>{mandiSettings.printLogo !== false ? 'Enabled' : 'Disabled'}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+              {/* Read/View Mode: Key-Value Table / Rows (Divided by lines, exactly like screenshot) */}
+              <div className="border border-slate-200/80 rounded-xl divide-y divide-slate-100 bg-white overflow-hidden shadow-2xs">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     Wholesale Produce Business Name
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.businessName}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, businessName: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {mandiSettings.businessName || 'SR FRUITS'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     APMC Yard License / Registration No.
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.licenseNo}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, licenseNo: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {mandiSettings.licenseNo || 'APMC/KOY/2026/8941'}
+                  </span>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     Mandi Market Bay &amp; Stall Address
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.yardBay}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, yardBay: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight text-right max-w-md">
+                    {mandiSettings.yardBay || 'T/B 43 ANNA FRUITS MARKET'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     Contact Phone / WhatsApp
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.phone}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {mandiSettings.phone || '6383842405'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     Support Email
-                  </label>
-                  <input
-                    type="email"
-                    value={mandiSettings.email}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, email: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {mandiSettings.email || 'terminal.vashi@finovore.com'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     GSTIN (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.gstin}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, gstin: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {mandiSettings.gstin || '27AABCF1234F1Z5'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     City / Market Zone
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.city}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, city: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {mandiSettings.city || 'KOYAMBEDU, CHENNAI'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     State
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.state}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, state: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {mandiSettings.state || 'Tamil Nadu'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
                     Pincode
-                  </label>
-                  <input
-                    type="text"
-                    value={mandiSettings.pincode}
-                    onChange={(e) => setMandiSettings({ ...mandiSettings, pincode: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {mandiSettings.pincode || '600092'}
+                  </span>
                 </div>
               </div>
 
               {/* Card Action Footer */}
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Database Sync Active · Table <code className="font-mono">settings</code></span>
-                </div>
+              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-end gap-3">
                 <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setShowResetConfirm(true)}
                     disabled={isSaving || isResetting}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <RotateCcwIcon className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Reset Tab Defaults</span>
+                    <span>Reset</span>
                   </button>
                   <button
                     type="button"
@@ -674,8 +660,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
                       </>
                     ) : (
                       <>
-                        <SaveIcon className="w-3.5 h-3.5" />
-                        <span>Save Mandi Changes</span>
+                        <SaveIcon className="w-3.5 h-3.5 text-white" />
+                        <span>Save</span>
                       </>
                     )}
                   </button>
@@ -687,104 +673,195 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
           {/* Tab 2: Billing & Thermal Printing */}
           {activeTab === 'billing' && (
             <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h2 className="text-sm font-bold text-slate-900">POS Thermal Printer &amp; Billing Preferences</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Direct browser-native printing via Web Serial API (Zero background software / No QZ Tray required).
-                </p>
-              </div>
-
-              {/* Thermal Printer Hardware Section */}
-              <ThermalPrinterConfig onShowToast={onShowToast} />
-
-              {/* General Billing Configuration */}
-              <div className="pt-4 border-t border-slate-200">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3">
-                  Billing &amp; Invoice Ledger Rules
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Card Header */}
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Invoice Series Prefix
-                  </label>
-                  <input
-                    type="text"
-                    value={billingSettings.invoicePrefix}
-                    onChange={(e) => setBillingSettings({ ...billingSettings, invoicePrefix: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">e.g. INV-2026- will yield INV-2026-000001</p>
+                  <h2 className="text-sm font-bold text-slate-900">POS Thermal Printer &amp; Bill Settings</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Direct browser-native printing via Web Serial API, invoice numbering, and credit policy rules.
+                  </p>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Default Payment Method in POS
-                  </label>
-                  <select
-                    value={billingSettings.defaultPaymentMethod}
-                    onChange={(e) => setBillingSettings({ ...billingSettings, defaultPaymentMethod: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md border border-slate-200 uppercase">
+                    CATEGORY: BILLING
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempBillingSettings({ ...billingSettings });
+                      setIsEditBillingOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
-                    <option value="CASH">Cash Counter (Default)</option>
-                    <option value="UPI">UPI / QR Code</option>
-                    <option value="BANK_TRANSFER">Bank NEFT/RTGS</option>
-                    <option value="CHEQUE">Cheque</option>
-                  </select>
+                    <EditIcon className="w-3.5 h-3.5 text-white" />
+                    <span>Edit Bill Settings</span>
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Retail Credit Grace Period (Days)
-                  </label>
-                  <input
-                    type="number"
-                    value={billingSettings.creditGraceDays}
-                    onChange={(e) => setBillingSettings({ ...billingSettings, creditGraceDays: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">Days before buyer ledger flags overdue alert</p>
+              {/* Receipt Engine & Hardware Status sub-card (identical to Business Profile logo sub-card style) */}
+              <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full border border-slate-200 bg-emerald-50 text-emerald-700 p-1 flex items-center justify-center overflow-hidden shadow-2xs flex-shrink-0">
+                  <PrinterIcon className="w-6 h-6 text-emerald-600" />
                 </div>
-
-                <div className="flex items-center pt-5">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={billingSettings.roundOffCash}
-                      onChange={(e) => setBillingSettings({ ...billingSettings, roundOffCash: e.target.checked })}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                    />
-                    <span className="text-xs font-medium text-slate-700">
-                      Round off cash payments to nearest Rupee (Standard Mandi Practice)
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-slate-900">Direct Thermal Receipt Engine</h3>
+                    <span className="text-emerald-700 font-semibold text-[11px]">
+                      (Web Serial &amp; ESC/POS Raw Native)
                     </span>
-                  </label>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hardware auto-detection for 80mm &amp; 58mm thermal rolls. Zero background drivers or QZ Tray required.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Print Paper:</span>
+                      <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                        {printerSettings.paperSize || '80mm'} (48 chars)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Transport:</span>
+                      <span className="text-slate-700 text-[11px] font-medium font-mono">
+                        {printerSettings.transport || 'WEB_SERIAL'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Auto-Print:</span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                          billingSettings.autoPrintOnConfirm
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            billingSettings.autoPrintOnConfirm ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                        />
+                        <span>{billingSettings.autoPrintOnConfirm ? 'Enabled' : 'Disabled'}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Cash Round-off:</span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                          billingSettings.roundOffCash
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            billingSettings.roundOffCash ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                        />
+                        <span>{billingSettings.roundOffCash ? 'Active' : 'Off'}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Read/View Mode: Key-Value Table / Rows (Divided by lines, exactly like Business Profile) */}
+              <div className="border border-slate-200/80 rounded-xl divide-y divide-slate-100 bg-white overflow-hidden shadow-2xs">
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Invoice Series Prefix
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {billingSettings.invoicePrefix || 'INV-2026-'}
+                  </span>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Printed Invoice Footer Disclaimer / Policy
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={billingSettings.notesFooter}
-                    onChange={(e) => setBillingSettings({ ...billingSettings, notesFooter: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Default Payment Method in POS
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {billingSettings.defaultPaymentMethod === 'CASH'
+                      ? 'Cash Counter (Default CASH)'
+                      : billingSettings.defaultPaymentMethod === 'UPI'
+                      ? 'UPI / QR Code Scan'
+                      : billingSettings.defaultPaymentMethod === 'BANK_TRANSFER'
+                      ? 'Bank Transfer / RTGS / NEFT'
+                      : 'Cheque Payment'}
+                  </span>
                 </div>
+
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Thermal Receipt Print Layout
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {billingSettings.printLayout === 'THERMAL_80MM'
+                      ? '80mm Thermal Receipt (APMC Wholesale Format)'
+                      : 'A4 Standard Invoice Format'}
+                  </span>
+                </div>
+
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Automatic Print on Bill Confirm
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {billingSettings.autoPrintOnConfirm
+                      ? 'Enabled (Auto-triggers thermal receipt upon invoice creation)'
+                      : 'Disabled (Manual print on demand)'}
+                  </span>
+                </div>
+
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Retail Credit Grace Period
+                  </span>
+                  <span className="text-xs font-bold font-mono text-slate-900 tracking-tight">
+                    {billingSettings.creditGraceDays || 15} Days
+                  </span>
+                </div>
+
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Cash Payment Rounding
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    {billingSettings.roundOffCash
+                      ? 'Round off cash payments to nearest Rupee (Standard Mandi Practice)'
+                      : 'Exact Paise (No rounding)'}
+                  </span>
+                </div>
+
+                <div className="py-3 px-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <span className="text-xs font-semibold text-slate-500">
+                    Printed Invoice Footer Disclaimer / Policy
+                  </span>
+                  <span className="text-xs font-medium text-slate-800 text-right max-w-md">
+                    {billingSettings.notesFooter || 'Goods once sold cannot be returned after mandi gate dispatch.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Thermal Printer Hardware Connection Section */}
+              <div className="pt-2">
+                <ThermalPrinterConfig onShowToast={onShowToast} />
               </div>
 
               {/* Card Action Footer */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Database Sync Active · Table <code className="font-mono">settings</code></span>
+                  <span>
+                    Database Sync Active · Table <code className="font-mono">settings</code>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setShowResetConfirm(true)}
                     disabled={isSaving || isResetting}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <RotateCcwIcon className="w-3.5 h-3.5 text-slate-500" />
                     <span>Reset Tab Defaults</span>
@@ -802,8 +879,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
                       </>
                     ) : (
                       <>
-                        <SaveIcon className="w-3.5 h-3.5" />
-                        <span>Save Billing &amp; Printer</span>
+                        <SaveIcon className="w-3.5 h-3.5 text-white" />
+                        <span>Save</span>
                       </>
                     )}
                   </button>
@@ -871,6 +948,486 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onShowToast, onNavig
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <BuildingIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit APMC Mandi Yard &amp; Business Profile</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update business name, contact information, yard registration, and receipt logo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditProfileOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave(undefined, tempMandiSettings);
+                setIsEditProfileOpen(false);
+              }}
+              className="flex-1 overflow-y-auto p-6 space-y-5"
+            >
+              {/* Receipt Logo & Monogram Section */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Receipt Logo &amp; Monogram Header</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Configured for thermal receipts &amp; invoices. <span className="text-emerald-700 font-semibold">(Non-mandatory)</span>
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={tempMandiSettings.printLogo !== false}
+                      onChange={(e) =>
+                        setTempMandiSettings({ ...tempMandiSettings, printLogo: e.target.checked })
+                      }
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                    />
+                    <span className="text-xs font-bold text-slate-800">Print Logo on Receipt</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Logo Monogram / Short Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={5}
+                      placeholder="e.g. SR"
+                      value={tempMandiSettings.logoMonogram || ''}
+                      onChange={(e) =>
+                        setTempMandiSettings({
+                          ...tempMandiSettings,
+                          logoMonogram: e.target.value.toUpperCase(),
+                        })
+                      }
+                      className="w-full px-3 py-1.5 text-xs font-black uppercase rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <span className="text-[10px] text-slate-400">Centered letters (e.g. "KBN" or "SR")</span>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Logo Image <span className="text-slate-400 font-normal">(Optional File)</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="px-3.5 py-1.5 text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 cursor-pointer shadow-2xs flex-shrink-0">
+                        Upload Logo Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleLogoFileUpload(file, true);
+                            }
+                          }}
+                        />
+                      </label>
+                      {tempMandiSettings.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setTempMandiSettings({ ...tempMandiSettings, logoUrl: '' })}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                          title="Remove uploaded logo"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-[11px] text-slate-500">Preview:</span>
+                        <div className="w-8 h-8 rounded-full border border-slate-200 bg-white p-0.5 overflow-hidden flex items-center justify-center">
+                          <img
+                            src={tempMandiSettings.logoUrl || kbnLogo}
+                            alt="Logo"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Wholesale Produce Business Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={tempMandiSettings.businessName}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, businessName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    APMC Yard License / Registration No.
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.licenseNo}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, licenseNo: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Mandi Market Bay &amp; Stall Address
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.yardBay}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, yardBay: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Contact Phone / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={tempMandiSettings.phone}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, phone: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Support Email
+                  </label>
+                  <input
+                    type="email"
+                    value={tempMandiSettings.email}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, email: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    GSTIN (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.gstin}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, gstin: e.target.value.toUpperCase() })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    City / Market Zone
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.city}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, city: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.state}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, state: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Pincode
+                  </label>
+                  <input
+                    type="text"
+                    value={tempMandiSettings.pincode}
+                    onChange={(e) =>
+                      setTempMandiSettings({ ...tempMandiSettings, pincode: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving Profile...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SaveIcon className="w-3.5 h-3.5 text-white" />
+                      <span>Save Profile Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Bill Settings Modal */}
+      {isEditBillingOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <ReceiptTextIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit POS &amp; Bill Settings</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update invoice series prefix, payment defaults, grace period, and printed policies
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditBillingOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave(undefined, undefined, tempBillingSettings);
+                setIsEditBillingOpen(false);
+              }}
+              className="flex-1 overflow-y-auto p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Invoice Series Prefix
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={tempBillingSettings.invoicePrefix}
+                  onChange={(e) =>
+                    setTempBillingSettings({ ...tempBillingSettings, invoicePrefix: e.target.value })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">e.g. INV-2026- will yield INV-2026-000001</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Default Payment Method in POS
+                </label>
+                <select
+                  value={tempBillingSettings.defaultPaymentMethod}
+                  onChange={(e) =>
+                    setTempBillingSettings({
+                      ...tempBillingSettings,
+                      defaultPaymentMethod: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                >
+                  <option value="CASH">Cash Counter (Default CASH)</option>
+                  <option value="UPI">UPI / QR Code Scan</option>
+                  <option value="BANK_TRANSFER">Bank Transfer / RTGS / NEFT</option>
+                  <option value="CHEQUE">Cheque Payment</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Thermal Print Slip Layout
+                </label>
+                <select
+                  value={tempBillingSettings.printLayout}
+                  onChange={(e) =>
+                    setTempBillingSettings({
+                      ...tempBillingSettings,
+                      printLayout: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                >
+                  <option value="THERMAL_80MM">80mm Thermal Receipt (APMC Wholesale Format)</option>
+                  <option value="A4_STANDARD">A4 Standard Full Sheet Invoice</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Retail Credit Grace Period (Days)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={tempBillingSettings.creditGraceDays}
+                  onChange={(e) =>
+                    setTempBillingSettings({
+                      ...tempBillingSettings,
+                      creditGraceDays: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Days before buyer ledger flags overdue alert</p>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tempBillingSettings.autoPrintOnConfirm}
+                    onChange={(e) =>
+                      setTempBillingSettings({
+                        ...tempBillingSettings,
+                        autoPrintOnConfirm: e.target.checked,
+                      })
+                    }
+                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    Automatically print thermal receipt when bill is confirmed
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tempBillingSettings.roundOffCash}
+                    onChange={(e) =>
+                      setTempBillingSettings({
+                        ...tempBillingSettings,
+                        roundOffCash: e.target.checked,
+                      })
+                    }
+                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    Round off cash payments to nearest Rupee (Standard Mandi Practice)
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Printed Invoice Footer Disclaimer / Policy
+                </label>
+                <textarea
+                  rows={2}
+                  value={tempBillingSettings.notesFooter}
+                  onChange={(e) =>
+                    setTempBillingSettings({
+                      ...tempBillingSettings,
+                      notesFooter: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                />
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditBillingOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving Bill Settings...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SaveIcon className="w-3.5 h-3.5 text-white" />
+                      <span>Save Bill Settings</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

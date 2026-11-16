@@ -12,14 +12,23 @@ class PdfService {
     const items = invoice.items || [];
     const payments = invoice.payments || [];
 
-    // Calculate totals
-    const grandTotal = Number(invoice.grandTotal || 0);
-    const subtotal = Number(invoice.subtotal || grandTotal || 0);
-    const paidAmount = Number(invoice.paidAmount || 0);
-    const balanceDue = Number(invoice.balanceDue || 0);
-    const previousDue = Number(invoice.previousDueSnapshot || invoice.previousDue || 0);
-    const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
+    // Calculate totals according to canonical 7-field billing formula
+    const grossAmount = Number(invoice.subtotal || invoice.grandTotal || 0);
+    const discount = Number(invoice.discount || 0);
+    const netAmount = Number(invoice.grandTotal || 0);
+    const openingBalance = Number(invoice.previousDueSnapshot || invoice.previousDue || 0);
+    const totalOutstanding = Math.round((openingBalance + netAmount) * 100) / 100;
+    const amountPaid = Number(invoice.paidAmount || 0);
+    const closingBalance = Math.round((totalOutstanding - amountPaid) * 100) / 100;
     const totalQty = items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+
+    // Legacy aliases
+    const grandTotal = netAmount;
+    const subtotal = grossAmount;
+    const paidAmount = amountPaid;
+    const balanceDue = closingBalance;
+    const previousDue = openingBalance;
+    const totalPayable = totalOutstanding;
 
     // Bill Type
     const rawSaleType = String(invoice.saleType || '').toUpperCase();
@@ -225,39 +234,39 @@ class PdfService {
     doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
     y += 11;
 
-    // 9. Financial Summary
+    // 9. Financial Summary (All 7 Canonical Billing Fields)
     doc.font('Courier').fontSize(7.5).fillColor('#000000');
     doc.text('Gross Amount :', 10, y);
-    doc.text(`Rs ${subtotal.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    doc.text(`Rs ${grossAmount.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
+
+    doc.text('Discount :', 10, y);
+    doc.text(`${discount > 0 ? '-Rs ' : 'Rs '}${discount.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
     y += 11;
 
     doc.text('Net Amount :', 10, y);
-    doc.font('Courier-Bold').text(`Rs ${grandTotal.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    doc.font('Courier-Bold').text(`Rs ${netAmount.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
     y += 11;
 
-    if (previousDue > 0) {
-      doc.font('Courier').text('Opening Balance :', 10, y);
-      doc.text(`+Rs ${previousDue.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
-      y += 11;
+    doc.font('Courier').text('Previous / Opening Balance :', 10, y);
+    doc.text(`Rs ${openingBalance.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
 
-      doc.font('Courier-Bold').text('Total Amt :', 10, y);
-      doc.text(`Rs ${totalPayable.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
-      y += 11;
-    }
+    doc.font('Courier-Bold').text('Total Outstanding :', 10, y);
+    doc.text(`Rs ${totalOutstanding.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
 
-    if (paidAmount > 0) {
-      doc.font('Courier').text('Paid Amount :', 10, y);
-      doc.text(`-Rs ${paidAmount.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
-      y += 11;
-    }
+    doc.font('Courier').text('Amount Paid :', 10, y);
+    doc.text(`${amountPaid > 0 ? '-Rs ' : 'Rs '}${amountPaid.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    y += 11;
 
     // Divider before Closing Balance
     doc.text('------------------------------------------', 0, y, { align: 'center', width: 226 });
     y += 10;
 
     doc.font('Courier-Bold').fontSize(8.5);
-    doc.text('Closing Balance :', 10, y);
-    doc.text(`Rs ${balanceDue.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
+    doc.text('Closing / Remaining Balance :', 10, y);
+    doc.text(`Rs ${closingBalance.toFixed(2)}`, 100, y, { align: 'right', width: 115 });
     y += 13;
 
     // Divider

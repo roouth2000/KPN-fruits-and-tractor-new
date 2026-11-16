@@ -44,8 +44,15 @@ export const salesApi = {
     return res.data.data;
   },
 
-  getCustomerLedger: async (id: number, page = 1, limit = 50) => {
-    const res = await apiClient.get(`/customers/${id}/ledger`, { params: { page, limit } });
+  getCustomerLedger: async (
+    id: number,
+    page = 1,
+    limit = 100,
+    filters?: { startDate?: string; endDate?: string; type?: string }
+  ) => {
+    const res = await apiClient.get(`/customers/${id}/ledger`, {
+      params: { page, limit, ...filters },
+    });
     return res.data.data;
   },
 

@@ -514,18 +514,22 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Customer Details</th>
                   <th className="py-3 px-4">Sale Type</th>
-                  <th className="py-3 px-4 text-right">Grand Total</th>
-                  <th className="py-3 px-4 text-right">Paid</th>
-                  <th className="py-3 px-4 text-right">Balance Due</th>
+                  <th className="py-3 px-3 text-right">Net Amount</th>
+                  <th className="py-3 px-3 text-right">Opening Bal</th>
+                  <th className="py-3 px-3 text-right">Total Outstanding</th>
+                  <th className="py-3 px-3 text-right">Paid</th>
+                  <th className="py-3 px-3 text-right">Closing Due</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((inv) => {
-                  const due = Number(inv.balanceDue) || 0;
-                  const total = Number(inv.grandTotal) || 0;
+                  const net = Number(inv.grandTotal) || 0;
+                  const openBal = Number(inv.previousDueSnapshot || 0);
+                  const totalOut = Number(inv.totalPayableSnapshot || (openBal + net));
                   const paid = Number(inv.paidAmount) || 0;
+                  const due = Number(inv.balanceDue != null ? inv.balanceDue : (totalOut - paid));
 
                   return (
                     <tr
@@ -561,18 +565,28 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                         {getSaleTypeBadge(inv.saleType)}
                       </td>
 
-                      {/* Grand Total */}
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                        ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {/* Net Amount */}
+                      <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                        ₹{net.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+
+                      {/* Opening Balance */}
+                      <td className="py-3.5 px-3 text-right font-mono text-amber-700">
+                        ₹{openBal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+
+                      {/* Total Outstanding */}
+                      <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                        ₹{totalOut.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Paid Amount */}
-                      <td className="py-3.5 px-4 text-right font-mono font-semibold text-emerald-700">
+                      <td className="py-3.5 px-3 text-right font-mono font-semibold text-emerald-700">
                         ₹{paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Balance Due */}
-                      <td className="py-3.5 px-4 text-right font-mono font-bold whitespace-nowrap">
+                      <td className="py-3.5 px-3 text-right font-mono font-bold whitespace-nowrap">
                         {due > 0 ? (
                           <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
                             ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}

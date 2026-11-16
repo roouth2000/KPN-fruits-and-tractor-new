@@ -49,16 +49,20 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
 
   const inv = invoiceData.invoice || invoiceData;
   const items = inv.items || [];
-  const payments = inv.payments || [];
 
-  // Calculations for thermal receipt roll layout
+  // Calculations for thermal receipt roll layout (Canonical 7 Fields)
   const rawSaleType = String(inv.saleType || '').toUpperCase();
-  const grandTotal = Number(inv.grandTotal || 0);
-  const subtotal = Number(inv.subtotal || grandTotal || 0);
-  const paidAmount = Number(inv.paidAmount || 0);
-  const balanceDue = Number(inv.balanceDue || 0);
-  const previousDue = Number(inv.previousDueSnapshot || inv.previousDue || 0);
-  const totalPayable = previousDue > 0 ? previousDue + grandTotal : grandTotal;
+  const grossAmount = Number(inv.subtotal || inv.grandTotal || 0);
+  const discount = Number(inv.discount || 0);
+  const netAmount = Number(inv.grandTotal != null ? inv.grandTotal : (grossAmount - discount));
+  const openingBalance = Number(inv.previousDueSnapshot || inv.previousDue || 0);
+  const totalOutstanding = Math.round((openingBalance + netAmount) * 100) / 100;
+  const amountPaid = Number(inv.paidAmount || 0);
+  const closingBalance = Math.round((totalOutstanding - amountPaid) * 100) / 100;
+
+  const grandTotal = netAmount;
+  const paidAmount = amountPaid;
+  const balanceDue = closingBalance;
   const totalQty = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
 
   let billType = 'CREDITBILL';
@@ -396,47 +400,41 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             {/* Divider */}
             <div className="border-b border-dashed border-slate-400 my-2" />
 
-            {/* Financial Summary */}
+            {/* Financial Summary (All 7 Canonical Billing Calculation Fields) */}
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-600">Gross Amount :</span>
-                <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+                <span className="font-mono">₹{grossAmount.toFixed(2)}</span>
               </div>
+
               <div className="flex justify-between">
-                <span className="text-slate-600">Net Amount :</span>
-                <span className="font-mono font-bold">₹{grandTotal.toFixed(2)}</span>
+                <span className="text-slate-600">Discount :</span>
+                <span className="font-mono">{discount > 0 ? `-₹${discount.toFixed(2)}` : '₹0.00'}</span>
               </div>
 
-              {previousDue > 0 && (
-                <>
-                  <div className="flex justify-between text-rose-700 font-medium">
-                    <span>Opening Balance :</span>
-                    <span className="font-mono">+ ₹{previousDue.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold">
-                    <span>Total Amt :</span>
-                    <span className="font-mono">₹{totalPayable.toFixed(2)}</span>
-                  </div>
-                </>
-              )}
+              <div className="flex justify-between">
+                <span className="text-slate-600 font-bold">Net Amount :</span>
+                <span className="font-mono font-bold">₹{netAmount.toFixed(2)}</span>
+              </div>
 
-              {payments.length > 0 ? (
-                payments.map((p: any, idx: number) => (
-                  <div key={`pay-${idx}`} className="flex justify-between text-emerald-700 font-medium">
-                    <span>{p.paymentMode || 'Payment'} Paid :</span>
-                    <span className="font-mono">- ₹{Number(p.amount || 0).toFixed(2)}</span>
-                  </div>
-                ))
-              ) : paidAmount > 0 ? (
-                <div className="flex justify-between text-emerald-700 font-medium">
-                  <span>Paid Amount :</span>
-                  <span className="font-mono">- ₹{paidAmount.toFixed(2)}</span>
-                </div>
-              ) : null}
+              <div className="flex justify-between text-slate-700">
+                <span>Previous / Opening Balance :</span>
+                <span className="font-mono">₹{openingBalance.toFixed(2)}</span>
+              </div>
 
-              <div className="flex justify-between font-extrabold text-xs sm:text-sm border-t border-dashed border-slate-400 pt-1 text-slate-900">
-                <span>Closing Balance :</span>
-                <span className="font-mono">₹{balanceDue.toFixed(2)}</span>
+              <div className="flex justify-between font-bold text-slate-900 border-t border-dashed border-slate-300 pt-0.5">
+                <span>Total Outstanding :</span>
+                <span className="font-mono font-bold">₹{totalOutstanding.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between text-emerald-700 font-medium">
+                <span>Amount Paid :</span>
+                <span className="font-mono">{amountPaid > 0 ? `-₹${amountPaid.toFixed(2)}` : '₹0.00'}</span>
+              </div>
+
+              <div className="flex justify-between font-extrabold text-xs sm:text-sm border-t-2 border-dashed border-slate-400 pt-1 text-slate-900">
+                <span>Closing / Remaining Balance :</span>
+                <span className="font-mono">₹{closingBalance.toFixed(2)}</span>
               </div>
             </div>
 

@@ -76,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'WHOLESALE TRADING',
       items: [
         { id: 'customers', label: 'Customers', icon: UsersIcon, permission: 'customer.view' },
+        { id: 'customer-ledger', label: 'Customer Ledger', icon: ReceiptTextIcon, permission: 'customer.view' },
         { id: 'suppliers', label: 'Suppliers', icon: BuildingIcon, permission: 'supplier.view' },
         { id: 'purchase-orders', label: 'Purchase', icon: ReceiptTextIcon, permission: 'supplier.view' },
         { id: 'expenses', label: 'Expenses', icon: RupeeIcon, permission: 'reports.view' },

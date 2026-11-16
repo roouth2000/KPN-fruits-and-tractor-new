@@ -33,9 +33,13 @@ class CustomerController {
 
   async getCustomerLedger(req, res) {
     try {
-      const { limit = 50, page = 1 } = req.query;
+      const { limit = 100, page = 1, startDate, endDate, type } = req.query;
       const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-      const ledger = await customerService.getCustomerLedger(req.params.id, limit, offset);
+      const ledger = await customerService.getCustomerLedger(req.params.id, limit, offset, {
+        startDate,
+        endDate,
+        type,
+      });
       return apiSuccess(res, ledger, 'Customer ledger retrieved');
     } catch (error) {
       return apiError(res, error.message, {}, 404);

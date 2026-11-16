@@ -56,6 +56,13 @@ export const PackageIcon: React.FC<IconProps> = ({ className = "w-4 h-4", ...pro
   </svg>
 );
 
+export const ArrowLeftIcon: React.FC<IconProps> = ({ className = "w-4 h-4", ...props }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="m12 19-7-7 7-7" />
+    <path d="M19 12H5" />
+  </svg>
+);
+
 export const ArrowLeftRightIcon: React.FC<IconProps> = ({ className = "w-4 h-4", ...props }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
     <path d="m16 3 4 4-4 4" />
