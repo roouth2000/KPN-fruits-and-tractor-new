@@ -70,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'report-loss', label: 'Loss', icon: TrendingDownIcon, permission: 'reports.financial' },
     { id: 'report-damage', label: 'Damage', icon: AlertOctagonIcon, permission: 'reports.view' },
     { id: 'report-returns', label: 'Returns', icon: RotateCcwIcon, permission: 'reports.view' },
+    { id: 'report-customer-purchase', label: 'Customer Purchases', icon: ReceiptTextIcon, permission: 'reports.view' },
     { id: 'report-customer-due', label: 'Customer Due', icon: UsersIcon, permission: 'reports.view' },
     { id: 'report-supplier-due', label: 'Supplier Due', icon: BuildingIcon, permission: 'reports.view' },
     { id: 'report-tray', label: 'Tray Report', icon: LayersIcon, permission: 'reports.view' },

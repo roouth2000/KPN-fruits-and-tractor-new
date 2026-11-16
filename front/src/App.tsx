@@ -27,6 +27,7 @@ import {
   DamageReportPage,
   ReturnsReportPage,
   CustomerDueReportPage,
+  CustomerPurchaseHistoryPage,
   SupplierDueReportPage,
   TrayReportPage,
 } from './pages/reports';
@@ -43,6 +44,7 @@ const queryClient = new QueryClient({
 export const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, isSalesperson, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('billing'); // Default to Common Billing Screen!
+  const [customerForHistory, setCustomerForHistory] = useState<number | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -255,6 +257,26 @@ export const AppContent: React.FC = () => {
           <CustomersPage
             onBackToDashboard={() => setActiveTab('command-center')}
             onNavigateBilling={() => setActiveTab('billing')}
+            onViewPurchaseHistory={(cust) => {
+              setCustomerForHistory(cust.id);
+              setActiveTab('report-customer-purchase');
+            }}
+            onShowToast={addToast}
+          />
+        );
+      case 'report-customer-purchase':
+      case 'customer-purchases':
+        if (isSalesperson || !hasPermission('reports.view')) {
+          return renderRestrictedNotice('Customer Purchase History');
+        }
+        return (
+          <CustomerPurchaseHistoryPage
+            initialCustomerId={customerForHistory}
+            onBackToDashboard={() => setActiveTab('command-center')}
+            onNavigateBilling={() => {
+              setCustomerForHistory(null);
+              setActiveTab('billing');
+            }}
             onShowToast={addToast}
           />
         );

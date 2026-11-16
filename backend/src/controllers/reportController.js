@@ -100,6 +100,22 @@ class ReportController {
       return ApiResponse.error(res, error.message);
     }
   }
+
+  async getCustomerPurchaseReport(req, res) {
+    try {
+      const { customerId, startDate, endDate, search, status } = req.query;
+      const data = await reportService.getCustomerPurchaseHistory({
+        customerId: customerId ? parseInt(customerId, 10) : undefined,
+        startDate,
+        endDate,
+        search,
+        status,
+      });
+      return ApiResponse.success(res, data, 'Customer purchase history retrieved successfully');
+    } catch (error) {
+      return ApiResponse.error(res, error.message);
+    }
+  }
 }
 
 module.exports = new ReportController();

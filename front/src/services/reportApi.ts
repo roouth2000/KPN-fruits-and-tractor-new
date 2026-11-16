@@ -67,5 +67,10 @@ export const reportApi = {
     const res = await apiClient.get('/reports/tray');
     return res.data.data;
   },
+
+  getCustomerPurchaseHistory: async (params: any = {}): Promise<any> => {
+    const res = await apiClient.get('/reports/customer-purchases', { params });
+    return res.data.data;
+  },
 };
 

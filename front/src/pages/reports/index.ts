@@ -12,6 +12,7 @@ export { LossReportPage } from './LossReportPage';
 export { DamageReportPage } from './DamageReportPage';
 export { ReturnsReportPage } from './ReturnsReportPage';
 export { CustomerDueReportPage } from './CustomerDueReportPage';
+export { CustomerPurchaseHistoryPage } from './CustomerPurchaseHistoryPage';
 export { SupplierDueReportPage } from './SupplierDueReportPage';
 export { TrayReportPage } from './TrayReportPage';
 

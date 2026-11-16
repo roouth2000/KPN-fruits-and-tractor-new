@@ -378,6 +378,16 @@ async function runTests() {
   assert.strictEqual(foundInv, null, 'Invoice was deleted from database');
   console.log('✓ Permanently Delete Invoice PASSED perfectly!\n');
 
+  console.log('[Test 8] Customer Purchase History Reporting');
+  const reportService = require('../src/services/reportService');
+  const custHistory = await reportService.getCustomerPurchaseHistory({ customerId: ramesh.id });
+  assert(custHistory.kpis && custHistory.kpis.length === 4, '4 KPIs generated');
+  assert(Array.isArray(custHistory.invoices), 'Invoices list returned');
+  assert(Array.isArray(custHistory.productBreakdown), 'Product breakdown returned');
+  assert(Array.isArray(custHistory.customerSummary), 'Customer summary returned');
+  console.log(`- Ramesh Purchase History Orders: ${custHistory.totalOrders}, Total Purchases: ₹${custHistory.totalPurchases}`);
+  console.log('✓ Customer Purchase History Reporting PASSED perfectly!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

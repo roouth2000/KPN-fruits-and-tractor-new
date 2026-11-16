@@ -38,5 +38,8 @@ router.get('/supplier-due', requirePermission('reports.view'), reportController.
 // 11. Tray Report
 router.get('/tray', requirePermission('reports.view'), reportController.getTrayReport);
 
+// 12. Customer Purchase History Report
+router.get('/customer-purchases', requirePermission('reports.view'), reportController.getCustomerPurchaseReport);
+
 module.exports = router;
 

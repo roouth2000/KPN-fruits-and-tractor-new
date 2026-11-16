@@ -16,12 +16,14 @@ interface CustomersPageProps {
   onBackToDashboard?: () => void;
   onNavigateBilling?: (customer?: Customer) => void;
   onCollectDue?: (customer: Customer) => void;
+  onViewPurchaseHistory?: (customer: Customer) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
 }
 
 export const CustomersPage: React.FC<CustomersPageProps> = ({
   onNavigateBilling,
   onCollectDue,
+  onViewPurchaseHistory,
   onShowToast,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -348,6 +350,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {onViewPurchaseHistory && (
+                            <button
+                              type="button"
+                              onClick={() => onViewPurchaseHistory(cust)}
+                              className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
+                              title="View Customer Purchase History & Billed Fruits"
+                            >
+                              Purchases
+                            </button>
+                          )}
                           {onNavigateBilling && (
                             <button
                               onClick={() => onNavigateBilling(cust)}

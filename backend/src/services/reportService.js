@@ -583,6 +583,169 @@ class ReportService {
 
     return { kpis, rows };
   }
+
+  /**
+   * 12. Customer-wise Purchase History Report
+   */
+  async getCustomerPurchaseHistory(filters = {}) {
+    const { customerId, startDate, endDate, search, status } = filters;
+    const where = {};
+
+    if (customerId) {
+      where.customerId = customerId;
+    }
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    if (startDate && endDate) {
+      where.invoiceDate = { [Op.between]: [startDate, endDate] };
+    } else if (startDate) {
+      where.invoiceDate = { [Op.gte]: startDate };
+    } else if (endDate) {
+      where.invoiceDate = { [Op.lte]: endDate };
+    }
+    if (search && search.trim() !== '') {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { invoiceNumber: { [Op.like]: q } },
+        { customerName: { [Op.like]: q } },
+      ];
+    }
+
+    const invoices = await Invoice.findAll({
+      where,
+      include: [
+        {
+          model: InvoiceItem,
+          as: 'items',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'productCode', 'name', 'variety', 'grade', 'defaultUnit'],
+            },
+          ],
+        },
+        {
+          model: Customer,
+          as: 'customer',
+          attributes: ['id', 'customerCode', 'name', 'phone', 'city', 'creditLimit', 'currentDue'],
+        },
+      ],
+      order: [['invoiceDate', 'DESC'], ['id', 'DESC']],
+    });
+
+    let totalPurchases = 0;
+    let totalPaid = 0;
+    let totalDue = 0;
+    let totalItemsCount = 0;
+
+    const productMap = {};
+    const customerMap = {};
+
+    for (const inv of invoices) {
+      const grandTotal = parseFloat(inv.grandTotal) || 0;
+      const paid = parseFloat(inv.paidAmount) || 0;
+      const due = parseFloat(inv.balanceDue) || 0;
+
+      totalPurchases += grandTotal;
+      totalPaid += paid;
+      totalDue += due;
+
+      // Track by customer
+      const cId = inv.customerId;
+      if (!customerMap[cId]) {
+        customerMap[cId] = {
+          customerId: cId,
+          customerName: inv.customerName,
+          customerCode: inv.customer ? inv.customer.customerCode : '',
+          phone: inv.customer ? inv.customer.phone : (inv.customerPhone || ''),
+          city: inv.customer ? inv.customer.city : '',
+          creditLimit: inv.customer ? parseFloat(inv.customer.creditLimit) || 0 : 0,
+          currentDue: inv.customer ? parseFloat(inv.customer.currentDue) || 0 : 0,
+          totalOrders: 0,
+          totalSpent: 0,
+          totalPaid: 0,
+          lastPurchaseDate: inv.invoiceDate,
+        };
+      }
+      customerMap[cId].totalOrders += 1;
+      customerMap[cId].totalSpent += grandTotal;
+      customerMap[cId].totalPaid += paid;
+
+      // Track by product
+      for (const item of (inv.items || [])) {
+        totalItemsCount += parseFloat(item.quantity) || 0;
+        const pKey = item.productId || item.productName;
+        if (!productMap[pKey]) {
+          productMap[pKey] = {
+            productId: item.productId,
+            productCode: item.product ? item.product.productCode : '',
+            name: item.productName || (item.product ? item.product.name : 'Unknown Product'),
+            variety: item.variety || (item.product ? item.product.variety : ''),
+            grade: item.grade || (item.product ? item.product.grade : 'A'),
+            unit: item.unit || (item.product ? item.product.defaultUnit : 'BOX'),
+            totalQuantity: 0,
+            totalSpent: 0,
+            orderCount: 0,
+            rates: [],
+            lastPurchaseDate: inv.invoiceDate,
+          };
+        }
+        productMap[pKey].totalQuantity += parseFloat(item.quantity) || 0;
+        productMap[pKey].totalSpent += parseFloat(item.totalAmount) || 0;
+        productMap[pKey].orderCount += 1;
+        productMap[pKey].rates.push(parseFloat(item.rate) || 0);
+      }
+    }
+
+    const productBreakdown = Object.values(productMap).map((p) => ({
+      ...p,
+      avgRate: p.rates.length > 0 && p.totalQuantity > 0 ? Math.round((p.totalSpent / p.totalQuantity) * 100) / 100 : 0,
+      totalQuantity: Math.round(p.totalQuantity * 100) / 100,
+      totalSpent: Math.round(p.totalSpent * 100) / 100,
+    })).sort((a, b) => b.totalSpent - a.totalSpent);
+
+    const customerSummary = Object.values(customerMap).map((c) => ({
+      ...c,
+      totalSpent: Math.round(c.totalSpent * 100) / 100,
+      totalPaid: Math.round(c.totalPaid * 100) / 100,
+    })).sort((a, b) => b.totalSpent - a.totalSpent);
+
+    const kpis = [
+      {
+        label: 'Total Purchases Value',
+        value: `₹${Math.round(totalPurchases).toLocaleString('en-IN')}`,
+        subtext: `${invoices.length} total invoices billed`,
+      },
+      {
+        label: 'Total Paid by Customer(s)',
+        value: `₹${Math.round(totalPaid).toLocaleString('en-IN')}`,
+        subtext: 'Settled payments',
+      },
+      {
+        label: 'Current Balance Due',
+        value: `₹${Math.round(totalDue).toLocaleString('en-IN')}`,
+        subtext: 'Pending receivable dues',
+      },
+      {
+        label: 'Total Units Purchased',
+        value: `${Math.round(totalItemsCount).toLocaleString('en-IN')} Boxes / Crates`,
+        subtext: `${productBreakdown.length} unique fruit varieties`,
+      },
+    ];
+
+    return {
+      kpis,
+      totalOrders: invoices.length,
+      totalPurchases: Math.round(totalPurchases * 100) / 100,
+      totalPaid: Math.round(totalPaid * 100) / 100,
+      totalDue: Math.round(totalDue * 100) / 100,
+      invoices,
+      productBreakdown,
+      customerSummary,
+    };
+  }
 }
 
 module.exports = new ReportService();
