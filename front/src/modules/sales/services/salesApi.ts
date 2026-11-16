@@ -206,6 +206,11 @@ export const salesApi = {
     return res.data;
   },
 
+  deleteInvoice: async (id: number | string) => {
+    const res = await apiClient.delete(`/sales/invoices/${id}`);
+    return res.data;
+  },
+
   // Previous Due Standalone Collection
   collectPreviousDue: async (payload: {
     customerId: number;

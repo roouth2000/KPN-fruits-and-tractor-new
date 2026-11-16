@@ -646,6 +646,129 @@ class BillingService {
   }
 
   /**
+   * Permanently Delete Invoice
+   * Reverses stock movements, reverses customer ledger, cleans up payments/allocations, and deletes invoice
+   */
+  async deleteInvoice(invoiceId, user) {
+    const transaction = await sequelize.transaction();
+
+    try {
+      const invoice = await Invoice.findByPk(invoiceId, {
+        include: [
+          { model: InvoiceItem, as: 'items' },
+          { model: Customer, as: 'customer' },
+          { model: Payment, as: 'payments' },
+        ],
+        transaction,
+      });
+
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
+
+      const items = invoice.items || [];
+      const customer = invoice.customer;
+      const payments = invoice.payments || [];
+      const isWalkInCash = customer && (customer.customerType === 'WALK_IN' || customer.customerCode === 'CUST-CASH');
+      const paymentNumbers = payments.map((p) => p.paymentNumber).filter(Boolean);
+      const productIds = [...new Set(items.map((i) => i.productId))];
+
+      // 1. Remove all stock movements tied to this invoice
+      await StockMovement.destroy({
+        where: {
+          referenceId: invoice.invoiceNumber,
+        },
+        transaction,
+      });
+
+      // Recalculate FIFO allocations for affected products so stock is correctly restored
+      for (const pid of productIds) {
+        await fifoService.recalculateFIFO(pid, transaction);
+      }
+
+      // 2. Remove tray movements if any
+      await TrayMovement.destroy({
+        where: {
+          referenceId: invoice.invoiceNumber,
+        },
+        transaction,
+      });
+
+      // 3. Clean up Customer Ledger
+      if (!isWalkInCash && customer) {
+        await CustomerLedger.destroy({
+          where: {
+            [Op.or]: [
+              { reference: invoice.invoiceNumber },
+              { reference: `CNCL-${invoice.invoiceNumber}` },
+              { reference: `EDIT-${invoice.invoiceNumber}` },
+              ...(paymentNumbers.length > 0 ? [{ reference: { [Op.in]: paymentNumbers } }] : []),
+            ],
+          },
+          transaction,
+        });
+
+        // Recalculate true customer balance
+        const updatedDue = await customerService.calculateCustomerDue(customer.id, transaction);
+        await Customer.update(
+          { currentDue: updatedDue },
+          { where: { id: customer.id }, transaction }
+        );
+      }
+
+      // 4. Remove PaymentAllocations, Payments, InvoiceItemBatch, InvoiceItems
+      await PaymentAllocation.destroy({
+        where: { invoiceId: invoice.id },
+        transaction,
+      });
+
+      await Payment.destroy({
+        where: { invoiceId: invoice.id },
+        transaction,
+      });
+
+      await InvoiceItemBatch.destroy({
+        where: { invoiceId: invoice.id },
+        transaction,
+      });
+
+      await InvoiceItem.destroy({
+        where: { invoiceId: invoice.id },
+        transaction,
+      });
+
+      // 5. Audit Log
+      await AuditLog.create({
+        userId: user ? user.id : null,
+        userName: user ? user.name : 'System',
+        action: 'INVOICE_DELETED',
+        entity: 'INVOICE',
+        entityId: String(invoice.id),
+        oldValue: JSON.stringify({
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          grandTotal: invoice.grandTotal,
+          status: invoice.status,
+        }),
+        newValue: null,
+      }, { transaction });
+
+      // 6. Delete invoice record
+      await invoice.destroy({ transaction });
+
+      await transaction.commit();
+
+      return {
+        success: true,
+        message: `Invoice #${invoice.invoiceNumber} permanently deleted.`,
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  /**
    * Sales Return
    */
   async processSalesReturn(invoiceId, returnData, user) {

@@ -24,6 +24,9 @@ router.post('/', requirePermission('sales.create'), validateCreateInvoice, billi
 // Cancel Invoice
 router.post('/:id/cancel', requirePermission('sales.cancel'), billingController.cancelInvoice);
 
+// Permanently Delete Invoice (Admin only)
+router.delete('/:id', requirePermission('sales.cancel'), billingController.deleteInvoice);
+
 // Process Sales Return
 router.post('/:id/return', requirePermission('sales.return'), billingController.processReturn);
 

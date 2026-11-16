@@ -4,6 +4,7 @@ import {
   XIcon,
   FileTextIcon,
   PrinterIcon,
+  Trash2Icon,
 } from '../../../components/icons';
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
@@ -222,6 +223,33 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               <span>{isDownloadingPdf ? 'Downloading...' : 'PDF'}</span>
             </button>
 
+            {/* Admin Delete Invoice */}
+            {canCancelInvoice && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to permanently delete Invoice #${inv.invoiceNumber}? Stock and customer ledger will be restored.`
+                    )
+                  ) {
+                    try {
+                      await salesApi.deleteInvoice(inv.id);
+                      onInvoiceUpdated?.();
+                      onClose();
+                    } catch (err: any) {
+                      alert(err?.response?.data?.message || err.message || 'Failed to delete invoice');
+                    }
+                  }
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                title="Permanently delete invoice from database"
+              >
+                <Trash2Icon className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
+
             {/* Admin-only Invoice Void / Cancel Button */}
             {canCancelInvoice && inv.status !== 'CANCELLED' && (
               <button
@@ -237,10 +265,10 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                     onClose();
                   }
                 }}
-                className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                 title="Cancel invoice & reverse stock/ledger (Admin only)"
               >
-                Cancel
+                Cancel Bill
               </button>
             )}
 

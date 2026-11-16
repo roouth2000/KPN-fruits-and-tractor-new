@@ -14,7 +14,6 @@ import {
 } from '../../../components/icons';
 import { salesApi } from '../services/salesApi';
 import { useAuth } from '../../../context/AuthContext';
-import { InvoicePreview } from '../components/InvoicePreview';
 import { printerService } from '../../../services/printer/printerService';
 import { receiptRenderer } from '../../../services/printer/receiptRenderer';
 import { PrinterSettingsModal } from '../../../components/PrinterSettingsModal';
@@ -42,11 +41,9 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
 
-  // Selected invoice for preview modal
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState<boolean>(false);
   const [printingId, setPrintingId] = useState<number | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<number | null>(null);
 
   // 1-Click Thermal Print
   const handleDirectPrintInvoice = async (inv: any) => {
@@ -77,19 +74,32 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
       }
     } catch (err: any) {
       console.error('Print error:', err);
-      // Fallback: open invoice preview modal with print button
-      setSelectedInvoice(inv);
-      setIsPreviewOpen(true);
-      onShowToast?.('Print Notification', 'Opening invoice preview to print.', 'info');
+      onShowToast?.('Print Notification', 'Failed to communicate with printer.', 'warning');
     } finally {
       setPrintingId(null);
     }
   };
 
-  // Cancel dialog state
+  // 1-Click PDF Download
+  const handleDownloadPdf = async (inv: any) => {
+    try {
+      setDownloadingPdfId(inv.id);
+      await salesApi.downloadInvoicePdf(inv.id, inv.invoiceNumber);
+      if (onShowToast) {
+        onShowToast('PDF Downloaded', `Invoice #${inv.invoiceNumber} PDF downloaded.`, 'success');
+      }
+    } catch {
+      window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank');
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
+
+  // Cancel & Delete dialog state
   const [cancelModalInvoice, setCancelModalInvoice] = useState<any | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('Customer request / Bill correction');
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const onShowToastRef = useRef(onShowToast);
   useEffect(() => {
@@ -139,17 +149,6 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const totalDue = invoices.reduce((acc, curr) => acc + (Number(curr.balanceDue) || 0), 0);
   const pendingInvoicesCount = invoices.filter((inv) => Number(inv.balanceDue) > 0 && inv.status !== 'CANCELLED').length;
 
-  const handleOpenPreview = async (inv: any) => {
-    try {
-      // Fetch full details if needed
-      const full = await salesApi.getInvoiceById(inv.id);
-      setSelectedInvoice(full || inv);
-    } catch {
-      setSelectedInvoice(inv);
-    }
-    setIsPreviewOpen(true);
-  };
-
   const handleEditInvoiceClick = async (inv: any) => {
     try {
       const full = await salesApi.getInvoiceById(inv.id);
@@ -184,6 +183,30 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
       }
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!cancelModalInvoice) return;
+    try {
+      setIsDeleting(true);
+      await salesApi.deleteInvoice(cancelModalInvoice.id);
+      if (onShowToast) {
+        onShowToast(
+          'Invoice Deleted',
+          `Invoice #${cancelModalInvoice.invoiceNumber} was permanently deleted.`,
+          'success'
+        );
+      }
+      setCancelModalInvoice(null);
+      fetchInvoices();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete invoice';
+      if (onShowToast) {
+        onShowToast('Delete Error', msg, 'warning');
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -507,8 +530,7 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                   return (
                     <tr
                       key={inv.id}
-                      className="hover:bg-slate-50/90 transition-colors group cursor-pointer"
-                      onClick={() => handleOpenPreview(inv)}
+                      className="hover:bg-slate-50/90 transition-colors group"
                     >
                       {/* Invoice Number */}
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900 group-hover:text-emerald-700">
@@ -568,19 +590,22 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                       </td>
 
                       {/* Action Buttons */}
-                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* View details / Print */}
+                          {/* Eye icon: 1-Click Download PDF Invoice */}
                           <button
-                            onClick={() => handleOpenPreview(inv)}
-                            title="View Full Bill & Print Receipt"
-                            className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
+                            type="button"
+                            onClick={() => handleDownloadPdf(inv)}
+                            disabled={downloadingPdfId === inv.id}
+                            title="Download Official PDF Invoice"
+                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                           >
-                            <EyeIcon className="w-3.5 h-3.5" />
+                            <EyeIcon className={`w-3.5 h-3.5 ${downloadingPdfId === inv.id ? 'animate-bounce text-blue-600' : 'text-slate-600 hover:text-blue-600'}`} />
                           </button>
 
                           {/* 1-Click Direct Thermal Print via Web Serial */}
                           <button
+                            type="button"
                             onClick={() => handleDirectPrintInvoice(inv)}
                             disabled={printingId === inv.id}
                             title="Direct Print to Thermal Printer (Web Serial)"
@@ -589,22 +614,10 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                             <PrinterIcon className={`w-3.5 h-3.5 ${printingId === inv.id ? 'animate-bounce text-indigo-600' : 'text-indigo-600'}`} />
                           </button>
 
-                          {/* Print PDF Download */}
-                          <button
-                            onClick={() =>
-                              salesApi
-                                .downloadInvoicePdf(inv.id, inv.invoiceNumber)
-                                .catch(() => window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank'))
-                            }
-                            title="Download Official PDF Invoice"
-                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                          >
-                            <DownloadIcon className="w-3.5 h-3.5" />
-                          </button>
-
                           {/* Admin Edit: Opens in Billing / POS Desk directly without modal */}
                           {canEdit && inv.status !== 'CANCELLED' && (
                             <button
+                              type="button"
                               onClick={() => handleEditInvoiceClick(inv)}
                               title="Edit Invoice on Billing / POS Desk"
                               className="p-1.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
@@ -613,14 +626,15 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
                             </button>
                           )}
 
-                          {/* Admin Cancel */}
-                          {canCancel && inv.status !== 'CANCELLED' && (
+                          {/* Delete Invoice */}
+                          {canCancel && (
                             <button
+                              type="button"
                               onClick={() => setCancelModalInvoice(inv)}
-                              title="Cancel & Void Invoice (Stock Reversal)"
-                              className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                              title="Delete / Void Invoice"
+                              className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                             >
-                              <Trash2Icon className="w-3.5 h-3.5" />
+                              <Trash2Icon className="w-3.5 h-3.5 text-rose-500 hover:text-rose-700" />
                             </button>
                           )}
                         </div>
@@ -667,33 +681,18 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
         )}
       </div>
 
-      {/* Invoice Preview & Printable Dialog */}
-      {selectedInvoice && (
-        <InvoicePreview
-          isOpen={isPreviewOpen}
-          onClose={() => {
-            setIsPreviewOpen(false);
-            setSelectedInvoice(null);
-          }}
-          invoiceData={selectedInvoice}
-          onInvoiceUpdated={() => {
-            fetchInvoices();
-          }}
-        />
-      )}
-
-      {/* Invoice Void / Cancellation Confirmation Modal */}
+      {/* Invoice Delete / Void Confirmation Modal */}
       {cancelModalInvoice && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2 text-rose-700 font-bold text-sm">
                 <Trash2Icon className="w-4 h-4 text-rose-600" />
-                <span>Void & Cancel Invoice #{cancelModalInvoice.invoiceNumber}</span>
+                <span>Delete Invoice #{cancelModalInvoice.invoiceNumber}</span>
               </div>
               <button
                 onClick={() => setCancelModalInvoice(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <XIcon className="w-4 h-4" />
               </button>
@@ -701,42 +700,55 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
 
             <div className="p-5 space-y-4 text-xs">
               <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-800 leading-relaxed">
-                <strong>Attention:</strong> Voiding this invoice will atomically:
+                <strong>Attention:</strong> Deleting will permanently remove Invoice <strong>#{cancelModalInvoice.invoiceNumber}</strong>:
                 <ul className="list-disc list-inside mt-1 space-y-0.5 text-rose-700">
-                  <li>Restore subtracted fruit stock quantities back to warehouse inventory.</li>
-                  <li>Reverse customer debit transaction from customer ledger.</li>
-                  <li>Revert issued crate / tray balances.</li>
+                  <li>Remove the invoice completely from the database and sales records.</li>
+                  <li>Restore subtracted fruit stock quantities back to inventory.</li>
+                  <li>Reverse customer debit and ledger balance.</li>
                 </ul>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Reason for Cancellation
-                </label>
-                <textarea
-                  rows={3}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Price dispute, customer order cancelled before delivery, duplicate entry..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                />
-              </div>
+              {cancelModalInvoice.status !== 'CANCELLED' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Reason for Cancellation (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="e.g. Price dispute, customer order cancelled before delivery, duplicate entry..."
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setCancelModalInvoice(null)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                 >
                   Keep Invoice
                 </button>
+                {cancelModalInvoice.status !== 'CANCELLED' && (
+                  <button
+                    type="button"
+                    disabled={isCancelling || isDeleting}
+                    onClick={handleConfirmCancel}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs disabled:opacity-50 cursor-pointer"
+                    title="Mark invoice as CANCELLED without removing from list"
+                  >
+                    {isCancelling ? 'Voiding...' : 'Void / Cancel Only'}
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={isCancelling}
-                  onClick={handleConfirmCancel}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs disabled:opacity-50"
+                  disabled={isCancelling || isDeleting}
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  {isCancelling ? 'Voiding...' : 'Yes, Void & Cancel Invoice'}
+                  {isDeleting ? 'Deleting...' : 'Permanently Delete'}
                 </button>
               </div>
             </div>

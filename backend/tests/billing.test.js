@@ -357,6 +357,27 @@ async function runTests() {
   await billingService.cancelInvoice(createdInv.invoiceId, 'Test 6 cleanup', adminUser);
   console.log('✓ Full Invoice Edit with Items PASSED perfectly!\n');
 
+  console.log('[Test 7] Permanently Delete Invoice');
+  const invToDelete = await billingService.createInvoice({
+    customerId: ramesh.id,
+    invoiceDate: '2026-11-09',
+    saleType: 'WHOLESALE',
+    items: [
+      { productId: apple.id, quantity: 2, rate: 2000, unit: 'BOX' },
+    ],
+    payments: [
+      { method: 'CASH', amount: 4000 },
+    ],
+    status: 'CONFIRMED',
+  }, adminUser);
+
+  const deleteResult = await billingService.deleteInvoice(invToDelete.invoiceId, adminUser);
+  assert.strictEqual(deleteResult.success, true);
+
+  const foundInv = await Invoice.findByPk(invToDelete.invoiceId);
+  assert.strictEqual(foundInv, null, 'Invoice was deleted from database');
+  console.log('✓ Permanently Delete Invoice PASSED perfectly!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

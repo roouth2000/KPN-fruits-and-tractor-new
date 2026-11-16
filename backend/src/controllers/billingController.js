@@ -64,6 +64,15 @@ class BillingController {
     }
   }
 
+  async deleteInvoice(req, res) {
+    try {
+      const result = await billingService.deleteInvoice(req.params.id, req.user);
+      return apiSuccess(res, result, 'Invoice deleted successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
   async processReturn(req, res) {
     try {
       const result = await billingService.processSalesReturn(req.params.id, req.body, req.user);
