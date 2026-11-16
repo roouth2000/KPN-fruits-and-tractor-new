@@ -193,7 +193,7 @@ export const TodaySummaryCards: React.FC<TodaySummaryCardsProps> = ({ onNavigate
         <div className="p-5 divide-y divide-slate-100 space-y-3">
           {/* Row 1: Stock Value */}
           <div
-            onClick={() => onNavigateReport?.('report-stock')}
+            onClick={() => onNavigateReport?.('products')}
             className="flex items-center justify-between pt-1 cursor-pointer hover:bg-slate-50/80 -mx-2 px-2 py-1.5 rounded-lg transition-colors group"
           >
             <div className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export const TodaySummaryCards: React.FC<TodaySummaryCardsProps> = ({ onNavigate
 
           {/* Row 3: Supplier Due */}
           <div
-            onClick={() => onNavigateReport?.('report-supplier-due')}
+            onClick={() => onNavigateReport?.('suppliers')}
             className="flex items-center justify-between pt-3 cursor-pointer hover:bg-slate-50/80 -mx-2 px-2 py-1.5 rounded-lg transition-colors group"
           >
             <div className="flex items-center gap-3">
@@ -259,8 +259,7 @@ export const TodaySummaryCards: React.FC<TodaySummaryCardsProps> = ({ onNavigate
 
           {/* Row 4: Tray With Customers */}
           <div
-            onClick={() => onNavigateReport?.('report-tray')}
-            className="flex items-center justify-between pt-3 cursor-pointer hover:bg-slate-50/80 -mx-2 px-2 py-1.5 rounded-lg transition-colors group"
+            className="flex items-center justify-between pt-3 -mx-2 px-2 py-1.5 rounded-lg group"
           >
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">

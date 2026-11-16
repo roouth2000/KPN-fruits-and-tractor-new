@@ -202,10 +202,10 @@ export const PendingDuesSection: React.FC<PendingDuesSectionProps> = ({
         </div>
 
         <button
-          onClick={() => onNavigateReport('report-supplier-due')}
+          onClick={() => onNavigateReport('suppliers')}
           className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors w-full cursor-pointer group"
         >
-          <span>Open Full Supplier Due & Vouchers</span>
+          <span>Open Full Suppliers Directory & Outstandings</span>
           <ChevronRightIcon className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>

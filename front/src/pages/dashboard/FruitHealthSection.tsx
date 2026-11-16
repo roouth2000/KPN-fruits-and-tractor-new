@@ -122,14 +122,6 @@ export const FruitHealthSection: React.FC<FruitHealthSectionProps> = ({
             )}
           </div>
         </div>
-
-        <button
-          onClick={() => onNavigateReport('report-damage')}
-          className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors w-full cursor-pointer group"
-        >
-          <span>View Detailed Damage Log</span>
-          <ChevronRightIcon className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-        </button>
       </div>
 
       {/* 2. Returned Fruits Card */}
@@ -185,14 +177,6 @@ export const FruitHealthSection: React.FC<FruitHealthSectionProps> = ({
             )}
           </div>
         </div>
-
-        <button
-          onClick={() => onNavigateReport('report-returns')}
-          className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors w-full cursor-pointer group"
-        >
-          <span>View Customer Returns Log</span>
-          <ChevronRightIcon className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-        </button>
       </div>
 
       {/* 3. Low Stock Fruits Card */}
@@ -263,10 +247,10 @@ export const FruitHealthSection: React.FC<FruitHealthSectionProps> = ({
         </div>
 
         <button
-          onClick={() => onNavigateReport('report-stock')}
+          onClick={() => onNavigateReport('products')}
           className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-slate-900 transition-colors w-full cursor-pointer group"
         >
-          <span>Open Full Stock & Inventory</span>
+          <span>Open Product Stack & Inventory</span>
           <ChevronRightIcon className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>

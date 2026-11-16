@@ -9,16 +9,12 @@ import {
   BuildingIcon,
   TrendingUpIcon,
   TrendingDownIcon,
-  BarChart3Icon,
   UsersIcon,
   SettingsIcon,
   ChevronsUpDownIcon,
   PanelLeftIcon,
   FileTextIcon,
   DollarSignIcon,
-  AlertOctagonIcon,
-  RotateCcwIcon,
-  LayersIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ShieldCheckIcon,
@@ -62,18 +58,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [isAnyReportActive]);
 
   const reportItems: NavItem[] = [
-    { id: 'report-stock', label: 'Stack / Stock (FIFO)', icon: PackageIcon, permission: 'reports.view' },
     { id: 'report-daily-sales', label: 'Daily Sales', icon: DollarSignIcon, permission: 'reports.view' },
-    { id: 'report-monthly-sales', label: 'Monthly Sales', icon: BarChart3Icon, permission: 'reports.view' },
     { id: 'report-purchase', label: 'Purchase', icon: ReceiptTextIcon, permission: 'reports.view' },
     { id: 'report-profit', label: 'Profit', icon: TrendingUpIcon, permission: 'reports.financial' },
     { id: 'report-loss', label: 'Loss', icon: TrendingDownIcon, permission: 'reports.financial' },
-    { id: 'report-damage', label: 'Damage', icon: AlertOctagonIcon, permission: 'reports.view' },
-    { id: 'report-returns', label: 'Returns', icon: RotateCcwIcon, permission: 'reports.view' },
-    { id: 'report-customer-purchase', label: 'Customer Purchases', icon: ReceiptTextIcon, permission: 'reports.view' },
     { id: 'report-customer-due', label: 'Customer Due', icon: UsersIcon, permission: 'reports.view' },
-    { id: 'report-supplier-due', label: 'Supplier Due', icon: BuildingIcon, permission: 'reports.view' },
-    { id: 'report-tray', label: 'Tray Report', icon: LayersIcon, permission: 'reports.view' },
   ];
 
   const standardSections: NavSection[] = [

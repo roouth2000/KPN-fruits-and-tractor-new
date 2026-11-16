@@ -20,17 +20,12 @@ import type { ToastMessage } from './components/Toast';
 // Report Pages
 import {
   DailySalesPage,
-  MonthlySalesPage,
   PurchaseReportPage,
   StockReportPage,
   ProfitReportPage,
   LossReportPage,
-  DamageReportPage,
-  ReturnsReportPage,
   CustomerDueReportPage,
-  CustomerPurchaseHistoryPage,
   SupplierDueReportPage,
-  TrayReportPage,
 } from './pages/reports';
 
 const queryClient = new QueryClient({
@@ -45,7 +40,6 @@ const queryClient = new QueryClient({
 export const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, isSalesperson, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('billing'); // Default to Common Billing Screen!
-  const [customerForHistory, setCustomerForHistory] = useState<number | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -214,17 +208,6 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Daily Sales Report')}
           />
         );
-      case 'analytics':
-      case 'report-monthly-sales':
-        if (isSalesperson || !hasPermission('reports.view')) {
-          return renderRestrictedNotice('Monthly Analytics Reports');
-        }
-        return (
-          <MonthlySalesPage
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onExport={() => handleExport('Monthly Sales Report')}
-          />
-        );
       case 'purchase-orders':
       case 'report-purchase':
         if (isSalesperson || !hasPermission('reports.view')) {
@@ -237,7 +220,6 @@ export const AppContent: React.FC = () => {
           />
         );
       case 'products':
-      case 'report-stock':
         if (isSalesperson || !hasPermission('stock.view')) {
           return renderRestrictedNotice('Inventory & Stock Audit');
         }
@@ -258,26 +240,6 @@ export const AppContent: React.FC = () => {
           <CustomersPage
             onBackToDashboard={() => setActiveTab('command-center')}
             onNavigateBilling={() => setActiveTab('billing')}
-            onViewPurchaseHistory={(cust) => {
-              setCustomerForHistory(cust.id);
-              setActiveTab('report-customer-purchase');
-            }}
-            onShowToast={addToast}
-          />
-        );
-      case 'report-customer-purchase':
-      case 'customer-purchases':
-        if (isSalesperson || !hasPermission('reports.view')) {
-          return renderRestrictedNotice('Customer Purchase History');
-        }
-        return (
-          <CustomerPurchaseHistoryPage
-            initialCustomerId={customerForHistory}
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onNavigateBilling={() => {
-              setCustomerForHistory(null);
-              setActiveTab('billing');
-            }}
             onShowToast={addToast}
           />
         );
@@ -301,26 +263,6 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Loss Report')}
           />
         );
-      case 'report-damage':
-        if (isSalesperson || !hasPermission('reports.view')) {
-          return renderRestrictedNotice('Produce Damage Reports');
-        }
-        return (
-          <DamageReportPage
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onExport={() => handleExport('Damage Report')}
-          />
-        );
-      case 'report-returns':
-        if (isSalesperson || !hasPermission('reports.view')) {
-          return renderRestrictedNotice('Customer Returns Reports');
-        }
-        return (
-          <ReturnsReportPage
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onExport={() => handleExport('Returns & RMA Report')}
-          />
-        );
       case 'report-customer-due':
         if (isSalesperson || !hasPermission('reports.view')) {
           return renderRestrictedNotice('Customer Due Ledger Reports');
@@ -333,7 +275,6 @@ export const AppContent: React.FC = () => {
           />
         );
       case 'suppliers':
-      case 'report-supplier-due':
         if (isSalesperson || !hasPermission('reports.view')) {
           return renderRestrictedNotice('Supplier Outstandings');
         }
@@ -343,17 +284,6 @@ export const AppContent: React.FC = () => {
             onExport={() => handleExport('Supplier Due Report')}
             onSchedulePayment={(s) => addToast('Payment scheduled', `Payment batch queued for ${s}`, 'success')}
             onShowToast={addToast}
-          />
-        );
-      case 'report-tray':
-        if (isSalesperson || !hasPermission('reports.view')) {
-          return renderRestrictedNotice('Mandi Tray Accounting');
-        }
-        return (
-          <TrayReportPage
-            onBackToDashboard={() => setActiveTab('command-center')}
-            onExport={() => handleExport('Tray Asset Report')}
-            onLogReturn={(b) => addToast('Asset scanned', `Tray batch ${b} logged at receiving dock`, 'success')}
           />
         );
       case 'expenses':
