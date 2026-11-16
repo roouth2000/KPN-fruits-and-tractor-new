@@ -94,9 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`bg-white border-r border-slate-200/80 flex flex-col justify-between transition-all duration-300 select-none flex-shrink-0 z-20 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}
+      className={`bg-white border-r border-slate-200/80 flex flex-col justify-between transition-all duration-300 select-none flex-shrink-0 z-20 ${isCollapsed ? 'w-16' : 'w-64'
+        }`}
     >
       {/* Top Header */}
       <div>
@@ -146,16 +145,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => handleSelectTab('command-center')}
               title={isCollapsed ? 'Command Center' : undefined}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${
-                activeTab === 'command-center'
+              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${activeTab === 'command-center'
                   ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <LayoutGridIcon
-                className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  activeTab === 'command-center' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-                }`}
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${activeTab === 'command-center' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                  }`}
               />
               {!isCollapsed && <span className="truncate text-left flex-1">Dashboard</span>}
             </button>
@@ -165,26 +162,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => handleSelectTab('billing')}
             title={isCollapsed ? 'Billing / POS' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${
-              activeTab === 'billing' || activeTab === 'sales-billing'
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${activeTab === 'billing' || activeTab === 'sales-billing'
                 ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+              }`}
           >
             <DollarSignIcon
-              className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                activeTab === 'billing' || activeTab === 'sales-billing' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-              }`}
+              className={`w-4 h-4 flex-shrink-0 transition-colors ${activeTab === 'billing' || activeTab === 'sales-billing' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                }`}
             />
             {!isCollapsed && (
               <span className="truncate text-left flex-1 flex items-center justify-between">
                 <span>Billing / POS</span>
                 <span
-                  className={`text-[10px] font-medium px-1.5 rounded transition-colors ${
-                    activeTab === 'billing' || activeTab === 'sales-billing'
+                  className={`text-[10px] font-medium px-1.5 rounded transition-colors ${activeTab === 'billing' || activeTab === 'sales-billing'
                       ? 'bg-slate-200 text-slate-700'
                       : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   {isSalesperson ? 'Primary' : 'Live'}
                 </span>
@@ -196,26 +190,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => handleSelectTab('invoices-list')}
             title={isCollapsed ? 'Invoices & Bills' : undefined}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${
-              activeTab === 'invoices-list' || activeTab === 'sales-invoices'
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${activeTab === 'invoices-list' || activeTab === 'sales-invoices'
                 ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+              }`}
           >
             <ReceiptTextIcon
-              className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                activeTab === 'invoices-list' || activeTab === 'sales-invoices' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-              }`}
+              className={`w-4 h-4 flex-shrink-0 transition-colors ${activeTab === 'invoices-list' || activeTab === 'sales-invoices' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                }`}
             />
             {!isCollapsed && (
               <span className="truncate text-left flex-1 flex items-center justify-between">
                 <span>Invoices & Bills</span>
                 <span
-                  className={`text-[10px] font-medium px-1.5 rounded transition-colors ${
-                    activeTab === 'invoices-list' || activeTab === 'sales-invoices'
+                  className={`text-[10px] font-medium px-1.5 rounded transition-colors ${activeTab === 'invoices-list' || activeTab === 'sales-invoices'
                       ? 'bg-slate-200 text-slate-700'
                       : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   History
                 </span>
@@ -246,9 +237,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="space-y-1">
                       <button
                         onClick={() => setReportsOpen((prev) => !prev)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase text-slate-400 hover:text-slate-600 transition-colors ${
-                          isAnyReportActive ? 'text-slate-700 font-extrabold' : ''
-                        }`}
+                        className={`w-full flex items-center justify-between px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase text-slate-400 hover:text-slate-600 transition-colors ${isAnyReportActive ? 'text-slate-700 font-extrabold' : ''
+                          }`}
                       >
                         <div className="flex items-center gap-1.5">
                           <FileTextIcon className="w-3.5 h-3.5" />
@@ -275,11 +265,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <button
                                 key={rep.id}
                                 onClick={() => handleSelectTab(rep.id)}
-                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-left ${
-                                  isActive
+                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-left ${isActive
                                     ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                                     : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
-                                }`}
+                                  }`}
                               >
                                 <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
                                 <span className="truncate flex-1">{rep.label}</span>
@@ -294,11 +283,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         onClick={() => handleSelectTab('report-daily-sales')}
                         title="Reports (11 views)"
-                        className={`w-full flex items-center justify-center p-2 rounded-lg text-xs font-medium transition-all ${
-                          isAnyReportActive
+                        className={`w-full flex items-center justify-center p-2 rounded-lg text-xs font-medium transition-all ${isAnyReportActive
                             ? 'bg-slate-900 text-white shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         <FileTextIcon className="w-4 h-4" />
                       </button>
@@ -326,16 +314,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         key={item.id}
                         onClick={() => handleSelectTab(item.id)}
                         title={isCollapsed ? item.label : undefined}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${
-                          isActive
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group relative ${isActive
                             ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         <Icon
-                          className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                            isActive ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-                          }`}
+                          className={`w-4 h-4 flex-shrink-0 transition-colors ${isActive ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                            }`}
                         />
                         {!isCollapsed && (
                           <span className="truncate text-left flex-1">{item.label}</span>
@@ -351,16 +337,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {canManageRoles && (
                   <button
                     onClick={() => handleSelectTab('users-roles')}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group ${
-                      activeTab === 'users-roles' || activeTab === 'team'
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group ${activeTab === 'users-roles' || activeTab === 'team'
                         ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <UsersIcon
-                      className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                        activeTab === 'users-roles' || activeTab === 'team' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-                      }`}
+                      className={`w-4 h-4 flex-shrink-0 transition-colors ${activeTab === 'users-roles' || activeTab === 'team' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                        }`}
                     />
                     {!isCollapsed && <span>Users & Roles</span>}
                   </button>
@@ -368,16 +352,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <button
                   onClick={() => handleSelectTab('settings')}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group ${
-                    activeTab === 'settings'
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all group ${activeTab === 'settings'
                       ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <SettingsIcon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                      activeTab === 'settings' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
-                    }`}
+                    className={`w-4 h-4 flex-shrink-0 transition-colors ${activeTab === 'settings' ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                      }`}
                   />
                   {!isCollapsed && <span>System Settings</span>}
                 </button>
@@ -393,9 +375,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => {
             if (!isSalesperson) handleSelectTab('users-roles');
           }}
-          className={`flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100/80 transition-colors text-left flex-1 min-w-0 ${
-            isCollapsed ? 'justify-center' : ''
-          }`}
+          className={`flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100/80 transition-colors text-left flex-1 min-w-0 ${isCollapsed ? 'justify-center' : ''
+            }`}
           title={isSalesperson ? 'Salesperson Desk' : 'Click to manage Users & Roles'}
         >
           <div className="w-7 h-7 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
