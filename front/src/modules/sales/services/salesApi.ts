@@ -91,6 +91,34 @@ export const salesApi = {
     return res.data.data;
   },
 
+  addCustomerCredit: async (
+    id: number,
+    payload: {
+      amount: number;
+      reference?: string;
+      date?: string;
+      description?: string;
+      produceDetails?: string;
+    }
+  ) => {
+    const res = await apiClient.post(`/customers/${id}/add-credit`, payload);
+    return res.data.data;
+  },
+
+  repayCustomerDue: async (
+    id: number,
+    payload: {
+      amount: number;
+      paymentMode: string;
+      transactionRef?: string;
+      paymentDate?: string;
+      notes?: string;
+    }
+  ) => {
+    const res = await apiClient.post(`/customers/${id}/repay`, payload);
+    return res.data.data;
+  },
+
   // Product APIs
   getAllProducts: async (): Promise<Product[]> => {
     const res = await apiClient.get('/products');
@@ -294,6 +322,49 @@ export const salesApi = {
     const blob = new Blob([res.data], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     window.open(url, '_blank');
+  },
+
+  /**
+   * URL for customer ledger statement PDF with auth token
+   */
+  getCustomerLedgerPdfUrl: (
+    customerId: number | string,
+    filters?: { startDate?: string; endDate?: string; type?: string }
+  ) => {
+    const token = localStorage.getItem('finovore_token') || '';
+    const role = localStorage.getItem('finovore_role') || '';
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (role) params.set('role', role);
+    if (filters?.startDate) params.set('startDate', filters.startDate);
+    if (filters?.endDate) params.set('endDate', filters.endDate);
+    if (filters?.type && filters.type !== 'ALL') params.set('type', filters.type);
+    const qs = params.toString();
+    return `${API_BASE_URL}/customers/${customerId}/ledger/pdf${qs ? `?${qs}` : ''}`;
+  },
+
+  /**
+   * Download Customer Ledger Statement PDF via authenticated blob
+   */
+  downloadCustomerLedgerPdf: async (
+    customerId: number | string,
+    customerName?: string,
+    filters?: { startDate?: string; endDate?: string; type?: string }
+  ) => {
+    const res = await apiClient.get(`/customers/${customerId}/ledger/pdf`, {
+      params: filters,
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeName = (customerName || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.download = `Statement_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   },
 };
 

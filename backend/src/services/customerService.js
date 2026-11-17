@@ -293,6 +293,8 @@ class CustomerService {
       creditLimit: parseFloat(data.creditLimit) || 50000.00,
       openingBalance: initialDue,
       currentDue: initialDue,
+      groupName: data.groupName ? data.groupName.trim() : null,
+      isGroupLeader: Boolean(data.isGroupLeader),
       outstandingTrays: parseInt(data.outstandingTrays, 10) || 0,
       isActive: data.isActive !== undefined ? data.isActive : true,
     };
@@ -352,6 +354,8 @@ class CustomerService {
       if (data.city !== undefined) fieldsToUpdate.city = data.city ? data.city.trim() : '';
       if (data.state !== undefined) fieldsToUpdate.state = data.state ? data.state.trim() : '';
       if (data.gstin !== undefined) fieldsToUpdate.gstin = data.gstin ? data.gstin.trim() : null;
+      if (data.groupName !== undefined) fieldsToUpdate.groupName = data.groupName ? data.groupName.trim() : null;
+      if (data.isGroupLeader !== undefined) fieldsToUpdate.isGroupLeader = Boolean(data.isGroupLeader);
       if (data.customerType !== undefined) {
         fieldsToUpdate.customerType = ['REGULAR', 'WHOLESALE', 'WALK_IN'].includes(data.customerType)
           ? data.customerType
@@ -586,6 +590,98 @@ class CustomerService {
       await transaction.rollback();
       throw err;
     }
+  }
+
+  async addCredit(customerId, payload, user = null) {
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(customerId, { transaction });
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const creditAmt = parseFloat(payload.amount);
+      if (isNaN(creditAmt) || creditAmt <= 0) {
+        throw new Error('Credit amount must be greater than zero');
+      }
+
+      const creditDate = payload.date || payload.creditDate || new Date().toISOString().slice(0, 10);
+      const reference = payload.reference && payload.reference.trim()
+        ? payload.reference.trim()
+        : `CR-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+      const description = payload.description || payload.notes || `Credit extended to ${customer.name}`;
+
+      // Calculate previous due before adding this credit
+      const previousDue = await this.calculateCustomerDue(customerId, transaction);
+      const newDue = Math.round((previousDue + creditAmt) * 100) / 100;
+
+      // Check credit limit and flag warning
+      const creditLimit = parseFloat(customer.creditLimit) || 0;
+      const exceedsLimit = creditLimit > 0 && newDue > creditLimit;
+
+      // Create Customer Ledger entry (Debit adds to customer outstanding due)
+      await CustomerLedger.create({
+        customerId: customer.id,
+        date: creditDate,
+        type: 'ADJUSTMENT',
+        reference,
+        description: `${description}${payload.produceDetails ? ` (${payload.produceDetails})` : ''}`,
+        debit: creditAmt,
+        credit: 0.00,
+        runningBalance: newDue,
+        createdById: user ? user.id : 1,
+      }, { transaction });
+
+      // Update customer.currentDue
+      const finalRealDue = await this.calculateCustomerDue(customerId, transaction);
+      await customer.update(
+        { currentDue: finalRealDue },
+        { where: { id: customer.id }, transaction }
+      );
+
+      // Audit Log
+      await AuditLog.create({
+        userId: user ? user.id : null,
+        userName: user ? user.name : 'System',
+        action: 'CUSTOMER_CREDIT_ADDED',
+        entity: 'CUSTOMER',
+        entityId: String(customer.id),
+        newValue: JSON.stringify({
+          reference,
+          customer: customer.name,
+          creditAmount: creditAmt,
+          previousDue,
+          newDue: finalRealDue,
+          exceedsLimit,
+        }),
+      }, { transaction });
+
+      await transaction.commit();
+
+      return {
+        success: true,
+        reference,
+        customerId: customer.id,
+        customerName: customer.name,
+        creditAmount: creditAmt,
+        previousDue,
+        newDue: finalRealDue,
+        creditLimit,
+        exceedsLimit,
+        creditDate,
+      };
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  }
+
+  async repayCustomerDue(customerId, payload, user = null) {
+    return await this.payOpeningBalance(customerId, {
+      ...payload,
+      isOpeningBalance: payload.isOpeningBalance || false,
+      notes: payload.notes || `Repayment / Due reduction for customer ${customerId}`,
+    }, user);
   }
 }
 

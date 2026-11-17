@@ -54,11 +54,19 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
   const { data: units = [] } = useUnits();
 
+  const getTodayDate = (): string => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Form State
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [saleType, setSaleType] = useState<SaleType>('WHOLESALE');
-  const [invoiceDate, setInvoiceDate] = useState<string>('2026-11-09');
-  const [dueDate] = useState<string>('2026-11-09');
+  const [invoiceDate, setInvoiceDate] = useState<string>(getTodayDate);
+  const [dueDate, setDueDate] = useState<string>(getTodayDate);
   const [items, setItems] = useState<BillingItem[]>([]);
   const [invoiceDiscount, setInvoiceDiscount] = useState<number>(0);
   const [invoiceTax, setInvoiceTax] = useState<number>(0);
@@ -273,6 +281,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
   const handleReset = useCallback(() => {
     setSelectedCustomer(null);
+    setInvoiceDate(getTodayDate());
+    setDueDate(getTodayDate());
     setItems([]);
     setInvoiceDiscount(0);
     setInvoiceTax(0);

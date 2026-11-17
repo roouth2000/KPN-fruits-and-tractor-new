@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   UsersIcon,
   SearchIcon,
@@ -29,14 +29,13 @@ interface CustomersPageProps {
 
 export const CustomersPage: React.FC<CustomersPageProps> = ({
   onNavigateBilling,
-  onCollectDue,
-  onViewPurchaseHistory,
   onViewLedger,
   onShowToast,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
+  const [filterGroup, setFilterGroup] = useState<string>('ALL');
   const [isLoading, setIsLoading] = useState(true);
 
   // =========================================================
@@ -47,6 +46,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [custType, setCustType] = useState<'REGULAR' | 'WHOLESALE' | 'WALK_IN'>('WHOLESALE');
+  const [custGroupName, setCustGroupName] = useState('');
+  const [custIsGroupLeader, setCustIsGroupLeader] = useState(false);
   const [custCity, setCustCity] = useState('Mumbai');
   const [custAddress, setCustAddress] = useState('');
   const [custCreditLimit, setCustCreditLimit] = useState<number>(50000);
@@ -64,6 +65,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editType, setEditType] = useState<'REGULAR' | 'WHOLESALE' | 'WALK_IN'>('WHOLESALE');
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editIsGroupLeader, setEditIsGroupLeader] = useState(false);
   const [editCity, setEditCity] = useState('');
   const [editState, setEditState] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -84,17 +87,29 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // =========================================================
-  // 4. PAY OPENING BALANCE MODAL STATE
+  // 4. ADD CREDIT MODAL STATE (+ Credit: Adds to Due Balance)
   // =========================================================
-  const [isPayOpeningOpen, setIsPayOpeningOpen] = useState(false);
-  const [payingCustomer, setPayingCustomer] = useState<Customer | null>(null);
-  const [payAmount, setPayAmount] = useState<number | string>('');
-  const [payMode, setPayMode] = useState<string>('CASH');
-  const [payDate, setPayDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [payRef, setPayRef] = useState<string>('');
-  const [payNotes, setPayNotes] = useState<string>('');
-  const [isSubmittingPay, setIsSubmittingPay] = useState(false);
-  const [lastPaymentReceipt, setLastPaymentReceipt] = useState<any | null>(null);
+  const [isAddCreditOpen, setIsAddCreditOpen] = useState(false);
+  const [creditingCustomer, setCreditingCustomer] = useState<Customer | null>(null);
+  const [creditAmount, setCreditAmount] = useState<number | string>('');
+  const [creditRef, setCreditRef] = useState<string>('');
+  const [creditDate, setCreditDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [creditProduceDetails, setCreditProduceDetails] = useState<string>('');
+  const [creditDescription, setCreditDescription] = useState<string>('');
+  const [isSubmittingCredit, setIsSubmittingCredit] = useState(false);
+
+  // =========================================================
+  // 5. REPAY MODAL STATE (₹ Repay: Customer Gives Amount -> Reduces Due)
+  // =========================================================
+  const [isRepayOpen, setIsRepayOpen] = useState(false);
+  const [repayingCustomer, setRepayingCustomer] = useState<Customer | null>(null);
+  const [repayAmount, setRepayAmount] = useState<number | string>('');
+  const [repayMode, setRepayMode] = useState<string>('CASH');
+  const [repayDate, setRepayDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [repayRef, setRepayRef] = useState<string>('');
+  const [repayNotes, setRepayNotes] = useState<string>('');
+  const [isSubmittingRepay, setIsSubmittingRepay] = useState(false);
+  const [lastRepayReceipt, setLastRepayReceipt] = useState<any | null>(null);
 
   const handleOpenLedger = (cust: Customer) => {
     if (onViewLedger) {
@@ -119,6 +134,17 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     fetchCustomers();
   }, [fetchCustomers]);
 
+  // Extract distinct groups for dropdown
+  const groupOptions = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.groupName && c.groupName.trim()) {
+        set.add(c.groupName.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [customers]);
+
   // =========================================================
   // ADD CUSTOMER HANDLERS
   // =========================================================
@@ -128,6 +154,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setCustName('');
     setCustPhone('');
     setCustType('WHOLESALE');
+    setCustGroupName('');
+    setCustIsGroupLeader(false);
     setCustCity('Mumbai');
     setCustAddress('');
     setCustCreditLimit(50000);
@@ -150,6 +178,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         name: custName.trim(),
         phone: custPhone.trim(),
         customerType: custType,
+        groupName: custGroupName.trim() || null,
+        isGroupLeader: custIsGroupLeader,
         city: custCity.trim(),
         address: custAddress.trim(),
         creditLimit: custCreditLimit,
@@ -187,6 +217,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setEditPhone(cust.phone || '');
     setEditEmail(cust.email || '');
     setEditType(cust.customerType || 'WHOLESALE');
+    setEditGroupName(cust.groupName || '');
+    setEditIsGroupLeader(Boolean(cust.isGroupLeader));
     setEditCity(cust.city || '');
     setEditState(cust.state || '');
     setEditAddress(cust.address || '');
@@ -215,6 +247,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         phone: editPhone.trim(),
         email: editEmail.trim() || null,
         customerType: editType,
+        groupName: editGroupName.trim() || null,
+        isGroupLeader: editIsGroupLeader,
         city: editCity.trim(),
         state: editState.trim(),
         address: editAddress.trim(),
@@ -228,7 +262,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
       onShowToast?.(
         'Customer Updated',
-        `${editName.trim()} updated successfully. Opening balance and ledger adjusted.`,
+        `${editName.trim()} updated successfully.`,
         'success'
       );
       setIsEditCustomerOpen(false);
@@ -278,57 +312,107 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   };
 
   // =========================================================
-  // PAY OPENING BALANCE HANDLERS
+  // ADD CREDIT HANDLERS (+ Credit: Adds to Due Balance)
   // =========================================================
-  const handleOpenPayOpening = (cust: Customer) => {
-    setPayingCustomer(cust);
-    const openingBal = parseFloat(String(cust.openingBalance)) || 0;
-    const currentDue = parseFloat(String(cust.currentDue)) || 0;
-    const defaultAmt = openingBal > 0 ? openingBal : (currentDue > 0 ? currentDue : 0);
-    setPayAmount(defaultAmt > 0 ? defaultAmt : '');
-    setPayMode('CASH');
-    setPayDate(new Date().toISOString().slice(0, 10));
-    setPayRef('');
-    setPayNotes(`Opening balance settlement for ${cust.name}`);
-    setLastPaymentReceipt(null);
-    setIsPayOpeningOpen(true);
+  const handleOpenAddCredit = (cust: Customer) => {
+    setCreditingCustomer(cust);
+    setCreditAmount('');
+    setCreditRef(`CR-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`);
+    setCreditDate(new Date().toISOString().slice(0, 10));
+    setCreditProduceDetails('');
+    setCreditDescription(`Goods / Produce on credit for ${cust.name}`);
+    setIsAddCreditOpen(true);
   };
 
-  const handlePayOpeningSubmit = async (e: React.FormEvent) => {
+  const handleAddCreditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payingCustomer) return;
-    const amt = parseFloat(String(payAmount));
+    if (!creditingCustomer) return;
+    const amt = parseFloat(String(creditAmount));
     if (isNaN(amt) || amt <= 0) {
-      onShowToast?.('Invalid Amount', 'Please enter a payment amount greater than ₹0.', 'warning');
+      onShowToast?.('Invalid Amount', 'Please enter a valid credit amount greater than ₹0.', 'warning');
       return;
     }
 
-    setIsSubmittingPay(true);
+    setIsSubmittingCredit(true);
     try {
-      const result = await salesApi.payOpeningBalance(payingCustomer.id, {
+      const result = await salesApi.addCustomerCredit(creditingCustomer.id, {
         amount: amt,
-        paymentMode: payMode,
-        transactionRef: payRef.trim() || undefined,
-        paymentDate: payDate,
-        notes: payNotes.trim() || `Opening balance payment for ${payingCustomer.name}`,
-        isOpeningBalance: true,
+        reference: creditRef.trim() || undefined,
+        date: creditDate,
+        description: creditDescription.trim() || undefined,
+        produceDetails: creditProduceDetails.trim() || undefined,
       });
 
-      setLastPaymentReceipt(result);
       onShowToast?.(
-        'Payment Recorded',
-        `Payment of ${formatINR(amt)} recorded for ${payingCustomer.name}. Receipt: ${result.paymentNumber}`,
+        'Credit Added',
+        `Credit of ${formatINR(amt)} added to ${creditingCustomer.name}. New outstanding due is ${formatINR(result.newDue)}.`,
+        'success'
+      );
+      setIsAddCreditOpen(false);
+      setCreditingCustomer(null);
+      fetchCustomers();
+    } catch (err: any) {
+      onShowToast?.(
+        'Credit Failed',
+        err.response?.data?.message || err.message || 'Error adding credit',
+        'warning'
+      );
+    } finally {
+      setIsSubmittingCredit(false);
+    }
+  };
+
+  // =========================================================
+  // REPAY HANDLERS (₹ Repay: Customer Gives Amount -> Reduces Due)
+  // =========================================================
+  const handleOpenRepay = (cust: Customer) => {
+    setRepayingCustomer(cust);
+    const currentDue = parseFloat(String(cust.currentDue)) || 0;
+    const openingBal = parseFloat(String(cust.openingBalance)) || 0;
+    const defaultAmt = currentDue > 0 ? currentDue : (openingBal > 0 ? openingBal : '');
+    setRepayAmount(defaultAmt);
+    setRepayMode('CASH');
+    setRepayDate(new Date().toISOString().slice(0, 10));
+    setRepayRef('');
+    setRepayNotes(`Repayment against outstanding due for ${cust.name}`);
+    setLastRepayReceipt(null);
+    setIsRepayOpen(true);
+  };
+
+  const handleRepaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!repayingCustomer) return;
+    const amt = parseFloat(String(repayAmount));
+    if (isNaN(amt) || amt <= 0) {
+      onShowToast?.('Invalid Amount', 'Please enter a repayment amount greater than ₹0.', 'warning');
+      return;
+    }
+
+    setIsSubmittingRepay(true);
+    try {
+      const result = await salesApi.repayCustomerDue(repayingCustomer.id, {
+        amount: amt,
+        paymentMode: repayMode,
+        transactionRef: repayRef.trim() || undefined,
+        paymentDate: repayDate,
+        notes: repayNotes.trim() || `Customer repayment from ${repayingCustomer.name}`,
+      });
+
+      setLastRepayReceipt(result);
+      onShowToast?.(
+        'Repayment Recorded',
+        `Repayment of ${formatINR(amt)} received from ${repayingCustomer.name}. Due reduced to ${formatINR(result.remainingDue)}.`,
         'success'
       );
       fetchCustomers();
     } catch (err: any) {
       onShowToast?.(
-        'Payment Failed',
-        err.response?.data?.message || err.message || 'Error recording payment',
+        'Repayment Failed',
+        err.response?.data?.message || err.message || 'Error recording repayment',
         'warning'
       );
     } finally {
-      setIsSubmittingPay(false);
+      setIsSubmittingRepay(false);
     }
   };
 
@@ -362,8 +446,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div class="center" style="font-size: 10px;">APMC Market-1, Fruit Section, Vashi</div>
           <div class="center" style="font-size: 10px;">Phone: 9820012345</div>
           <div class="divider"></div>
-          <div class="center bold">PAYMENT RECEIPT VOUCHER</div>
-          <div class="center" style="font-size: 10px;">(Opening Balance / Due Settlement)</div>
+          <div class="center bold">CUSTOMER REPAYMENT VOUCHER</div>
+          <div class="center" style="font-size: 10px;">(Credit Due Balance Reduction)</div>
           <div class="divider"></div>
           <div class="row"><span>Receipt No:</span><span class="bold">${paymentData.paymentNumber}</span></div>
           <div class="row"><span>Date:</span><span>${paymentData.paymentDate || new Date().toISOString().slice(0, 10)}</span></div>
@@ -371,11 +455,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div class="row"><span>Payment Mode:</span><span class="bold">${paymentData.paymentMode}</span></div>
           ${paymentData.transactionRef ? `<div class="row"><span>Ref / UTR:</span><span>${paymentData.transactionRef}</span></div>` : ''}
           <div class="double-divider"></div>
-          <div class="row" style="font-size: 13px;"><span class="bold">AMOUNT PAID:</span><span class="bold">₹${Number(paymentData.amountPaid).toFixed(2)}</span></div>
+          <div class="row" style="font-size: 13px;"><span class="bold">AMOUNT REPAID:</span><span class="bold">₹${Number(paymentData.amountPaid).toFixed(2)}</span></div>
           <div class="divider"></div>
-          <div class="row"><span>Previous Balance:</span><span>₹${Number(paymentData.previousDue).toFixed(2)}</span></div>
+          <div class="row"><span>Previous Due:</span><span>₹${Number(paymentData.previousDue).toFixed(2)}</span></div>
           <div class="row"><span>Amount Received:</span><span>-₹${Number(paymentData.amountPaid).toFixed(2)}</span></div>
-          <div class="row bold"><span>Remaining Balance:</span><span>₹${Number(paymentData.remainingDue).toFixed(2)}</span></div>
+          <div class="row bold"><span>Remaining Due:</span><span>₹${Number(paymentData.remainingDue).toFixed(2)}</span></div>
           <div class="divider"></div>
           <div class="center" style="margin-top: 12px; font-size: 10px;">*** Thank You ***</div>
           <div class="center" style="font-size: 9px; color: #555;">Computer Generated Receipt</div>
@@ -389,15 +473,27 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     }
   };
 
+  // Filter logic: Search + Account Type + Group
   const filtered = customers.filter((c) => {
+    const q = searchTerm.toLowerCase().trim();
     const matchSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()));
+      !q ||
+      c.name.toLowerCase().includes(q) ||
+      c.customerCode.toLowerCase().includes(q) ||
+      c.phone.toLowerCase().includes(q) ||
+      (c.city && c.city.toLowerCase().includes(q)) ||
+      (c.groupName && c.groupName.toLowerCase().includes(q));
 
     const matchType = filterType === 'ALL' || c.customerType === filterType;
-    return matchSearch && matchType;
+
+    const matchGroup =
+      filterGroup === 'ALL'
+        ? true
+        : filterGroup === 'NONE'
+        ? !c.groupName || !c.groupName.trim()
+        : c.groupName === filterGroup;
+
+    return matchSearch && matchType && matchGroup;
   });
 
   // Calculate Metrics
@@ -421,11 +517,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Wholesale buyers, APMC counter clients, opening balance management, credit exposure limits, and outstanding tray ledger balances
+              Wholesale buyers, APMC counter clients, credit additions, repayments, group leaders, and outstanding tray ledger balances
             </p>
           </div>
 
           <div className="flex items-center gap-2.5">
+            {onNavigateBilling && (
+              <button
+                type="button"
+                onClick={() => onNavigateBilling()}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
+              >
+                <span>+ New Bill</span>
+              </button>
+            )}
             <button
               onClick={handleOpenAddCustomer}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-sm transition-all cursor-pointer"
@@ -515,26 +620,46 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </div>
       </div>
 
-      {/* Customer List Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {/* Search & Filter Bar */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50">
-          <div className="relative w-full sm:w-80">
-            <SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* ========================================================= */}
+      {/* MAIN CUSTOMER DIRECTORY CARD & UI MATCHING SCREENSHOT     */}
+      {/* ========================================================= */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {/* Top Controls Bar: Search + All Groups + All Account Types + Add Customer */}
+        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-3 bg-white">
+          {/* Search Box */}
+          <div className="relative w-full md:w-96">
+            <SearchIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by name, phone, code or city..."
-              className="w-full text-xs bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="w-full text-xs bg-slate-50/70 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Filters & Add Customer Button */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            {/* All Groups Dropdown */}
+            <select
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-2xs"
+            >
+              <option value="ALL">All Groups</option>
+              <option value="NONE">Individual / No Group</option>
+              {groupOptions.map((grp) => (
+                <option key={grp} value={grp}>
+                  {grp}
+                </option>
+              ))}
+            </select>
+
+            {/* All Account Types Dropdown */}
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none cursor-pointer"
+              className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-2xs"
             >
               <option value="ALL">All Account Types</option>
               <option value="WHOLESALE">Wholesale Traders</option>
@@ -542,44 +667,45 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               <option value="WALK_IN">Walk-In / Cash</option>
             </select>
 
+            {/* Add Customer Button */}
             <button
               onClick={handleOpenAddCustomer}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors cursor-pointer ml-auto"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-all cursor-pointer shadow-2xs"
             >
-              <PlusIcon className="w-3.5 h-3.5 text-emerald-600" />
-              <span>+ Add Customer</span>
+              <span className="font-bold">+ +</span>
+              <span>Add Customer</span>
             </button>
           </div>
         </div>
 
-        {/* Table View */}
+        {/* Table View Matching Screenshot */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-3 px-4">Code</th>
-                <th className="py-3 px-4">Customer &amp; Contact</th>
-                <th className="py-3 px-4">Account Type</th>
-                <th className="py-3 px-4 text-right">Credit Limit</th>
-                <th className="py-3 px-4 text-right">Opening Bal</th>
-                <th className="py-3 px-4 text-right">Outstanding Due</th>
-                <th className="py-3 px-4 text-center">Trays / Crates</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr className="border-b border-slate-200/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/40">
+                <th className="py-3.5 px-4 font-semibold">CODE</th>
+                <th className="py-3.5 px-4 font-semibold">CUSTOMER &amp; CONTACT</th>
+                <th className="py-3.5 px-4 font-semibold">ACCOUNT TYPE / GROUP &amp; LEADER</th>
+                <th className="py-3.5 px-4 text-right font-semibold">CREDIT LIMIT</th>
+                <th className="py-3.5 px-4 text-right font-semibold">OPENING BAL</th>
+                <th className="py-3.5 px-4 text-right font-semibold">OUTSTANDING DUE</th>
+                <th className="py-3.5 px-4 text-center font-semibold">TRAYS / CRATES</th>
+                <th className="py-3.5 px-4 text-right font-semibold">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-14 text-center text-slate-400">
                     <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <span>Loading customers directory from Mandi database...</span>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-14 text-center text-slate-400">
                     <p className="font-medium text-slate-600">No customers found</p>
-                    <p className="text-[11px] mt-0.5">Click &ldquo;+ Add Customer&rdquo; above to register wholesale buyers.</p>
+                    <p className="text-[11px] mt-0.5">Click &ldquo;+ + Add Customer&rdquo; above to register buyers.</p>
                   </td>
                 </tr>
               ) : (
@@ -590,13 +716,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   const trays = parseInt(String(cust.outstandingTrays), 10) || 0;
 
                   return (
-                    <tr key={cust.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                    <tr key={cust.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* 1. CODE */}
+                      <td className="py-4 px-4 font-mono font-bold text-slate-800 text-xs">
                         {cust.customerCode}
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                      {/* 2. CUSTOMER & CONTACT */}
+                      <td className="py-4 px-4">
+                        <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                           <span>{cust.name}</span>
                           {!cust.isActive && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-normal">
@@ -609,119 +737,114 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            cust.customerType === 'WHOLESALE'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : cust.customerType === 'WALK_IN'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                        >
-                          {cust.customerType}
-                        </span>
+                      {/* 3. ACCOUNT TYPE / GROUP & LEADER */}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Account Type Badge */}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              cust.customerType === 'WHOLESALE'
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                : cust.customerType === 'WALK_IN'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            {cust.customerType}
+                          </span>
+
+                          {/* Group Leader Badge */}
+                          {cust.isGroupLeader && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                              <span>⭐</span>
+                              <span>Group Leader</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Group Name or Individual Account */}
+                        <div className="text-[11px] mt-1 font-medium text-slate-500">
+                          {cust.groupName ? (
+                            <span>Group: {cust.groupName}</span>
+                          ) : (
+                            <span className="text-slate-400">Individual Account</span>
+                          )}
+                        </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-700">
+                      {/* 4. CREDIT LIMIT */}
+                      <td className="py-4 px-4 text-right font-mono text-slate-700 font-medium">
                         {formatINR(limit)}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-700">
+                      {/* 5. OPENING BAL */}
+                      <td className="py-4 px-4 text-right font-mono text-slate-700 font-medium">
                         {formatINR(opening)}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-mono font-bold">
-                        <span className={due > 0 ? 'text-rose-700' : 'text-slate-500'}>
+                      {/* 6. OUTSTANDING DUE */}
+                      <td className="py-4 px-4 text-right font-mono font-bold">
+                        <span className={due > 0 ? 'text-rose-600 font-extrabold' : 'text-slate-700'}>
                           {formatINR(due)}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-center font-mono">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                            trays > 0
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          {trays} Trays
-                        </span>
+                      {/* 7. TRAYS / CRATES */}
+                      <td className="py-4 px-4 text-center font-mono text-xs text-slate-500">
+                        {trays} Trays
                       </td>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      {/* 8. ACTIONS: Ledger, + Credit, ₹ Repay, Edit, Delete */}
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+                          {/* Ledger Button */}
                           <button
                             type="button"
                             onClick={() => handleOpenLedger(cust)}
-                            className="px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                            className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer"
                             title="View Customer Credit Ledger & Balance Statement"
                           >
                             Ledger
                           </button>
 
-                          {onViewPurchaseHistory && (
-                            <button
-                              type="button"
-                              onClick={() => onViewPurchaseHistory(cust)}
-                              className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
-                              title="View Customer Purchase History & Billed Fruits"
-                            >
-                              Purchases
-                            </button>
-                          )}
-
-                          {onNavigateBilling && (
-                            <button
-                              onClick={() => onNavigateBilling(cust)}
-                              className="px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-2xs transition-all cursor-pointer"
-                              title="Start Bill with this Customer"
-                            >
-                              + Bill
-                            </button>
-                          )}
-
-                          {/* Pay Opening Balance / Due Settlement Button */}
+                          {/* + Credit Button (Customer takes goods on credit -> increases due) */}
                           <button
                             type="button"
-                            onClick={() => handleOpenPayOpening(cust)}
-                            className="px-2 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                            title="Pay Opening Balance / Settle Customer Due"
+                            onClick={() => handleOpenAddCredit(cust)}
+                            className="px-2.5 py-1 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            title="Give Produce on Credit (+ Increases Customer Outstanding Due)"
                           >
-                            <RupeeIcon className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Pay Opening</span>
+                            <span>+ Credit</span>
                           </button>
 
-                          {/* Collect Due Button if prop passed and customer has due */}
-                          {due > 0 && onCollectDue && (
-                            <button
-                              type="button"
-                              onClick={() => onCollectDue(cust)}
-                              className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
-                              title="Collect Due Payment"
-                            >
-                              Collect
-                            </button>
-                          )}
+                          {/* ₹ Repay Button (Customer gives amount -> reduces due) */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRepay(cust)}
+                            className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer flex items-center gap-0.5"
+                            title="Customer Repayment (- Reduces Customer Outstanding Due)"
+                          >
+                            <span>₹ Repay</span>
+                          </button>
 
                           {/* Edit Customer Button */}
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(cust)}
-                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
                             title="Edit Customer Details"
                           >
-                            <EditIcon className="w-3.5 h-3.5" />
+                            <EditIcon className="w-3.5 h-3.5 text-slate-500" />
                           </button>
 
                           {/* Delete Customer Button */}
                           <button
                             type="button"
                             onClick={() => handleOpenDelete(cust)}
-                            className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
                             title="Delete Customer Account"
                           >
-                            <Trash2Icon className="w-3.5 h-3.5" />
+                            <Trash2Icon className="w-3.5 h-3.5 text-slate-500" />
                           </button>
                         </div>
                       </td>
@@ -739,7 +862,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       {/* ========================================================= */}
       {isAddCustomerOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -747,7 +870,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">Register Mandi Customer</h3>
-                  <p className="text-xs text-slate-400">Add a new wholesale buyer or retail stall account</p>
+                  <p className="text-xs text-slate-400">Add a wholesale trader, retail stall, or group member</p>
                 </div>
               </div>
               <button
@@ -780,7 +903,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <select
                     value={custType}
                     onChange={(e) => setCustType(e.target.value as any)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="WHOLESALE">WHOLESALE (Credit Allowed)</option>
                     <option value="REGULAR">REGULAR (Retail Stall)</option>
@@ -798,9 +921,37 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   required
                   value={custName}
                   onChange={(e) => setCustName(e.target.value)}
-                  placeholder="e.g. Rajesh Fruit Mart or APMC Bay 14 Trader"
+                  placeholder="e.g. Mahesh Super Fruits or Sri Murugan Fruit Mart"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                 />
+              </div>
+
+              {/* Group & Leader Settings */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Group / Market Association
+                  </label>
+                  <input
+                    type="text"
+                    value={custGroupName}
+                    onChange={(e) => setCustGroupName(e.target.value)}
+                    placeholder="e.g. Vashi APMC Gate-1 Retailers"
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={custIsGroupLeader}
+                      onChange={(e) => setCustIsGroupLeader(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4 border-slate-300"
+                    />
+                    <span>⭐ Assign as Group Leader</span>
+                  </label>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -826,7 +977,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     type="text"
                     value={custCity}
                     onChange={(e) => setCustCity(e.target.value)}
-                    placeholder="e.g. Mumbai, Vashi, Pune"
+                    placeholder="e.g. Turbhe APMC, Vashi Gate 1"
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -840,7 +991,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   type="text"
                   value={custAddress}
                   onChange={(e) => setCustAddress(e.target.value)}
-                  placeholder="e.g. Gala 24, APMC Market-1, Vashi"
+                  placeholder="e.g. Gala 45, Fruit Market or Stall 14"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                 />
               </div>
@@ -856,7 +1007,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     step="any"
                     value={custCreditLimit}
                     onChange={(e) => setCustCreditLimit(parseFloat(e.target.value) || 0)}
-                    placeholder="50000"
+                    placeholder="90000"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -871,7 +1022,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     step="any"
                     value={custOpeningBalance}
                     onChange={(e) => setCustOpeningBalance(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
+                    placeholder="25000"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -885,7 +1036,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     min="0"
                     value={custTrays}
                     onChange={(e) => setCustTrays(parseInt(e.target.value, 10) || 0)}
-                    placeholder="0"
+                    placeholder="12"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -938,7 +1089,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     Edit Customer: {editingCustomer.name}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Update profile, contact, credit limits, and opening balance
+                    Update profile, group, contact, credit limits, and opening balance
                   </p>
                 </div>
               </div>
@@ -1011,31 +1162,31 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Group & Leader Settings */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="e.g. buyer@mandi.com"
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    GSTIN (Optional)
+                    Group / Association
                   </label>
                   <input
                     type="text"
-                    value={editGstin}
-                    onChange={(e) => setEditGstin(e.target.value)}
-                    placeholder="e.g. 27AABCF1234F1Z5"
-                    className="w-full text-xs font-mono uppercase bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                    value={editGroupName}
+                    onChange={(e) => setEditGroupName(e.target.value)}
+                    placeholder="e.g. Vashi APMC Gate-1 Retailers"
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   />
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={editIsGroupLeader}
+                      onChange={(e) => setEditIsGroupLeader(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4 border-slate-300"
+                    />
+                    <span>⭐ Assign as Group Leader</span>
+                  </label>
                 </div>
               </div>
 
@@ -1060,7 +1211,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     type="text"
                     value={editState}
                     onChange={(e) => setEditState(e.target.value)}
-                    placeholder="e.g. Maharashtra"
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                   />
                 </div>
@@ -1074,7 +1224,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   type="text"
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
-                  placeholder="e.g. Gala 24, APMC Market-1, Vashi"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
@@ -1105,9 +1254,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     onChange={(e) => setEditOpeningBalance(parseFloat(e.target.value) || 0)}
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Modifying this adjusts the initial ledger balance automatically.
-                  </p>
                 </div>
 
                 <div>
@@ -1132,7 +1278,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   type="text"
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Optional internal remarks or payment terms"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
@@ -1211,11 +1356,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <span className="font-medium text-slate-800">{deletingCustomer.phone}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Opening Balance:</span>
-                  <span className="font-mono font-medium text-slate-800">{formatINR(Number(deletingCustomer.openingBalance) || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Current Outstanding Due:</span>
+                  <span className="text-slate-500">Outstanding Due:</span>
                   <span className="font-mono font-bold text-rose-700">{formatINR(Number(deletingCustomer.currentDue) || 0)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -1231,7 +1372,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500">
-                  <span className="font-semibold text-slate-700">Audit &amp; Safety Notice:</span> If this customer has existing sales invoices, deletion will be blocked to maintain tax and audit compliance. Accounts without invoices can be safely removed.
+                  <span className="font-semibold text-slate-700">Audit &amp; Safety Notice:</span> If this customer has existing sales invoices, deletion will be blocked to maintain tax and audit compliance.
                 </p>
               )}
             </div>
@@ -1272,30 +1413,29 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 4: PAY OPENING BALANCE / DUE SETTLEMENT             */}
+      {/* MODAL 4: + CREDIT (Produce on Credit -> Increases Due)     */}
       {/* ========================================================= */}
-      {isPayOpeningOpen && payingCustomer && (
+      {isAddCreditOpen && creditingCustomer && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <RupeeIcon className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+                  <span className="text-sm font-bold">+</span>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
-                    Pay Opening Balance / Settle Due
+                    Add Customer Credit (Give Produce / Increase Due)
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Record payment receipt for {payingCustomer.name} ({payingCustomer.customerCode})
+                    Extending credit adds directly to {creditingCustomer.name}&apos;s outstanding due balance
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  setIsPayOpeningOpen(false);
-                  setPayingCustomer(null);
-                  setLastPaymentReceipt(null);
+                  setIsAddCreditOpen(false);
+                  setCreditingCustomer(null);
                 }}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               >
@@ -1303,7 +1443,193 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </button>
             </div>
 
-            {lastPaymentReceipt ? (
+            <form onSubmit={handleAddCreditSubmit} className="mt-4 space-y-4">
+              {/* Customer Current Balance Overview */}
+              <div className="grid grid-cols-3 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Due</span>
+                  <span className="text-sm font-bold font-mono text-rose-700">
+                    {formatINR(Number(creditingCustomer.currentDue) || 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Credit Limit</span>
+                  <span className="text-sm font-bold font-mono text-slate-800">
+                    {formatINR(Number(creditingCustomer.creditLimit) || 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Pool</span>
+                  <span className="text-sm font-bold font-mono text-emerald-700">
+                    {formatINR(Math.max(0, (Number(creditingCustomer.creditLimit) || 0) - (Number(creditingCustomer.currentDue) || 0)))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Credit Amount (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="any"
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    placeholder="e.g. 10000"
+                    className="w-full text-sm font-mono font-bold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={creditDate}
+                    onChange={(e) => setCreditDate(e.target.value)}
+                    className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Produce Items / Bill Description
+                </label>
+                <input
+                  type="text"
+                  value={creditProduceDetails}
+                  onChange={(e) => setCreditProduceDetails(e.target.value)}
+                  placeholder="e.g. 5 BOX Royal Gala Apple @ ₹2,000"
+                  className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Reference / Voucher #
+                  </label>
+                  <input
+                    type="text"
+                    value={creditRef}
+                    onChange={(e) => setCreditRef(e.target.value)}
+                    className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Reason / Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={creditDescription}
+                    onChange={(e) => setCreditDescription(e.target.value)}
+                    placeholder="e.g. Goods taken on credit"
+                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                  />
+                </div>
+              </div>
+
+              {/* Real-time Calculation Preview */}
+              {parseFloat(String(creditAmount)) > 0 && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Current Outstanding Due:</span>
+                    <span className="font-mono">{formatINR(Number(creditingCustomer.currentDue) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-semibold">
+                    <span>Add New Credit Extended:</span>
+                    <span className="font-mono">+ {formatINR(parseFloat(String(creditAmount)) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-rose-700 font-bold border-t border-slate-200 pt-1 text-sm">
+                    <span>New Total Outstanding Due:</span>
+                    <span className="font-mono">
+                      {formatINR((Number(creditingCustomer.currentDue) || 0) + (parseFloat(String(creditAmount)) || 0))}
+                    </span>
+                  </div>
+
+                  {Number(creditingCustomer.creditLimit) > 0 &&
+                    (Number(creditingCustomer.currentDue) || 0) + (parseFloat(String(creditAmount)) || 0) >
+                      Number(creditingCustomer.creditLimit) && (
+                      <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 font-semibold">
+                        ⚠️ Limit Alert: New balance exceeds customer credit limit of {formatINR(Number(creditingCustomer.creditLimit))}.
+                      </div>
+                    )}
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddCreditOpen(false);
+                    setCreditingCustomer(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCredit}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 active:bg-black shadow-sm transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmittingCredit ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Adding Credit...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>+ Add Credit to Due</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 5: ₹ REPAY (Customer Gives Amount -> Reduces Due)   */}
+      {/* ========================================================= */}
+      {isRepayOpen && repayingCustomer && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <RupeeIcon className="w-4 h-4 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Customer Repayment (Reduce Due Balance)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Customer payment reduces outstanding due for {repayingCustomer.name} ({repayingCustomer.customerCode})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsRepayOpen(false);
+                  setRepayingCustomer(null);
+                  setLastRepayReceipt(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {lastRepayReceipt ? (
               /* Success Receipt View */
               <div className="mt-4 space-y-4">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-2">
@@ -1311,46 +1637,46 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <CheckIcon className="w-5 h-5" />
                   </div>
                   <h4 className="text-sm font-bold text-emerald-900">
-                    Payment Recorded Successfully!
+                    Repayment Received Successfully!
                   </h4>
                   <p className="text-xs text-emerald-700 font-mono font-semibold">
-                    Receipt #{lastPaymentReceipt.paymentNumber}
+                    Voucher #{lastRepayReceipt.paymentNumber}
                   </p>
                 </div>
 
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Customer:</span>
-                    <span className="font-semibold text-slate-800">{lastPaymentReceipt.customerName}</span>
+                    <span className="font-semibold text-slate-800">{lastRepayReceipt.customerName}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Amount Paid:</span>
-                    <span className="font-mono font-bold text-emerald-700">{formatINR(lastPaymentReceipt.amountPaid)}</span>
+                    <span className="text-slate-500">Amount Repaid:</span>
+                    <span className="font-mono font-bold text-emerald-700">{formatINR(lastRepayReceipt.amountPaid)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Payment Mode:</span>
-                    <span className="font-semibold text-slate-800">{lastPaymentReceipt.paymentMode}</span>
+                    <span className="font-semibold text-slate-800">{lastRepayReceipt.paymentMode}</span>
                   </div>
-                  {lastPaymentReceipt.transactionRef && (
+                  {lastRepayReceipt.transactionRef && (
                     <div className="flex justify-between">
                       <span className="text-slate-500">Reference / UTR:</span>
-                      <span className="font-mono text-slate-700">{lastPaymentReceipt.transactionRef}</span>
+                      <span className="font-mono text-slate-700">{lastRepayReceipt.transactionRef}</span>
                     </div>
                   )}
                   <div className="flex justify-between border-t border-slate-200 pt-1.5">
-                    <span className="text-slate-500">Previous Balance:</span>
-                    <span className="font-mono text-slate-700">{formatINR(lastPaymentReceipt.previousDue)}</span>
+                    <span className="text-slate-500">Previous Outstanding Due:</span>
+                    <span className="font-mono text-slate-700">{formatINR(lastRepayReceipt.previousDue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 font-semibold">New Remaining Balance:</span>
-                    <span className="font-mono font-bold text-slate-900">{formatINR(lastPaymentReceipt.remainingDue)}</span>
+                    <span className="text-slate-500 font-semibold">Remaining Due Balance:</span>
+                    <span className="font-mono font-bold text-rose-700">{formatINR(lastRepayReceipt.remainingDue)}</span>
                   </div>
                 </div>
 
                 <div className="pt-2 flex items-center justify-end gap-2.5">
                   <button
                     type="button"
-                    onClick={() => handlePrintReceipt(lastPaymentReceipt)}
+                    onClick={() => handlePrintReceipt(lastRepayReceipt)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
                     <PrinterIcon className="w-3.5 h-3.5 text-slate-600" />
@@ -1360,9 +1686,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setIsPayOpeningOpen(false);
-                      setPayingCustomer(null);
-                      setLastPaymentReceipt(null);
+                      setIsRepayOpen(false);
+                      setRepayingCustomer(null);
+                      setLastRepayReceipt(null);
                     }}
                     className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all cursor-pointer"
                   >
@@ -1371,20 +1697,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </div>
               </div>
             ) : (
-              /* Payment Input Form */
-              <form onSubmit={handlePayOpeningSubmit} className="mt-4 space-y-4">
+              /* Repayment Input Form */
+              <form onSubmit={handleRepaySubmit} className="mt-4 space-y-4">
                 {/* Balance Summary Header */}
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <div>
-                    <span className="text-[11px] text-slate-500 block">Opening Balance</span>
-                    <span className="text-base font-bold font-mono text-slate-900">
-                      {formatINR(Number(payingCustomer.openingBalance) || 0)}
+                    <span className="text-[11px] text-slate-500 block">Current Outstanding Due</span>
+                    <span className="text-base font-bold font-mono text-rose-700">
+                      {formatINR(Number(repayingCustomer.currentDue) || 0)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-slate-500 block">Current Total Due</span>
-                    <span className="text-base font-bold font-mono text-rose-700">
-                      {formatINR(Number(payingCustomer.currentDue) || 0)}
+                    <span className="text-[11px] text-slate-500 block">Opening Balance</span>
+                    <span className="text-base font-bold font-mono text-slate-900">
+                      {formatINR(Number(repayingCustomer.openingBalance) || 0)}
                     </span>
                   </div>
                 </div>
@@ -1392,22 +1718,22 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 {/* Quick Fill Buttons */}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-slate-400">Quick Fill:</span>
-                  {Number(payingCustomer.openingBalance) > 0 && (
+                  {Number(repayingCustomer.currentDue) > 0 && (
                     <button
                       type="button"
-                      onClick={() => setPayAmount(Number(payingCustomer.openingBalance))}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                      onClick={() => setRepayAmount(Number(repayingCustomer.currentDue))}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer"
                     >
-                      Full Opening ({formatINR(Number(payingCustomer.openingBalance))})
+                      Full Due ({formatINR(Number(repayingCustomer.currentDue))})
                     </button>
                   )}
-                  {Number(payingCustomer.currentDue) > 0 && (
+                  {Number(repayingCustomer.openingBalance) > 0 && (
                     <button
                       type="button"
-                      onClick={() => setPayAmount(Number(payingCustomer.currentDue))}
+                      onClick={() => setRepayAmount(Number(repayingCustomer.openingBalance))}
                       className="px-2.5 py-1 text-[11px] font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
                     >
-                      Total Due ({formatINR(Number(payingCustomer.currentDue))})
+                      Opening Bal ({formatINR(Number(repayingCustomer.openingBalance))})
                     </button>
                   )}
                 </div>
@@ -1415,15 +1741,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Payment Amount (₹) *
+                      Repayment Amount (₹) *
                     </label>
                     <input
                       type="number"
                       required
                       min="1"
                       step="any"
-                      value={payAmount}
-                      onChange={(e) => setPayAmount(e.target.value)}
+                      value={repayAmount}
+                      onChange={(e) => setRepayAmount(e.target.value)}
                       placeholder="e.g. 5000"
                       className="w-full text-sm font-mono font-bold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                     />
@@ -1434,8 +1760,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       Payment Mode
                     </label>
                     <select
-                      value={payMode}
-                      onChange={(e) => setPayMode(e.target.value)}
+                      value={repayMode}
+                      onChange={(e) => setRepayMode(e.target.value)}
                       className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="CASH">CASH (Physical Currency)</option>
@@ -1453,9 +1779,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     </label>
                     <input
                       type="date"
-                      value={payDate}
-                      onChange={(e) => setPayDate(e.target.value)}
-                      className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
+                      value={repayDate}
+                      onChange={(e) => setRepayDate(e.target.value)}
+                      className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer"
                     />
                   </div>
 
@@ -1465,10 +1791,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={payRef}
-                      onChange={(e) => setPayRef(e.target.value)}
+                      value={repayRef}
+                      onChange={(e) => setRepayRef(e.target.value)}
                       placeholder="e.g. UPI-998823 or Cheque #401"
-                      className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                      className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                 </div>
@@ -1479,28 +1805,28 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={payNotes}
-                    onChange={(e) => setPayNotes(e.target.value)}
-                    placeholder="e.g. Cleared opening balance dues"
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                    value={repayNotes}
+                    onChange={(e) => setRepayNotes(e.target.value)}
+                    placeholder="e.g. Settle partial credit dues"
+                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                   />
                 </div>
 
                 {/* Calculation preview */}
-                {parseFloat(String(payAmount)) > 0 && (
+                {parseFloat(String(repayAmount)) > 0 && (
                   <div className="p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-xl text-xs space-y-1">
                     <div className="flex justify-between text-slate-600">
                       <span>Current Due Balance:</span>
-                      <span className="font-mono">{formatINR(Number(payingCustomer.currentDue) || 0)}</span>
+                      <span className="font-mono">{formatINR(Number(repayingCustomer.currentDue) || 0)}</span>
                     </div>
                     <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Less This Payment:</span>
-                      <span className="font-mono">- {formatINR(parseFloat(String(payAmount)) || 0)}</span>
+                      <span>Less This Repayment:</span>
+                      <span className="font-mono">- {formatINR(parseFloat(String(repayAmount)) || 0)}</span>
                     </div>
                     <div className="flex justify-between text-slate-900 font-bold border-t border-emerald-200 pt-1">
-                      <span>Estimated Closing Balance:</span>
+                      <span>Remaining Due Balance:</span>
                       <span className="font-mono">
-                        {formatINR((Number(payingCustomer.currentDue) || 0) - (parseFloat(String(payAmount)) || 0))}
+                        {formatINR(Math.max(0, (Number(repayingCustomer.currentDue) || 0) - (parseFloat(String(repayAmount)) || 0)))}
                       </span>
                     </div>
                   </div>
@@ -1510,8 +1836,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setIsPayOpeningOpen(false);
-                      setPayingCustomer(null);
+                      setIsRepayOpen(false);
+                      setRepayingCustomer(null);
                     }}
                     className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
@@ -1519,18 +1845,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmittingPay}
+                    disabled={isSubmittingRepay}
                     className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-sm transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                   >
-                    {isSubmittingPay ? (
+                    {isSubmittingRepay ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Recording...</span>
+                        <span>Recording Repayment...</span>
                       </>
                     ) : (
                       <>
                         <RupeeIcon className="w-3.5 h-3.5 text-white" />
-                        <span>Record Payment &amp; Receipt</span>
+                        <span>Record Repayment &amp; Reduce Due</span>
                       </>
                     )}
                   </button>

@@ -13,6 +13,8 @@ export interface Customer {
   state?: string | null;
   gstin?: string | null;
   customerType: 'REGULAR' | 'WHOLESALE' | 'WALK_IN';
+  groupName?: string | null;
+  isGroupLeader?: boolean;
   creditLimit: number | string;
   openingBalance: number | string;
   currentDue: number | string;

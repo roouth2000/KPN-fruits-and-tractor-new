@@ -17,6 +17,9 @@ router.get('/:id/balance', requirePermission('customer.view'), customerControlle
 // Get customer ledger transactions
 router.get('/:id/ledger', requirePermission('customer.view'), customerController.getCustomerLedger);
 
+// Get customer ledger PDF statement
+router.get('/:id/ledger/pdf', requirePermission('customer.view'), customerController.generateCustomerLedgerPdf);
+
 // Create new customer
 router.post('/', requirePermission('customer.view'), customerController.createCustomer);
 
@@ -29,6 +32,13 @@ router.delete('/:id', requirePermission(['customer.edit', 'customer.view']), cus
 // Pay opening balance / settle balance
 router.post('/:id/pay-opening-balance', requirePermission(['payment.collect', 'customer.view']), customerController.payOpeningBalance);
 router.post('/:id/collect-due', requirePermission(['payment.collect', 'customer.view']), customerController.payOpeningBalance);
+
+// Add credit (increases customer outstanding due balance)
+router.post('/:id/credit', requirePermission(['sales.create', 'customer.edit', 'customer.view']), customerController.addCredit);
+router.post('/:id/add-credit', requirePermission(['sales.create', 'customer.edit', 'customer.view']), customerController.addCredit);
+
+// Customer Repayment (reduces customer outstanding due balance)
+router.post('/:id/repay', requirePermission(['payment.collect', 'customer.view']), customerController.repayCustomerDue);
 
 module.exports = router;
 

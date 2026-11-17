@@ -54,6 +54,7 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
   const [customEndDate, setCustomEndDate] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'SALE' | 'PAYMENT'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'TABLE' | 'DATE_WISE'>('TABLE');
 
   // Accordion state: set of expanded invoice references (e.g. 'INV-2026-000008')
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
@@ -61,6 +62,7 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
   // Printing & PDF status
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [downloadingPdfId, setDownloadingPdfId] = useState<number | null>(null);
+  const [isDownloadingLedgerPdf, setIsDownloadingLedgerPdf] = useState(false);
 
   // Fetch all customers on mount
   useEffect(() => {
@@ -222,7 +224,7 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
     }
   };
 
-  // 1-Click PDF Download
+  // 1-Click PDF Download for Single Invoice
   const handleDownloadPdf = async (inv: any) => {
     try {
       setDownloadingPdfId(inv.id);
@@ -232,6 +234,58 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
       window.open(salesApi.getInvoicePdfUrl(inv.id), '_blank');
     } finally {
       setDownloadingPdfId(null);
+    }
+  };
+
+  // 1-Click PDF Download for Entire Customer Ledger & Account Statement
+  const handleDownloadLedgerPdf = async () => {
+    if (!selectedCustomerId) {
+      onShowToast?.('Select Customer', 'Please select a customer to download account statement.', 'warning');
+      return;
+    }
+
+    setIsDownloadingLedgerPdf(true);
+    try {
+      const filters: any = {};
+      if (dateFilter === 'CUSTOM') {
+        if (customStartDate) filters.startDate = customStartDate;
+        if (customEndDate) filters.endDate = customEndDate;
+      } else if (dateFilter === 'TODAY') {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        filters.startDate = todayStr;
+        filters.endDate = todayStr;
+      } else if (dateFilter === 'YESTERDAY') {
+        const yest = new Date();
+        yest.setDate(yest.getDate() - 1);
+        const yestStr = yest.toISOString().slice(0, 10);
+        filters.startDate = yestStr;
+        filters.endDate = yestStr;
+      } else if (dateFilter === 'THIS_MONTH') {
+        const d = new Date();
+        filters.startDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        filters.endDate = d.toISOString().slice(0, 10);
+      }
+
+      if (typeFilter !== 'ALL') {
+        filters.type = typeFilter;
+      }
+
+      await salesApi.downloadCustomerLedgerPdf(
+        selectedCustomerId,
+        currentCustomer?.name || 'Customer',
+        filters
+      );
+
+      onShowToast?.(
+        'Statement Downloaded',
+        `Account Statement PDF for ${currentCustomer?.name || 'Customer'} downloaded successfully.`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Failed to download ledger statement PDF:', err);
+      window.open(salesApi.getCustomerLedgerPdfUrl(selectedCustomerId), '_blank');
+    } finally {
+      setIsDownloadingLedgerPdf(false);
     }
   };
 
@@ -365,6 +419,32 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* View Mode Toggle */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewMode('TABLE')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'TABLE'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Normal Table View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('DATE_WISE')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'DATE_WISE'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Date-wise View
+              </button>
+            </div>
+
             {onNavigateBilling && (
               <button
                 type="button"
@@ -375,6 +455,19 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
                 <span>New Bill</span>
               </button>
             )}
+
+            {/* 1-Click Page PDF Download */}
+            <button
+              type="button"
+              onClick={handleDownloadLedgerPdf}
+              disabled={isDownloadingLedgerPdf || !selectedCustomerId}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              title="Download Formal A4 Customer Ledger & Account Statement PDF"
+            >
+              <DownloadIcon className={`w-4 h-4 text-white ${isDownloadingLedgerPdf ? 'animate-bounce' : ''}`} />
+              <span>{isDownloadingLedgerPdf ? 'Downloading PDF...' : 'Download PDF'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handlePrintStatement}
@@ -420,32 +513,59 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
           </div>
 
           {currentCustomer && (
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Contact</span>
-                <span className="font-semibold text-slate-800">{currentCustomer.phone}</span>
+            <div className="flex flex-col gap-2.5 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Contact</span>
+                  <span className="font-semibold text-slate-800">{currentCustomer.phone}</span>
+                </div>
+                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Location</span>
+                  <span className="font-semibold text-slate-800">{currentCustomer.city || 'APMC Mandi'}</span>
+                </div>
+                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Credit Limit</span>
+                  <span className="font-semibold font-mono text-slate-800">
+                    {formatINR(parseFloat(String(currentCustomer.creditLimit)) || 0)}
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold flex items-center gap-1">
+                    <LayersIcon className="w-3 h-3 text-amber-600" />
+                    <span>Crates Held</span>
+                  </span>
+                  <span className="font-semibold font-mono text-amber-700">
+                    {currentCustomer.outstandingTrays || 0} Trays
+                  </span>
+                </div>
               </div>
-              <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Location</span>
-                <span className="font-semibold text-slate-800">{currentCustomer.city || 'APMC Mandi'}</span>
-              </div>
-              <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Credit Limit</span>
-                <span className="font-semibold font-mono text-slate-800">
-                  {formatINR(parseFloat(String(currentCustomer.creditLimit)) || 0)}
-                </span>
-              </div>
-              <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold flex items-center gap-1">
-                  <LayersIcon className="w-3 h-3 text-amber-600" />
-                  <span>Crates Held</span>
-                </span>
-                <span className="font-semibold font-mono text-amber-700">
-                  {currentCustomer.outstandingTrays || 0} Trays
-                </span>
+
+              {/* Clean Balance Overview Strip */}
+              <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-3 text-xs font-mono">
+                <div className="flex items-center gap-1 text-slate-600">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 font-sans">Opening:</span>
+                  <span className="font-semibold text-slate-800">{formatINR(openingBal)}</span>
+                </div>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1 text-blue-700">
+                  <span className="text-[10px] uppercase font-bold text-blue-600 font-sans">Billed Debits:</span>
+                  <span className="font-semibold">{formatINR(totalDebit)}</span>
+                </div>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1 text-emerald-700">
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 font-sans">Paid Credits:</span>
+                  <span className="font-semibold">{formatINR(totalCredit)}</span>
+                </div>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 font-sans">Closing Balance Due:</span>
+                  <span className={`font-extrabold ${closingBal > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {formatINR(closingBal)}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -453,108 +573,110 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* 2. SUMMARY METRIC CARDS (CANONICAL 7-FIELD BREAKDOWN) */}
+      {/* 2. SUMMARY METRIC CARDS (SHOWN ONLY IN DATE-WISE VIEW)    */}
       {/* ========================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Card 1: Opening Balance */}
-        <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-              Opening Balance
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <BuildingIcon className="w-3.5 h-3.5" />
+      {viewMode === 'DATE_WISE' && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Card 1: Opening Balance */}
+            <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                  Opening Balance
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <BuildingIcon className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold font-mono text-amber-900 tracking-tight">
+                {formatINR(openingBal)}
+              </div>
+              <div className="text-[11px] text-amber-700/80 mt-1">
+                Customer balance prior to statement
+              </div>
+            </div>
+
+            {/* Card 2: Net Invoices (Debits) */}
+            <div className="bg-white border border-blue-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
+                  Net Invoices (Debits)
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <ReceiptTextIcon className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold font-mono text-blue-900 tracking-tight">
+                {formatINR(totalDebit)}
+              </div>
+              <div className="text-[11px] text-blue-700/80 mt-1">
+                Produce sales billed &amp; delivered
+              </div>
+            </div>
+
+            {/* Card 3: Amount Paid (Credits) */}
+            <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                  Amount Paid (Credits)
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <CheckIcon className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold font-mono text-emerald-900 tracking-tight">
+                {formatINR(totalCredit)}
+              </div>
+              <div className="text-[11px] text-emerald-700/80 mt-1">
+                Payments &amp; settlements received
+              </div>
+            </div>
+
+            {/* Card 4: Closing Balance */}
+            <div className="bg-white border border-rose-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                  Closing / Remaining Due
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <DollarSignIcon className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold font-mono text-rose-900 tracking-tight">
+                {formatINR(closingBal)}
+              </div>
+              <div className="text-[11px] text-rose-700/80 mt-1">
+                Current net unsettled balance
+              </div>
             </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-amber-900 tracking-tight">
-            {formatINR(openingBal)}
-          </div>
-          <div className="text-[11px] text-amber-700/80 mt-1">
-            Customer balance prior to statement
-          </div>
-        </div>
 
-        {/* Card 2: Net Invoices (Debits) */}
-        <div className="bg-white border border-blue-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
-              Net Invoices (Debits)
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <ReceiptTextIcon className="w-3.5 h-3.5" />
+          {/* Canonical Formula Banner */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Canonical Formula
+                </span>
+                <span className="text-xs text-slate-300 font-medium">
+                  Previous Balance + Current Net Amount - Amount Paid = Closing Balance
+                </span>
+              </div>
+              <div className="text-xs sm:text-sm font-mono font-bold text-white flex flex-wrap items-center gap-2">
+                <span className="text-amber-300">Opening ({formatINR(openingBal)})</span>
+                <span className="text-slate-400">+</span>
+                <span className="text-blue-300">Net Sales ({formatINR(totalDebit)})</span>
+                <span className="text-slate-400">-</span>
+                <span className="text-emerald-300">Paid ({formatINR(totalCredit)})</span>
+                <span className="text-slate-400">=</span>
+                <span className="text-rose-300 font-extrabold text-base bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/40">
+                  Closing ({formatINR(closingBal)})
+                </span>
+              </div>
             </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-blue-900 tracking-tight">
-            {formatINR(totalDebit)}
-          </div>
-          <div className="text-[11px] text-blue-700/80 mt-1">
-            Produce sales billed &amp; delivered
-          </div>
-        </div>
-
-        {/* Card 3: Amount Paid (Credits) */}
-        <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-              Amount Paid (Credits)
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckIcon className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold font-mono text-emerald-900 tracking-tight">
-            {formatINR(totalCredit)}
-          </div>
-          <div className="text-[11px] text-emerald-700/80 mt-1">
-            Payments &amp; settlements received
-          </div>
-        </div>
-
-        {/* Card 4: Closing Balance */}
-        <div className="bg-white border border-rose-200/80 rounded-2xl p-4 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
-              Closing / Remaining Due
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <DollarSignIcon className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold font-mono text-rose-900 tracking-tight">
-            {formatINR(closingBal)}
-          </div>
-          <div className="text-[11px] text-rose-700/80 mt-1">
-            Current net unsettled balance
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================= */}
-      {/* 3. CALCULATION FORMULA BANNER */}
-      {/* ========================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              Canonical Formula
-            </span>
-            <span className="text-xs text-slate-300 font-medium">
-              Previous Balance + Current Net Amount - Amount Paid = Closing Balance
-            </span>
-          </div>
-          <div className="text-xs sm:text-sm font-mono font-bold text-white flex flex-wrap items-center gap-2">
-            <span className="text-amber-300">Opening ({formatINR(openingBal)})</span>
-            <span className="text-slate-400">+</span>
-            <span className="text-blue-300">Net Sales ({formatINR(totalDebit)})</span>
-            <span className="text-slate-400">-</span>
-            <span className="text-emerald-300">Paid ({formatINR(totalCredit)})</span>
-            <span className="text-slate-400">=</span>
-            <span className="text-rose-300 font-extrabold text-base bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/40">
-              Closing ({formatINR(closingBal)})
-            </span>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* ========================================================= */}
       {/* 4. FILTERS & SEARCH CONTROLS */}
@@ -660,7 +782,7 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => handleToggleExpandAll(true)}
@@ -675,13 +797,184 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
             >
               Collapse All
             </button>
+            <button
+              type="button"
+              onClick={handleDownloadLedgerPdf}
+              disabled={isDownloadingLedgerPdf || !selectedCustomerId}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Download Customer Account Statement as PDF"
+            >
+              <DownloadIcon className={`w-3.5 h-3.5 text-indigo-600 ${isDownloadingLedgerPdf ? 'animate-bounce' : ''}`} />
+              <span>{isDownloadingLedgerPdf ? 'Generating...' : 'PDF Statement'}</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* 5. DATE-WISE TRANSACTIONS LIST & COLLAPSIBLE INVOICES */}
+      {/* 5. LEDGER TABLE / TRANSACTIONS VIEW                       */}
       {/* ========================================================= */}
+      {viewMode === 'TABLE' ? (
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  <th className="py-3.5 px-4 w-28 font-semibold">DATE</th>
+                  <th className="py-3.5 px-3 w-24 font-semibold">TYPE</th>
+                  <th className="py-3.5 px-3 w-36 font-semibold">REFERENCE</th>
+                  <th className="py-3.5 px-4 min-w-[260px] font-semibold">PARTICULARS / BREAKDOWN</th>
+                  <th className="py-3.5 px-4 text-right w-28 font-semibold">DEBIT</th>
+                  <th className="py-3.5 px-4 text-right w-28 font-semibold">CREDIT</th>
+                  <th className="py-3.5 px-4 text-right w-32 font-semibold">BALANCE</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoadingLedger ? (
+                  <tr>
+                    <td colSpan={7} className="py-14 text-center text-slate-400">
+                      <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <span>Loading customer ledger records...</span>
+                    </td>
+                  </tr>
+                ) : filteredEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-14 text-center text-slate-400">
+                      <p className="font-medium text-slate-600">No ledger transactions found</p>
+                      <p className="text-[11px] mt-0.5">Try adjusting date filters or search terms.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEntries.map((entry: any) => {
+                    const debit = parseFloat(entry.debit) || 0;
+                    const credit = parseFloat(entry.credit) || 0;
+                    const running = parseFloat(entry.runningBalance !== undefined ? entry.runningBalance : 0);
+                    const isSale = entry.type === 'SALE';
+                    const isPayment = entry.type === 'PAYMENT';
+                    const isOpening = entry.type === 'OPENING';
+                    const isExpanded = isSale && expandedInvoices.has(entry.reference);
+                    const invoice = entry.invoice;
+                    const items = invoice?.items || [];
+
+                    return (
+                      <React.Fragment key={entry.id}>
+                        <tr className="hover:bg-slate-50/70 transition-colors">
+                          {/* 1. DATE */}
+                          <td className="py-3.5 px-4 font-mono text-slate-700 whitespace-nowrap">
+                            {entry.date}
+                          </td>
+
+                          {/* 2. TYPE */}
+                          <td className="py-3.5 px-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                isSale
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : isPayment
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : isOpening
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              {entry.type}
+                            </span>
+                          </td>
+
+                          {/* 3. REFERENCE */}
+                          <td className="py-3.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                            {entry.reference || '—'}
+                          </td>
+
+                          {/* 4. PARTICULARS / BREAKDOWN */}
+                          <td className="py-3.5 px-4 text-slate-700">
+                            <div className="flex items-center justify-between gap-2">
+                              <span>{entry.description}</span>
+                              {isSale && items.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleInvoiceAccordion(entry.reference)}
+                                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline flex-shrink-0"
+                                >
+                                  {isExpanded ? 'Hide items ▲' : `${items.length} fruit items ▼`}
+                                </button>
+                              )}
+                            </div>
+                            {isPayment && entry.payment && (
+                              <div className="mt-1 text-[11px] text-slate-500 font-mono">
+                                <span>Mode: {entry.payment.paymentMode || 'CASH'}</span>
+                                {entry.payment.transactionRef && (
+                                  <span className="ml-2">· Ref: {entry.payment.transactionRef}</span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 5. DEBIT */}
+                          <td className="py-3.5 px-4 text-right font-mono font-semibold text-blue-800">
+                            {debit > 0 ? formatINR(debit) : '—'}
+                          </td>
+
+                          {/* 6. CREDIT */}
+                          <td className="py-3.5 px-4 text-right font-mono font-semibold text-emerald-800">
+                            {credit > 0 ? `-${formatINR(credit)}` : '—'}
+                          </td>
+
+                          {/* 7. BALANCE */}
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                            {formatINR(running)}
+                          </td>
+                        </tr>
+
+                        {/* Collapsible Produce breakdown in normal table */}
+                        {isExpanded && items.length > 0 && (
+                          <tr className="bg-slate-50/90 border-b border-slate-200">
+                            <td colSpan={7} className="py-3 px-6">
+                              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs">
+                                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
+                                  Produce Items Breakdown for {invoice.invoiceNumber}
+                                </div>
+                                <div className="divide-y divide-slate-100 text-xs font-mono">
+                                  {items.map((it: any, idx: number) => (
+                                    <div key={idx} className="py-1.5 flex justify-between items-center text-slate-700">
+                                      <span className="font-sans font-medium text-slate-800">
+                                        • {it.productName || 'Produce'} {it.variety ? `(${it.variety})` : ''}
+                                      </span>
+                                      <span>
+                                        {it.quantity} {it.unit || 'BOX'} × {formatINR(Number(it.rate || 0))} = <strong className="text-slate-900">{formatINR(Number(it.totalAmount || 0))}</strong>
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-100/90 border-t-2 border-slate-300 font-bold text-xs text-slate-900">
+                  <td colSpan={4} className="py-3.5 px-4 uppercase tracking-wider font-extrabold text-slate-800">
+                    TOTALS &amp; CLOSING BALANCE DUE
+                  </td>
+                  <td className="py-3.5 px-4 text-right font-mono text-blue-900 font-bold">
+                    {formatINR(totalDebit)}
+                  </td>
+                  <td className="py-3.5 px-4 text-right font-mono text-emerald-900 font-bold">
+                    {formatINR(totalCredit)}
+                  </td>
+                  <td className="py-3.5 px-4 text-right font-mono font-extrabold text-rose-700 text-sm">
+                    {formatINR(closingBal)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="space-y-6">
         {isLoadingLedger ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-xs">
@@ -1128,6 +1421,7 @@ export const CustomerLedgerPage: React.FC<CustomerLedgerPageProps> = ({
           ))
         )}
       </div>
+      )}
     </div>
   );
 };

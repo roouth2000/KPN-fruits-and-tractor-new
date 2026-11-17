@@ -570,6 +570,94 @@ async function runTests() {
 
   console.log('✓ Customer Management (Edit, Pay Opening Balance, Delete) PASSED 100%!\n');
 
+  // ==========================================
+  // [Test 11] Customer Ledger & Account Statement PDF Generation
+  // ==========================================
+  console.log('[Test 11] Customer Ledger & Account Statement PDF Generation');
+  const pdfService = require('../src/services/pdfService');
+  const stream = require('stream');
+
+  const sureshLedgerData = await customerService.getCustomerLedger(suresh.id, 100, 0);
+  assert(sureshLedgerData.customer, 'Ledger data must contain customer info');
+  assert(Array.isArray(sureshLedgerData.entries), 'Ledger data must contain entries');
+  assert(sureshLedgerData.entries.length >= 3, 'Suresh should have at least 3 entries');
+
+  const pdfBuffers = [];
+  const mockRes = new stream.Writable({
+    write(chunk, encoding, callback) {
+      pdfBuffers.push(chunk);
+      callback();
+    },
+  });
+
+  await new Promise(async (resolve, reject) => {
+    mockRes.on('finish', resolve);
+    mockRes.on('error', reject);
+    await pdfService.generateCustomerLedgerPdf(sureshLedgerData, mockRes);
+  });
+
+  const fullPdfBuffer = Buffer.concat(pdfBuffers);
+  console.log(`- Generated Customer Ledger PDF Size: ${fullPdfBuffer.length} bytes`);
+  assert(fullPdfBuffer.length > 1000, 'PDF buffer must be greater than 1KB');
+  assert(fullPdfBuffer.slice(0, 5).toString().startsWith('%PDF-'), 'Buffer must start with %PDF- header');
+  console.log('✓ Customer Ledger & Account Statement PDF Generation PASSED 100%!\n');
+
+  // ==========================================
+  // [Test 12] Credit & Repay Due Mechanics
+  // ==========================================
+  console.log('[Test 12] Credit & Repay Mechanics: Add Credit (Increase Due) & Repay (Reduce Due)');
+  const creditTestCust = await customerService.createCustomer({
+    name: 'Credit Test Wholesale Trader',
+    phone: '9888776655',
+    customerType: 'WHOLESALE',
+    groupName: 'Vashi APMC Gate-1 Retailers',
+    isGroupLeader: false,
+    creditLimit: 50000,
+    openingBalance: 0,
+  });
+
+  // 1. Add credit of ₹10,000 (adds to customer due)
+  const addCreditRes = await customerService.addCredit(creditTestCust.id, {
+    amount: 10000,
+    reference: 'CR-TEST-001',
+    description: 'Goods taken on credit (5 BOX Apple)',
+  });
+  console.log(`- Added Credit: ₹${addCreditRes.creditAmount}, Previous Due: ₹${addCreditRes.previousDue}, New Due: ₹${addCreditRes.newDue}`);
+  assert.strictEqual(addCreditRes.success, true);
+  assert.strictEqual(addCreditRes.newDue, 10000);
+
+  let custCheck = await Customer.findByPk(creditTestCust.id);
+  assert.strictEqual(parseFloat(custCheck.currentDue), 10000);
+
+  // 2. Customer Repays ₹4,000 (reduces due amount)
+  const repayRes1 = await customerService.repayCustomerDue(creditTestCust.id, {
+    amount: 4000,
+    paymentMode: 'CASH',
+    transactionRef: 'CASH-REC-1',
+    notes: 'Partial payment against credit',
+  });
+  console.log(`- Repay Amount: ₹${repayRes1.amountPaid}, Remaining Due: ₹${repayRes1.remainingDue}`);
+  assert.strictEqual(repayRes1.success, true);
+  assert.strictEqual(repayRes1.remainingDue, 6000);
+
+  custCheck = await Customer.findByPk(creditTestCust.id);
+  assert.strictEqual(parseFloat(custCheck.currentDue), 6000);
+
+  // 3. Customer Repays final ₹6,000 (settles balance)
+  const repayRes2 = await customerService.repayCustomerDue(creditTestCust.id, {
+    amount: 6000,
+    paymentMode: 'UPI',
+    transactionRef: 'UPI-REC-2',
+    notes: 'Final balance settlement',
+  });
+  console.log(`- Repay Amount: ₹${repayRes2.amountPaid}, Remaining Due: ₹${repayRes2.remainingDue}`);
+  assert.strictEqual(repayRes2.success, true);
+  assert.strictEqual(repayRes2.remainingDue, 0);
+
+  custCheck = await Customer.findByPk(creditTestCust.id);
+  assert.strictEqual(parseFloat(custCheck.currentDue), 0);
+  console.log('✓ Credit & Repay Mechanics PASSED 100%!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

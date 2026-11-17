@@ -40,6 +40,14 @@ const Customer = sequelize.define('Customer', {
     type: DataTypes.STRING(32),
     allowNull: true,
   },
+  groupName: {
+    type: DataTypes.STRING(120),
+    allowNull: true,
+  },
+  isGroupLeader: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
   customerType: {
     type: DataTypes.ENUM('REGULAR', 'WHOLESALE', 'WALK_IN'),
     defaultValue: 'REGULAR',

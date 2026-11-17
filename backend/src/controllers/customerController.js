@@ -1,4 +1,5 @@
 const customerService = require('../services/customerService');
+const pdfService = require('../services/pdfService');
 const { Customer } = require('../models');
 const { apiSuccess, apiError } = require('../utils/apiResponse');
 
@@ -46,6 +47,27 @@ class CustomerController {
     }
   }
 
+  async generateCustomerLedgerPdf(req, res) {
+    try {
+      const { startDate, endDate, type } = req.query;
+      const ledgerData = await customerService.getCustomerLedger(req.params.id, 1000, 0, {
+        startDate,
+        endDate,
+        type,
+      });
+
+      const customerCode = ledgerData.customer ? ledgerData.customer.customerCode : req.params.id;
+      const safeName = (ledgerData.customer?.name || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Ledger_Statement_${safeName}_${customerCode}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      return await pdfService.generateCustomerLedgerPdf(ledgerData, res);
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
   async createCustomer(req, res) {
     try {
       const customer = await customerService.createCustomer({
@@ -81,6 +103,24 @@ class CustomerController {
     try {
       const result = await customerService.payOpeningBalance(req.params.id, req.body, req.user);
       return apiSuccess(res, result, 'Opening balance payment recorded successfully', 201);
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async addCredit(req, res) {
+    try {
+      const result = await customerService.addCredit(req.params.id, req.body, req.user);
+      return apiSuccess(res, result, 'Credit added to customer due balance successfully', 201);
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async repayCustomerDue(req, res) {
+    try {
+      const result = await customerService.repayCustomerDue(req.params.id, req.body, req.user);
+      return apiSuccess(res, result, 'Customer repayment recorded and due reduced successfully', 201);
     } catch (error) {
       return apiError(res, error.message, {}, 400);
     }
