@@ -5,8 +5,11 @@ const {
   Invoice,
   InvoiceItem,
   Payment,
+  AuditLog,
 } = require('../models');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/db');
+const { generatePaymentNumber } = require('../utils/sequenceGenerator');
 
 class CustomerService {
   async findById(id, transaction = null) {
@@ -314,11 +317,275 @@ class CustomerService {
     return customer;
   }
 
-  async updateCustomer(id, data, transaction = null) {
-    return await Customer.update(data, {
-      where: { id },
-      transaction,
-    });
+  async updateCustomer(id, data, user = null) {
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(id, { transaction });
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // If customerCode is changing, check uniqueness
+      if (data.customerCode && data.customerCode.trim() !== customer.customerCode) {
+        const existing = await Customer.findOne({
+          where: {
+            customerCode: data.customerCode.trim(),
+            id: { [Op.ne]: id },
+          },
+          transaction,
+        });
+        if (existing) {
+          throw new Error(`Customer code "${data.customerCode}" is already in use by another customer`);
+        }
+      }
+
+      // Check if openingBalance is changing
+      const oldOpening = parseFloat(customer.openingBalance) || 0;
+      const newOpening = data.openingBalance !== undefined ? parseFloat(data.openingBalance) || 0 : oldOpening;
+
+      const fieldsToUpdate = {};
+      if (data.name !== undefined) fieldsToUpdate.name = data.name.trim();
+      if (data.customerCode !== undefined) fieldsToUpdate.customerCode = data.customerCode.trim();
+      if (data.phone !== undefined) fieldsToUpdate.phone = data.phone.trim();
+      if (data.email !== undefined) fieldsToUpdate.email = data.email ? data.email.trim() : null;
+      if (data.address !== undefined) fieldsToUpdate.address = data.address ? data.address.trim() : '';
+      if (data.city !== undefined) fieldsToUpdate.city = data.city ? data.city.trim() : '';
+      if (data.state !== undefined) fieldsToUpdate.state = data.state ? data.state.trim() : '';
+      if (data.gstin !== undefined) fieldsToUpdate.gstin = data.gstin ? data.gstin.trim() : null;
+      if (data.customerType !== undefined) {
+        fieldsToUpdate.customerType = ['REGULAR', 'WHOLESALE', 'WALK_IN'].includes(data.customerType)
+          ? data.customerType
+          : customer.customerType;
+      }
+      if (data.creditLimit !== undefined) fieldsToUpdate.creditLimit = parseFloat(data.creditLimit) || 0;
+      if (data.outstandingTrays !== undefined) fieldsToUpdate.outstandingTrays = parseInt(data.outstandingTrays, 10) || 0;
+      if (data.isActive !== undefined) fieldsToUpdate.isActive = Boolean(data.isActive);
+      if (data.notes !== undefined) fieldsToUpdate.notes = data.notes;
+
+      // Update opening balance if provided
+      if (data.openingBalance !== undefined) {
+        fieldsToUpdate.openingBalance = newOpening;
+
+        // If opening balance changed, update or create the OPENING entry in CustomerLedger
+        if (Math.abs(newOpening - oldOpening) > 0.001) {
+          const openingEntry = await CustomerLedger.findOne({
+            where: {
+              customerId: id,
+              type: 'OPENING',
+            },
+            transaction,
+          });
+
+          if (openingEntry) {
+            await openingEntry.update({
+              debit: newOpening,
+              runningBalance: newOpening,
+            }, { transaction });
+          } else if (newOpening > 0) {
+            await CustomerLedger.create({
+              customerId: customer.id,
+              date: new Date().toISOString().slice(0, 10),
+              type: 'OPENING',
+              reference: `OP-${customer.customerCode}`,
+              description: `Opening Ledger Balance for ${customer.name}`,
+              debit: newOpening,
+              credit: 0.00,
+              runningBalance: newOpening,
+              createdById: user ? user.id : 1,
+            }, { transaction });
+          }
+        }
+      }
+
+      await customer.update(fieldsToUpdate, { transaction });
+
+      // Recalculate true currentDue based on updated ledger
+      const recalculatedDue = await this.calculateCustomerDue(id, transaction);
+      await customer.update({ currentDue: recalculatedDue }, { transaction });
+
+      // Recalculate trays if not explicitly provided
+      if (data.outstandingTrays === undefined) {
+        const recalculatedTrays = await this.calculateOutstandingTrays(id, transaction);
+        await customer.update({ outstandingTrays: recalculatedTrays }, { transaction });
+      }
+
+      // Audit Log
+      await AuditLog.create({
+        userId: user ? user.id : null,
+        userName: user ? user.name : 'System',
+        action: 'CUSTOMER_UPDATED',
+        entity: 'CUSTOMER',
+        entityId: String(customer.id),
+        newValue: JSON.stringify(fieldsToUpdate),
+      }, { transaction });
+
+      await transaction.commit();
+
+      const updated = await Customer.findByPk(id);
+      return updated;
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  }
+
+  async deleteCustomer(id, force = false, user = null) {
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(id, { transaction });
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // Check linked confirmed or draft invoices
+      const invoiceCount = await Invoice.count({ where: { customerId: id }, transaction });
+      if (invoiceCount > 0) {
+        throw new Error(
+          `Cannot delete customer "${customer.name}" because they have ${invoiceCount} linked sales invoice(s). You can mark the customer as inactive instead.`
+        );
+      }
+
+      // Check linked payments
+      const paymentCount = await Payment.count({ where: { customerId: id }, transaction });
+      if (paymentCount > 0 && !force) {
+        throw new Error(
+          `Cannot delete customer "${customer.name}" because they have ${paymentCount} linked payment(s).`
+        );
+      }
+
+      // Delete linked ledger entries (e.g. OPENING balance or payments if force)
+      await CustomerLedger.destroy({ where: { customerId: id }, transaction });
+      await TrayMovement.destroy({ where: { customerId: id }, transaction });
+      if (force && paymentCount > 0) {
+        await Payment.destroy({ where: { customerId: id }, transaction });
+      }
+
+      // Audit Log before deletion
+      await AuditLog.create({
+        userId: user ? user.id : null,
+        userName: user ? user.name : 'System',
+        action: 'CUSTOMER_DELETED',
+        entity: 'CUSTOMER',
+        entityId: String(customer.id),
+        newValue: JSON.stringify({
+          customerCode: customer.customerCode,
+          name: customer.name,
+          phone: customer.phone,
+        }),
+      }, { transaction });
+
+      // Delete the customer
+      await customer.destroy({ transaction });
+
+      await transaction.commit();
+      return { success: true, message: `Customer "${customer.name}" deleted successfully` };
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  }
+
+  async payOpeningBalance(customerId, payload, user = null) {
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(customerId, { transaction });
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const pAmt = parseFloat(payload.amount);
+      if (isNaN(pAmt) || pAmt <= 0) {
+        throw new Error('Payment amount must be greater than zero');
+      }
+
+      const paymentMode = (payload.paymentMode || 'CASH').toUpperCase();
+      const validModes = ['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE'];
+      if (!validModes.includes(paymentMode)) {
+        throw new Error(`Invalid payment mode. Supported modes: ${validModes.join(', ')}`);
+      }
+
+      const paymentDate = payload.paymentDate || new Date().toISOString().slice(0, 10);
+      const transactionRef = payload.transactionRef ? payload.transactionRef.trim() : null;
+      const isOpening = payload.isOpeningBalance !== false;
+
+      // Calculate previous due before this payment
+      const previousDue = await this.calculateCustomerDue(customerId, transaction);
+      const remainingDue = Math.round((previousDue - pAmt) * 100) / 100;
+
+      const paymentNumber = await generatePaymentNumber(transaction);
+
+      // Create Payment record
+      const payment = await Payment.create({
+        paymentNumber,
+        customerId: customer.id,
+        customerName: customer.name,
+        invoiceId: null,
+        paymentType: 'PREVIOUS_DUE_COLLECTION',
+        amount: pAmt,
+        paymentMode,
+        transactionRef,
+        paymentDate,
+        notes: payload.notes || `Payment against opening balance for ${customer.name}`,
+        status: 'CONFIRMED',
+        createdById: user ? user.id : 1,
+      }, { transaction });
+
+      // Create Customer Ledger entry
+      await CustomerLedger.create({
+        customerId: customer.id,
+        date: paymentDate,
+        type: 'PAYMENT',
+        reference: paymentNumber,
+        description: isOpening
+          ? `Opening Balance Payment (${paymentMode})${transactionRef ? ` - Ref: ${transactionRef}` : ''}`
+          : `Previous Due Collection (${paymentMode})${transactionRef ? ` - Ref: ${transactionRef}` : ''}`,
+        debit: 0.00,
+        credit: pAmt,
+        runningBalance: remainingDue,
+        createdById: user ? user.id : 1,
+      }, { transaction });
+
+      // Update Customer currentDue
+      const finalRealDue = await this.calculateCustomerDue(customerId, transaction);
+      await customer.update(
+        { currentDue: finalRealDue },
+        { where: { id: customer.id }, transaction }
+      );
+
+      // Audit Log
+      await AuditLog.create({
+        userId: user ? user.id : null,
+        userName: user ? user.name : 'System',
+        action: isOpening ? 'OPENING_BALANCE_PAID' : 'PREVIOUS_DUE_COLLECTED',
+        entity: 'PAYMENT',
+        entityId: String(payment.id),
+        newValue: JSON.stringify({
+          paymentNumber,
+          customer: customer.name,
+          amount: pAmt,
+          previousDue,
+          remainingDue: finalRealDue,
+        }),
+      }, { transaction });
+
+      await transaction.commit();
+
+      return {
+        success: true,
+        paymentId: payment.id,
+        paymentNumber,
+        customerName: customer.name,
+        amountPaid: pAmt,
+        previousDue,
+        remainingDue: finalRealDue,
+        paymentMode,
+        transactionRef,
+        paymentDate,
+      };
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   }
 }
 

@@ -20,5 +20,15 @@ router.get('/:id/ledger', requirePermission('customer.view'), customerController
 // Create new customer
 router.post('/', requirePermission('customer.view'), customerController.createCustomer);
 
+// Update customer
+router.put('/:id', requirePermission(['customer.edit', 'customer.view']), customerController.updateCustomer);
+
+// Delete customer
+router.delete('/:id', requirePermission(['customer.edit', 'customer.view']), customerController.deleteCustomer);
+
+// Pay opening balance / settle balance
+router.post('/:id/pay-opening-balance', requirePermission(['payment.collect', 'customer.view']), customerController.payOpeningBalance);
+router.post('/:id/collect-due', requirePermission(['payment.collect', 'customer.view']), customerController.payOpeningBalance);
+
 module.exports = router;
 

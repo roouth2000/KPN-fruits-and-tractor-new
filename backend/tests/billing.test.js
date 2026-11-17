@@ -500,6 +500,76 @@ async function runTests() {
 
   console.log('✓ Canonical 7-Field Billing Calculation & Multi-Module Consistency PASSED 100%!\n');
 
+  // =========================================================================
+  // [Test 10] Customer Management: Edit, Pay Opening Balance, and Safe Deletion
+  // =========================================================================
+  console.log('[Test 10] Customer Management: Edit, Pay Opening Balance, and Safe Deletion');
+
+  // 1. Create a customer with opening balance
+  const testCust = await customerService.createCustomer({
+    name: 'Mahesh Fruits Wholesale',
+    phone: '9822001122',
+    city: 'APMC Vashi',
+    address: 'Gala 45, Fruit Market',
+    customerType: 'WHOLESALE',
+    creditLimit: 75000,
+    openingBalance: 25000,
+  });
+
+  console.log(`- Created Customer: ${testCust.name} (${testCust.customerCode}), Opening Balance: ₹${testCust.openingBalance}`);
+  assert.strictEqual(parseFloat(testCust.openingBalance), 25000);
+  assert.strictEqual(parseFloat(testCust.currentDue), 25000);
+
+  // 2. Edit Customer Details
+  const updatedCust = await customerService.updateCustomer(testCust.id, {
+    name: 'Mahesh Super Fruits',
+    phone: '9822998877',
+    city: 'Turbhe APMC',
+    creditLimit: 90000,
+  });
+
+  assert.strictEqual(updatedCust.name, 'Mahesh Super Fruits');
+  assert.strictEqual(updatedCust.phone, '9822998877');
+  assert.strictEqual(updatedCust.city, 'Turbhe APMC');
+  assert.strictEqual(parseFloat(updatedCust.creditLimit), 90000);
+  console.log('- Customer Edit PASSED');
+
+  // 3. Pay Opening Balance (Customer pays ₹10,000 against ₹25,000 opening balance)
+  const payRes = await customerService.payOpeningBalance(testCust.id, {
+    amount: 10000,
+    paymentMode: 'UPI',
+    transactionRef: 'UPI-TEST-998877',
+    notes: 'Partial opening balance settlement',
+  });
+
+  console.log(`- Paid ₹${payRes.amountPaid} via ${payRes.paymentMode}. Remaining Due: ₹${payRes.remainingDue}`);
+  assert.strictEqual(payRes.success, true);
+  assert.strictEqual(payRes.amountPaid, 10000);
+  assert.strictEqual(payRes.remainingDue, 15000);
+
+  // Check ledger for payment
+  const maheshLedger = await CustomerLedger.findAll({ where: { customerId: testCust.id }, order: [['id', 'ASC']] });
+  assert.strictEqual(maheshLedger.length, 2, 'Should have 1 OPENING and 1 PAYMENT entry');
+  assert.strictEqual(maheshLedger[1].type, 'PAYMENT');
+  assert.strictEqual(parseFloat(maheshLedger[1].credit), 10000);
+  assert.strictEqual(parseFloat(maheshLedger[1].runningBalance), 15000);
+  console.log('- Pay Opening Balance PASSED');
+
+  // 4. Safe Deletion: Create temporary test customer without invoices and delete
+  const tempCust = await customerService.createCustomer({
+    name: 'Temp Buyer for Delete Test',
+    phone: '9900112233',
+    openingBalance: 5000,
+  });
+
+  const delRes = await customerService.deleteCustomer(tempCust.id);
+  assert.strictEqual(delRes.success, true);
+  const deletedCheck = await Customer.findByPk(tempCust.id);
+  assert.strictEqual(deletedCheck, null, 'Customer should be deleted from DB');
+  console.log('- Customer Delete PASSED');
+
+  console.log('✓ Customer Management (Edit, Pay Opening Balance, Delete) PASSED 100%!\n');
+
   console.log('====================================================');
   console.log('ALL BACKEND BUSINESS TEST SCENARIOS PASSED 100%');
   console.log('====================================================');

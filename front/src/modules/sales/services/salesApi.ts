@@ -66,6 +66,31 @@ export const salesApi = {
     return res.data.data;
   },
 
+  updateCustomer: async (id: number, data: Partial<Customer>): Promise<Customer> => {
+    const res = await apiClient.put(`/customers/${id}`, data);
+    return res.data.data;
+  },
+
+  deleteCustomer: async (id: number, force = false): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.delete(`/customers/${id}`, { params: { force } });
+    return res.data.data;
+  },
+
+  payOpeningBalance: async (
+    id: number,
+    payload: {
+      amount: number;
+      paymentMode: string;
+      transactionRef?: string;
+      paymentDate?: string;
+      notes?: string;
+      isOpeningBalance?: boolean;
+    }
+  ) => {
+    const res = await apiClient.post(`/customers/${id}/pay-opening-balance`, payload);
+    return res.data.data;
+  },
+
   // Product APIs
   getAllProducts: async (): Promise<Product[]> => {
     const res = await apiClient.get('/products');

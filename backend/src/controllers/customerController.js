@@ -57,6 +57,34 @@ class CustomerController {
       return apiError(res, error.message, {}, 400);
     }
   }
+
+  async updateCustomer(req, res) {
+    try {
+      const customer = await customerService.updateCustomer(req.params.id, req.body, req.user);
+      return apiSuccess(res, customer, 'Customer updated successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async deleteCustomer(req, res) {
+    try {
+      const { force } = req.query;
+      const result = await customerService.deleteCustomer(req.params.id, force === 'true', req.user);
+      return apiSuccess(res, result, result.message || 'Customer deleted successfully');
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
+
+  async payOpeningBalance(req, res) {
+    try {
+      const result = await customerService.payOpeningBalance(req.params.id, req.body, req.user);
+      return apiSuccess(res, result, 'Opening balance payment recorded successfully', 201);
+    } catch (error) {
+      return apiError(res, error.message, {}, 400);
+    }
+  }
 }
 
 module.exports = new CustomerController();
