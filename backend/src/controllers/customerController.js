@@ -9,6 +9,7 @@ class CustomerController {
       const customers = await Customer.findAll({ order: [['name', 'ASC']] });
       return apiSuccess(res, customers, 'All customers retrieved');
     } catch (error) {
+      console.error('[CustomerController.getAllCustomers] Error:', error.message);
       return apiError(res, error.message, {}, 500);
     }
   }
@@ -19,6 +20,7 @@ class CustomerController {
       const customers = await customerService.searchCustomers(q, limit);
       return apiSuccess(res, customers, 'Customers found');
     } catch (error) {
+      console.error('[CustomerController.searchCustomers] Error:', error.message);
       return apiError(res, error.message, {}, 500);
     }
   }

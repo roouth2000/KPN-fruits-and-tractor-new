@@ -8,6 +8,7 @@ const swaggerSpec = require('./config/swagger');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
+const { ensureSchemaReady } = require('./config/db');
 
 const app = express();
 
@@ -45,6 +46,18 @@ if (config.enableSwagger) {
     });
   });
 }
+
+// Ensure DB tables & newly added columns exist before serving API routes
+// (Critical for Hostinger / Passenger cold starts; zero-overhead no-op once initialized)
+app.use('/api', async (req, res, next) => {
+  if (req.path === '/health') return next();
+  try {
+    await ensureSchemaReady();
+  } catch (err) {
+    console.error('[DB Init Middleware] Error:', err.message);
+  }
+  return next();
+});
 
 // Mount API routes under /api
 app.use('/api', routes);

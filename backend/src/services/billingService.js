@@ -1399,6 +1399,7 @@ class BillingService {
         { model: InvoiceItem, as: 'items' },
         { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'city'] },
       ],
+      distinct: true,
       order: [['id', 'DESC']],
       limit: parseInt(pagination.limit, 10) || 20,
       offset: parseInt(pagination.offset, 10) || 0,

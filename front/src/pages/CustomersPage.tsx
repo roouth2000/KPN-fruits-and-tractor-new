@@ -478,9 +478,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     const q = searchTerm.toLowerCase().trim();
     const matchSearch =
       !q ||
-      c.name.toLowerCase().includes(q) ||
-      c.customerCode.toLowerCase().includes(q) ||
-      c.phone.toLowerCase().includes(q) ||
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.customerCode || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q) ||
       (c.city && c.city.toLowerCase().includes(q)) ||
       (c.groupName && c.groupName.toLowerCase().includes(q));
 

@@ -32,6 +32,7 @@ class BillingController {
         invoices: result.rows,
       }, 'Invoices retrieved successfully');
     } catch (error) {
+      console.error('[BillingController.getInvoices] Error:', error.message);
       return apiError(res, error.message, {}, 500);
     }
   }
@@ -41,6 +42,7 @@ class BillingController {
       const invoice = await billingService.getInvoiceById(req.params.id);
       return apiSuccess(res, invoice, 'Invoice retrieved successfully');
     } catch (error) {
+      console.error('[BillingController.getInvoiceById] Error:', error.message);
       return apiError(res, error.message, {}, 404);
     }
   }
