@@ -6,7 +6,6 @@ import {
   XIcon,
   DollarSignIcon,
   BuildingIcon,
-  LayersIcon,
   EditIcon,
   Trash2Icon,
   RupeeIcon,
@@ -52,7 +51,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [custAddress, setCustAddress] = useState('');
   const [custCreditLimit, setCustCreditLimit] = useState<number>(50000);
   const [custOpeningBalance, setCustOpeningBalance] = useState<number>(0);
-  const [custTrays, setCustTrays] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // =========================================================
@@ -73,7 +71,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [editGstin, setEditGstin] = useState('');
   const [editCreditLimit, setEditCreditLimit] = useState<number>(0);
   const [editOpeningBalance, setEditOpeningBalance] = useState<number>(0);
-  const [editTrays, setEditTrays] = useState<number>(0);
   const [editNotes, setEditNotes] = useState('');
   const [editIsActive, setEditIsActive] = useState<boolean>(true);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
@@ -160,7 +157,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setCustAddress('');
     setCustCreditLimit(50000);
     setCustOpeningBalance(0);
-    setCustTrays(0);
     setIsAddCustomerOpen(true);
   };
 
@@ -185,7 +181,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         creditLimit: custCreditLimit,
         openingBalance: custOpeningBalance,
         currentDue: custOpeningBalance,
-        outstandingTrays: custTrays,
         isActive: true,
       });
 
@@ -225,7 +220,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setEditGstin(cust.gstin || '');
     setEditCreditLimit(parseFloat(String(cust.creditLimit)) || 0);
     setEditOpeningBalance(parseFloat(String(cust.openingBalance)) || 0);
-    setEditTrays(parseInt(String(cust.outstandingTrays), 10) || 0);
     setEditNotes(cust.notes || '');
     setEditIsActive(cust.isActive !== false);
     setIsEditCustomerOpen(true);
@@ -255,7 +249,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         gstin: editGstin.trim() || null,
         creditLimit: editCreditLimit,
         openingBalance: editOpeningBalance,
-        outstandingTrays: editTrays,
         notes: editNotes.trim() || null,
         isActive: editIsActive,
       });
@@ -500,7 +493,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const totalOpening = customers.reduce((acc, c) => acc + (parseFloat(String(c.openingBalance)) || 0), 0);
   const totalDue = customers.reduce((acc, c) => acc + (parseFloat(String(c.currentDue)) || 0), 0);
   const totalLimit = customers.reduce((acc, c) => acc + (parseFloat(String(c.creditLimit)) || 0), 0);
-  const totalTrays = customers.reduce((acc, c) => acc + (parseInt(String(c.outstandingTrays), 10) || 0), 0);
 
   return (
     <div className="space-y-6 font-sans">
@@ -517,7 +509,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Wholesale buyers, APMC counter clients, credit additions, repayments, group leaders, and outstanding tray ledger balances
+              Wholesale buyers, APMC counter clients, credit additions, repayments, and group leaders
             </p>
           </div>
 
@@ -543,7 +535,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       </div>
 
       {/* KPI Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-slate-500">Registered Buyers</span>
@@ -601,21 +593,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Sanctioned buyer credit pool
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-slate-500">Crates With Customers</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <LayersIcon className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-amber-700 font-mono tracking-tight">
-            {totalTrays} Trays
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            Unreturned wooden &amp; plastic crates
           </div>
         </div>
       </div>
@@ -689,21 +666,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <th className="py-3.5 px-4 text-right font-semibold">CREDIT LIMIT</th>
                 <th className="py-3.5 px-4 text-right font-semibold">OPENING BAL</th>
                 <th className="py-3.5 px-4 text-right font-semibold">OUTSTANDING DUE</th>
-                <th className="py-3.5 px-4 text-center font-semibold">TRAYS / CRATES</th>
                 <th className="py-3.5 px-4 text-right font-semibold">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center text-slate-400">
+                  <td colSpan={7} className="py-14 text-center text-slate-400">
                     <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <span>Loading customers directory from Mandi database...</span>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center text-slate-400">
+                  <td colSpan={7} className="py-14 text-center text-slate-400">
                     <p className="font-medium text-slate-600">No customers found</p>
                     <p className="text-[11px] mt-0.5">Click &ldquo;+ + Add Customer&rdquo; above to register buyers.</p>
                   </td>
@@ -713,7 +689,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   const opening = parseFloat(String(cust.openingBalance)) || 0;
                   const due = parseFloat(String(cust.currentDue)) || 0;
                   const limit = parseFloat(String(cust.creditLimit)) || 0;
-                  const trays = parseInt(String(cust.outstandingTrays), 10) || 0;
 
                   return (
                     <tr key={cust.id} className="hover:bg-slate-50/70 transition-colors">
@@ -789,12 +764,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         </span>
                       </td>
 
-                      {/* 7. TRAYS / CRATES */}
-                      <td className="py-4 px-4 text-center font-mono text-xs text-slate-500">
-                        {trays} Trays
-                      </td>
-
-                      {/* 8. ACTIONS: Ledger, + Credit, ₹ Repay, Edit, Delete */}
+                      {/* 7. ACTIONS: Ledger, + Credit, ₹ Repay, Edit, Delete */}
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-nowrap">
                           {/* Ledger Button */}
@@ -996,7 +966,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Credit Limit (₹)
@@ -1023,20 +993,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     value={custOpeningBalance}
                     onChange={(e) => setCustOpeningBalance(parseFloat(e.target.value) || 0)}
                     placeholder="25000"
-                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Initial Trays
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={custTrays}
-                    onChange={(e) => setCustTrays(parseInt(e.target.value, 10) || 0)}
-                    placeholder="12"
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   />
                 </div>
@@ -1228,7 +1184,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Credit Limit (₹)
@@ -1252,19 +1208,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     step="any"
                     value={editOpeningBalance}
                     onChange={(e) => setEditOpeningBalance(parseFloat(e.target.value) || 0)}
-                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Initial Trays
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editTrays}
-                    onChange={(e) => setEditTrays(parseInt(e.target.value, 10) || 0)}
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                   />
                 </div>
@@ -1358,10 +1301,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <div className="flex justify-between">
                   <span className="text-slate-500">Outstanding Due:</span>
                   <span className="font-mono font-bold text-rose-700">{formatINR(Number(deletingCustomer.currentDue) || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Outstanding Trays:</span>
-                  <span className="font-mono text-amber-700 font-semibold">{deletingCustomer.outstandingTrays} Trays</span>
                 </div>
               </div>
 
